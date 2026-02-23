@@ -1,0 +1,70 @@
+{
+    "CLIENTE": {
+        "components": []
+    },
+    "USUARIO": {
+        "components": []
+    },
+    "OPERADOR": {
+        "components": [
+            {
+                "type": "AdminMetrics",
+                "props": {
+                    "variant": "limited"
+                }
+            },
+            {
+                "type": "SystemActivity",
+                "props": {
+                    "maxItems": 5
+                }
+            },
+            {
+                "type": "AdminShortcuts",
+                "props": {
+                    "links": [
+                        {
+                            "label": "Gestionar Usuarios",
+                            "path": "/mantenedores/usuarios"
+                        },
+                        {
+                            "label": "Configurar Menús",
+                            "path": "/mantenedores/menus"
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "ADMIN": {
+        "components": [
+            {
+                "type": "AdminMetrics",
+                "props": {
+                    "variant": "full"
+                }
+            },
+            {
+                "type": "SystemActivity",
+                "props": {
+                    "maxItems": 10
+                }
+            },
+            {
+                "type": "AdminShortcuts",
+                "props": {
+                    "links": [
+                        {
+                            "label": "Gestionar Usuarios",
+                            "path": "/mantenedores/usuarios"
+                        },
+                        {
+                            "label": "Configurar Menús",
+                            "path": "/mantenedores/menus"
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

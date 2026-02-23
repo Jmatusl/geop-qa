@@ -1,0 +1,33 @@
+{
+    "SECURITY_POLICIES": {
+        "session": {
+            "allow_multiple_sessions": true,
+            "max_concurrent_sessions": 3
+        },
+        "password": {
+            "min_length": 8,
+            "require_number": true,
+            "require_lowercase": true,
+            "require_uppercase": true,
+            "require_special_char": false
+        },
+        "account_lockout": {
+            "enabled": true,
+            "max_failed_attempts": 5,
+            "lockout_duration_minutes": 30
+        }
+    },
+    "SECURITY_MESSAGES": {
+        "session_limit": {
+            "title": "Límite de sesiones alcanzado",
+            "message": "Actualmente tienes {{current}} de {{max}} sesiones activas. Para ingresar, debes cerrar una de tus sesiones previas.",
+            "btn_close_others": "Cerrar otras sesiones y entrar",
+            "contact_admin": "Si crees que esto es un error, contacta al administrador."
+        },
+        "lockout": {
+            "warning": "Atención: Llevas {{current}} intentos fallidos. Tu cuenta se bloqueará tras el intento {{max}}.",
+            "locked": "Cuenta bloqueada temporalmente por seguridad. Podrás reintentar en {{minutes}} minutos.",
+            "contact_admin": "Si olvidaste tu clave, utiliza la opción de recuperar contraseña o contacta a soporte."
+        }
+    }
+}

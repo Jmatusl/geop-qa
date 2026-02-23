@@ -1,0 +1,945 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Role {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String     @unique @db.VarChar(50)
+  name        String     @db.VarChar(100)
+  description String?
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model User {
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String                  @unique @db.VarChar(255)
+  emailVerifiedAt      DateTime?               @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash         String?                 @map("password_hash") @db.VarChar(255)
+  firstName            String                  @map("first_name") @db.VarChar(100)
+  lastName             String                  @map("last_name") @db.VarChar(100)
+  middleName           String?                 @map("middle_name") @db.VarChar(100)
+  rut                  String?                 @unique @db.VarChar(12)
+  phone                String?                 @db.VarChar(20)
+  experienceYears      Int?                    @map("experience_years")
+  avatarUrl            String?                 @map("avatar_url")
+  avatarFile           String?
+  mustChangePassword   Boolean                 @default(false) @map("must_change_password")
+  isActive             Boolean                 @default(true) @map("is_active")
+  isDeactivated        Boolean                 @default(false) @map("is_deactivated")
+  deactivationReasonId String?                 @map("deactivation_reason_id") @db.Uuid
+  deactivationComment  String?                 @map("deactivation_comment")
+  deactivatedAt        DateTime?               @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedById      String?                 @map("deactivated_by") @db.Uuid
+  lastLoginAt          DateTime?               @map("last_login_at") @db.Timestamptz(6)
+  lastLoginIp          String?                 @map("last_login_ip")
+  failedLoginAttempts  Int                     @default(0) @map("failed_login_attempts")
+  lockedUntil          DateTime?               @map("locked_until") @db.Timestamptz(6)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          String?                 @map("created_by") @db.Uuid
+  updatedById          String?                 @map("updated_by") @db.Uuid
+  accessLogs           AccessLog[]
+  activationTokens     ActivationToken[]
+  settingsUpdates      AppSetting[]
+  settingsAuditChanges AppSettingAudit[]
+  menuAuditChanges     MenuAudit[]
+  passwordResetTokens  PasswordResetToken[]
+  sessions             Session[]
+  userIdentities       UserIdentity[]
+  userRoles            UserRole[]
+  createdBy            User?                   @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers         User[]                  @relation("UserCreatedBy")
+  deactivatedBy        User?                   @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
+  deactivatedUsers     User[]                  @relation("UserDeactivatedBy")
+  deactivationReason   UserDeactivationReason? @relation(fields: [deactivationReasonId], references: [id])
+  updatedBy            User?                   @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+  updatedUsers         User[]                  @relation("UserUpdatedBy")
+
+  personId String? @unique @map("person_id") @db.Uuid
+  person   Person? @relation(fields: [personId], references: [id])
+
+  emailTemplates EmailTemplate[]
+
+  mntTechnicalResponsibles  MntTechnicalResponsible[]
+  mntApplicants             MntApplicant[]
+  mntRequestsCreated        MntRequest[]                   @relation("RequestCreatedBy")
+  mntRequestsApproved       MntRequest[]                   @relation("RequestApprovedBy")
+  mntRequestTimelines       MntRequestTimeline[]
+  mntRequestIterations      MntRequestIteration[]
+  mntNotificationPreference MntUserNotificationPreference?
+  mntWorkRequirements       MntWorkRequirement[]           @relation("WR_CreatedBy")
+  signatures                Signature[]
+
+  @@index([email])
+  @@index([rut])
+  @@index([isActive])
+  @@index([isDeactivated])
+  @@index([personId])
+  @@map("users")
+}
+
+model UserRole {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy String?  @map("assigned_by") @db.Uuid
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model UserIdentity {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  provider        String    @db.VarChar(50)
+  providerSubject String    @map("provider_subject") @db.VarChar(255)
+  providerEmail   String    @map("provider_email") @db.VarChar(255)
+  isEnabled       Boolean   @default(true) @map("is_enabled")
+  linkedAt        DateTime  @default(now()) @map("linked_at") @db.Timestamptz(6)
+  lastUsedAt      DateTime? @map("last_used_at") @db.Timestamptz(6)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@index([providerEmail])
+  @@map("user_identities")
+}
+
+model Session {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  token          String   @unique @db.VarChar(255)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(6)
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model ActivationToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("activation_tokens")
+}
+
+model MenuItem {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String     @unique @db.VarChar(100)
+  title     String     @db.VarChar(100)
+  icon      String?    @db.VarChar(50)
+  path      String?    @db.VarChar(255)
+  enabled   Boolean    @default(true)
+  order     Int        @default(0)
+  showIcon  Boolean    @default(true) @map("show_icon")
+  parentId  String?    @map("parent_id") @db.Uuid
+  roles     String[]   @db.VarChar(50)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  parent    MenuItem?  @relation("MenuItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  MenuItem[] @relation("MenuItemChildren")
+
+  @@index([key])
+  @@index([parentId])
+  @@index([enabled])
+  @@index([order])
+  @@map("menu_items")
+}
+
+model MenuAudit {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  previousJson Json     @map("previous_json")
+  newJson      Json     @map("new_json")
+  changedById  String   @map("changed_by") @db.Uuid
+  changeReason String?  @map("change_reason")
+  changedAt    DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  changedBy    User     @relation(fields: [changedById], references: [id])
+
+  @@index([changedAt(sort: Desc)])
+  @@map("menu_audit")
+}
+
+model AccessLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  eventType  String   @map("event_type") @db.VarChar(50)
+  module     String?  @db.VarChar(50)
+  pageUrl    String?  @map("page_url")
+  endpoint   String?
+  httpMethod String?  @map("http_method") @db.VarChar(10)
+  statusCode Int?     @map("status_code")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt(sort: Desc)])
+  @@map("access_logs")
+}
+
+model UserDeactivationReason {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String   @unique @db.VarChar(50)
+  name         String   @db.VarChar(100)
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  users        User[]
+
+  @@map("user_deactivation_reasons")
+}
+
+model AppSetting {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  value       Json
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  hasCustomUi Boolean  @default(false) @map("has_custom_ui")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById String?  @map("updated_by") @db.Uuid
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  @@index([key])
+  @@map("app_settings")
+}
+
+model AppSettingAudit {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settingKey   String   @map("setting_key") @db.VarChar(100)
+  oldValue     Json?    @map("old_value")
+  newValue     Json?    @map("new_value")
+  changedById  String?  @map("changed_by") @db.Uuid
+  changeReason String?  @map("change_reason")
+  changedAt    DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  changedBy    User?    @relation(fields: [changedById], references: [id])
+
+  @@index([settingKey])
+  @@index([changedAt(sort: Desc)])
+  @@map("app_settings_audit")
+}
+
+// --- Módulo 2: Estructura Organizacional ---
+
+model WorkGroup {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  persons PersonWorkGroup[]
+
+  @@map("work_groups")
+}
+
+model Area {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  persons PersonArea[]
+
+  @@map("areas")
+}
+
+model JobPosition {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  persons PersonJobPosition[]
+
+  @@map("job_positions")
+}
+
+model Person {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  rut            String  @unique @db.VarChar(12)
+  firstName      String  @map("first_name") @db.VarChar(100)
+  lastName       String  @map("last_name") @db.VarChar(100)
+  motherLastName String? @map("mother_last_name") @db.VarChar(100)
+  email          String? @db.VarChar(255)
+  phone          String? @db.VarChar(20)
+  address        String? @db.VarChar(255)
+  imagePath      String? @map("image_path") @db.VarChar(255)
+
+  // Datos Opcionales de Ficha Completa
+  nationality String?   @db.VarChar(50)
+  birthDate   DateTime? @map("birth_date") @db.Date
+  civilStatus String?   @map("civil_status") @db.VarChar(20)
+  shoeSize    String?   @map("shoe_size") @db.VarChar(10)
+  shirtSize   String?   @map("shirt_size") @db.VarChar(10)
+  pantsSize   String?   @map("pants_size") @db.VarChar(10)
+
+  // Emergencia
+  emergencyContactName  String? @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone String? @map("emergency_contact_phone") @db.VarChar(20)
+
+  // Banco
+  bankName      String? @map("bank_name") @db.VarChar(50)
+  accountType   String? @map("account_type") @db.VarChar(20)
+  accountNumber String? @map("account_number") @db.VarChar(50)
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User?
+
+  workGroups   PersonWorkGroup[]
+  areas        PersonArea[]
+  jobPositions PersonJobPosition[]
+  supervisors  PersonSupervisor[] // Supervisors assigned to this person
+  subordinates PersonSupervisor[]  @relation("PersonSubordinates") // This person as supervisor
+
+  @@map("persons")
+}
+
+model PersonWorkGroup {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId    String   @map("person_id") @db.Uuid
+  workGroupId String   @map("work_group_id") @db.Uuid
+  assignedAt  DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy  String?  @map("assigned_by") @db.Uuid
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  workGroup WorkGroup @relation(fields: [workGroupId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([workGroupId])
+  @@map("person_work_groups")
+}
+
+model PersonArea {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId   String   @map("person_id") @db.Uuid
+  areaId     String   @map("area_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy String?  @map("assigned_by") @db.Uuid
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  area   Area   @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([areaId])
+  @@map("person_areas")
+}
+
+model PersonJobPosition {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId      String    @map("person_id") @db.Uuid
+  jobPositionId String    @map("job_position_id") @db.Uuid
+  startDate     DateTime  @map("start_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+
+  person      Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([jobPositionId])
+  @@map("person_job_positions")
+}
+
+model PersonSupervisor {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  personId     String   @map("person_id") @db.Uuid
+  supervisorId String   @map("supervisor_id") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  isActive     Boolean  @default(true) @map("is_active")
+
+  person     Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  supervisor Person @relation("PersonSubordinates", fields: [supervisorId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([supervisorId])
+  @@map("person_supervisors")
+}
+
+// System Module: Email Templates
+model EmailTemplate {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String  @unique @db.VarChar(50) // Fixed codes: USER_CREATION, PASSWORD_RESET
+  name        String  @db.VarChar(100)
+  subject     String  @db.VarChar(255)
+  htmlContent String  @map("html_content") @db.Text
+  description String?
+
+  // Variables available for the user (informative)
+  variables Json? // Array of strings e.g.: ["{{name}}", "{{action_url}}"]
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedById String?  @map("updated_by") @db.Uuid
+
+  updatedBy User? @relation(fields: [updatedById], references: [id])
+
+  @@map("email_templates")
+}
+
+// ======================================================================
+// Módulo 5: Sistema de Mantenimiento (/mantencion)
+// ======================================================================
+
+// --- Mantenedores Base ---
+
+model MntFarmingCenter {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  siepCode         String   @unique @map("siep_code") @db.VarChar(50)
+  name             String   @db.VarChar(100)
+  latitude         Float?
+  longitude        Float?
+  responsibleName  String?  @map("responsible_name") @db.VarChar(100)
+  commune          String?  @db.VarChar(100)
+  region           String?  @db.VarChar(100)
+  productionAreaId String?  @map("production_area_id") @db.Uuid
+  ownerCompany     String?  @map("owner_company") @db.VarChar(100)
+  productionCycle  String?  @map("production_cycle") @db.VarChar(50)
+  description      String?  @db.Text
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  productionArea MntProductionArea? @relation(fields: [productionAreaId], references: [id])
+  installations  MntInstallation[]
+
+  @@map("mnt_farming_centers")
+}
+
+model MntProductionArea {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  farmingCenters MntFarmingCenter[]
+
+  @@map("mnt_production_areas")
+}
+
+model MntInstallation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String   @db.VarChar(100)
+  folio            String?  @db.VarChar(50)
+  internalCode     String?  @map("internal_code") @db.VarChar(50)
+  installationType String?  @map("installation_type") @db.VarChar(50)
+  latitude         Float?
+  longitude        Float?
+  farmingCenterId  String?  @map("farming_center_id") @db.Uuid
+  description      String?  @db.Text
+  observations     String?  @db.Text
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  farmingCenter MntFarmingCenter? @relation(fields: [farmingCenterId], references: [id])
+  applicants    MntApplicant[]    @relation("ApplicantInstallations")
+  requests      MntRequest[]
+  equipments    MntEquipment[]
+
+  @@map("mnt_installations")
+}
+
+model MntArea {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  signatureId String?  @map("signature_id") @db.Uuid // Reference to a signature ID
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  systems      MntSystem[]
+  responsibles MntTechnicalResponsible[]
+
+  @@map("mnt_areas")
+}
+
+model MntSystem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  areaId      String   @map("area_id") @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  area       MntArea        @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  equipments MntEquipment[]
+
+  @@index([areaId])
+  @@map("mnt_systems")
+}
+
+model MntEquipment {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String    @db.VarChar(150)
+  brand             String?   @db.VarChar(100)
+  model             String?   @db.VarChar(100)
+  partNumber        String?   @map("part_number") @db.VarChar(100)
+  serialNumber      String?   @map("serial_number") @db.VarChar(100)
+  areaId            String    @map("area_id") @db.Uuid // Redundant for caching/filtering but useful
+  systemId          String    @map("system_id") @db.Uuid
+  technicalComments String?   @map("technical_comments") @db.Text
+  prevInstructions  String?   @map("prev_instructions") @db.Text
+  estimatedLife     String?   @map("estimated_life") @db.VarChar(50)
+  commissioningDate DateTime? @map("commissioning_date") @db.Date
+  imageUrl          String?   @map("image_url") @db.VarChar(255)
+  imageDescription  String?   @map("image_description") @db.VarChar(200)
+  datasheetUrl      String?   @map("datasheet_url") @db.VarChar(255)
+  datasheetName     String?   @map("datasheet_name") @db.VarChar(200)
+  referencePrice    Decimal?  @map("reference_price") @db.Decimal(10, 2)
+  installationId    String?   @map("installation_id") @db.Uuid
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  system       MntSystem                 @relation(fields: [systemId], references: [id])
+  installation MntInstallation?          @relation(fields: [installationId], references: [id])
+  responsibles MntEquipmentResponsible[]
+  requests     MntRequest[]
+
+  @@index([systemId])
+  @@index([areaId])
+  @@index([installationId])
+  @@map("mnt_equipments")
+}
+
+model MntApplicant {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @db.VarChar(150)
+  email         String?  @db.VarChar(255)
+  jobPositionId String?  @map("job_position_id") @db.Uuid
+  signatureUrl  String?  @map("signature_url") @db.VarChar(255)
+  userId        String?  @unique @map("user_id") @db.Uuid // Optional link to system user
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installations MntInstallation[] @relation("ApplicantInstallations")
+  jobPosition   MntJobPosition?   @relation(fields: [jobPositionId], references: [id])
+  user          User?             @relation(fields: [userId], references: [id])
+  requests      MntRequest[]
+
+  @@map("mnt_applicants")
+}
+
+model MntTechnicalResponsible {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  name      String   @db.VarChar(150)
+  areaId    String   @map("area_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user       User                      @relation(fields: [userId], references: [id])
+  area       MntArea                   @relation(fields: [areaId], references: [id])
+  equipments MntEquipmentResponsible[]
+
+  @@index([areaId])
+  @@map("mnt_technical_responsibles")
+}
+
+model MntEquipmentResponsible {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipmentId   String   @map("equipment_id") @db.Uuid
+  responsibleId String   @map("responsible_id") @db.Uuid
+  assignedAt    DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  equipment   MntEquipment            @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  responsible MntTechnicalResponsible @relation(fields: [responsibleId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, responsibleId])
+  @@map("mnt_equipment_responsibles")
+}
+
+model MntSupplier {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rut                 String               @unique @db.VarChar(12)
+  businessLine        String               @map("business_line") @db.VarChar(150)
+  legalName           String?              @map("legal_name") @db.VarChar(150)
+  fantasyName         String?              @map("fantasy_name") @db.VarChar(150)
+  contactName         String?              @map("contact_name") @db.VarChar(150)
+  phone               String?              @db.VarChar(20)
+  contactEmail        String?              @map("contact_email") @db.VarChar(255)
+  activityEmails      Json?                @map("activity_emails") // Array of emails
+  address             String?              @db.VarChar(255)
+  isActive            Boolean              @default(true) @map("is_active")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mntWorkRequirements MntWorkRequirement[]
+
+  @@map("mnt_suppliers")
+}
+
+model MntJobPosition {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  applicants MntApplicant[]
+
+  @@map("mnt_job_positions")
+}
+
+model MntActivityLocation {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(150)
+  commune   String?  @db.VarChar(100)
+  isEnabled Boolean  @default(true) @map("is_enabled")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("mnt_activity_locations")
+}
+
+// --- Catálogos / Taxonomía ---
+
+model MntRequestType {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  requests MntRequest[]
+
+  @@map("mnt_request_types")
+}
+
+model MntRequestStatus {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique @db.VarChar(50) // e.g. PENDIENTE, EN_PROCESO, TERCERIZAR, FINALIZADO
+  description  String?  @db.Text
+  colorHex     String?  @map("color_hex") @db.VarChar(7)
+  cssClass     String?  @map("css_class") @db.VarChar(50)
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  requests                MntRequest[]
+  mntRequestTimelines     MntRequestTimeline[] @relation("NewStatus")
+  mntRequestTimelinesPrev MntRequestTimeline[] @relation("PrevStatus")
+
+  @@map("mnt_request_statuses")
+}
+
+model MntSupplyCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items MntSupplyItem[]
+
+  @@map("mnt_supply_categories")
+}
+
+model MntSupplyItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?  @db.Text
+  colorHex    String?  @map("color_hex") @db.VarChar(7)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category MntSupplyCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@map("mnt_supply_items")
+}
+
+// --- Operación ---
+
+model MntRequest {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio          Int     @unique @default(autoincrement())
+  folioPrefix    String  @default("RD") @map("folio_prefix") @db.VarChar(10)
+  installationId String  @map("installation_id") @db.Uuid
+  equipmentId    String  @map("equipment_id") @db.Uuid
+  typeId         String  @map("type_id") @db.Uuid
+  statusId       String  @map("status_id") @db.Uuid
+  applicantId    String? @map("applicant_id") @db.Uuid
+  description    String  @db.Text
+
+  // Tercerización
+  tercerizedReason String? @map("tercerized_reason") @db.Text // Justificación obligatoria al cambiar estado a Tercerizar
+
+  // Aprobación
+  isApproved   Boolean   @default(false) @map("is_approved")
+  approvedAt   DateTime? @map("approved_at") @db.Timestamptz(6)
+  approvedById String?   @map("approved_by") @db.Uuid
+
+  // Fechas y Estimaciones
+  estimatedEndDate DateTime? @map("estimated_end_date") @db.Date
+  actualEndDate    DateTime? @map("actual_end_date") @db.Date
+
+  // Auditoría
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installation MntInstallation  @relation(fields: [installationId], references: [id])
+  equipment    MntEquipment     @relation(fields: [equipmentId], references: [id])
+  type         MntRequestType   @relation(fields: [typeId], references: [id])
+  status       MntRequestStatus @relation(fields: [statusId], references: [id])
+  applicant    MntApplicant?    @relation(fields: [applicantId], references: [id])
+  createdBy    User             @relation("RequestCreatedBy", fields: [createdById], references: [id])
+  approvedBy   User?            @relation("RequestApprovedBy", fields: [approvedById], references: [id])
+
+  evidences                   MntRequestEvidence[]
+  timeline                    MntRequestTimeline[]
+  iterations                  MntRequestIteration[]
+  expenses                    MntRequestExpense[]
+  mntWorkRequirementRelations MntWorkRequirementRelation[]
+
+  @@index([installationId])
+  @@index([equipmentId])
+  @@index([statusId])
+  @@map("mnt_requests")
+}
+
+model MntRequestEvidence {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId   String    @map("request_id") @db.Uuid
+  storagePath String    @map("storage_path")
+  publicUrl   String    @map("public_url")
+  fileSize    Int?      @map("file_size")
+  mimeType    String?   @map("mime_type") @db.VarChar(50)
+  capturedAt  DateTime? @map("captured_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request MntRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("mnt_request_evidences")
+}
+
+model MntRequestTimeline {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId    String            @map("request_id") @db.Uuid
+  changedById  String            @map("changed_by") @db.Uuid
+  action       String            @db.VarChar(50)
+  prevStatusId String?           @map("prev_status_id") @db.Uuid
+  newStatusId  String?           @map("new_status_id") @db.Uuid
+  comment      String?
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  changedBy    User              @relation(fields: [changedById], references: [id])
+  request      MntRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  prevStatus   MntRequestStatus? @relation("PrevStatus", fields: [prevStatusId], references: [id])
+  newStatus    MntRequestStatus? @relation("NewStatus", fields: [newStatusId], references: [id])
+
+  @@index([requestId])
+  @@map("mnt_request_timeline")
+}
+
+model MntUserNotificationPreference {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailEnabled Boolean @default(true) @map("email_enabled")
+  onNewRequest Boolean @default(true) @map("on_new_request")
+  onApproval   Boolean @default(true) @map("on_approval")
+  onReprogram  Boolean @default(true) @map("on_reprogram")
+  onClose      Boolean @default(true) @map("on_close")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("mnt_user_notification_preferences")
+}
+
+model MntRequestIteration {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId      String   @map("request_id") @db.Uuid
+  description    String   @db.Text
+  technicianName String?  @map("technician_name")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById    String   @map("created_by") @db.Uuid
+
+  request   MntRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdBy User       @relation(fields: [createdById], references: [id])
+
+  @@map("mnt_request_iterations")
+}
+
+model MntRequestExpense {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  description String   @db.VarChar(200)
+  amount      Int // Valor en CLP, sin decimales
+  type        String   @db.VarChar(20) // SPARE_PART, LABOR, EXTERNAL, OTHER
+  quantity    Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request MntRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("mnt_request_expenses")
+}
+
+model MntWorkRequirement {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio       String  @unique // [PREFIJO]-[SECUENCIAL]
+  title       String  @db.VarChar(200)
+  description String? @db.Text
+  providerId  String  @map("provider_id") @db.Uuid
+  statusId    String  @map("status_id") @db.Uuid
+
+  // Administrativo / Financiero
+  ocNumber          String? @map("oc_number") @db.VarChar(50)
+  ocValue           Float?  @map("oc_value")
+  invoiceNumber     String? @map("invoice_number") @db.VarChar(50)
+  invoiceValue      Float?  @map("invoice_value")
+  requisitionNumber String? @map("requisition_number") @db.VarChar(50)
+
+  // Auditoría
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  provider  MntSupplier                  @relation(fields: [providerId], references: [id])
+  status    MntWorkRequirementStatus     @relation(fields: [statusId], references: [id])
+  createdBy User                         @relation("WR_CreatedBy", fields: [createdById], references: [id])
+  requests  MntWorkRequirementRelation[]
+  evidences MntWorkRequirementEvidence[]
+
+  @@map("mnt_work_requirements")
+}
+
+model MntWorkRequirementStatus {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique @db.VarChar(50)
+  description  String?  @db.Text
+  colorHex     String?  @map("color_hex") @db.VarChar(7)
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  requirements MntWorkRequirement[]
+
+  @@map("mnt_work_requirement_statuses")
+}
+
+model MntWorkRequirementRelation {
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workRequirementId String @map("work_requirement_id") @db.Uuid
+  requestId         String @map("request_id") @db.Uuid
+
+  workRequirement MntWorkRequirement @relation(fields: [workRequirementId], references: [id], onDelete: Cascade)
+  request         MntRequest         @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([workRequirementId, requestId])
+  @@map("mnt_work_requirement_relations")
+}
+
+model MntWorkRequirementEvidence {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workRequirementId String    @map("work_requirement_id") @db.Uuid
+  storagePath       String    @map("storage_path")
+  publicUrl         String    @map("public_url")
+  fileSize          Int?      @map("file_size")
+  mimeType          String?   @map("mime_type") @db.VarChar(50)
+  capturedAt        DateTime? @map("captured_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workRequirement MntWorkRequirement @relation(fields: [workRequirementId], references: [id], onDelete: Cascade)
+
+  @@index([workRequirementId])
+  @@map("mnt_work_requirement_evidences")
+}
+
+// ----------------------------------------------------------------------
+// Módulo de Firmas (Global)
+// ----------------------------------------------------------------------
+
+model Signature {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(100)
+  data      String   @db.Text // Base64 image data
+  isActive  Boolean  @default(true) @map("is_active")
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@map("signatures")
+}

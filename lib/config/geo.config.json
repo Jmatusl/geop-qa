@@ -1,0 +1,10 @@
+{
+    "MAX_FILE_SIZE_MB": 5,
+    "MAX_RESOLUTION_PX": 1280,
+    "MAX_COMMENT_CHARS": 500,
+    "MAX_IMAGES": 5,
+    "STORAGE_PATH": "/geo-evidence",
+    "ADMIN_VIEW": {
+        "DEFAULT_DAYS_TO_SHOW": 14
+    }
+}

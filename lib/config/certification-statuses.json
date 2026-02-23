@@ -1,0 +1,38 @@
+{
+    "VIGENTE": {
+        "id": "VIGENTE",
+        "label": "Vigente",
+        "variant": "default",
+        "className": "bg-green-600 text-white hover:bg-green-700"
+    },
+    "VENCIDA": {
+        "id": "VENCIDA",
+        "label": "Vencida",
+        "variant": "destructive",
+        "className": ""
+    },
+    "POR_VENCER": {
+        "id": "POR_VENCER",
+        "label": "Por Vencer",
+        "variant": "outline",
+        "className": "border-yellow-500 text-yellow-600 dark:text-yellow-400"
+    },
+    "SUSPENDIDA": {
+        "id": "SUSPENDIDA",
+        "label": "Suspendida",
+        "variant": "outline",
+        "className": "border-purple-500 text-purple-600 dark:text-purple-400"
+    },
+    "DESHABILITADA": {
+        "id": "DESHABILITADA",
+        "label": "Deshabilitada",
+        "variant": "destructive",
+        "className": "bg-red-700 text-white hover:bg-red-800"
+    },
+    "ANULADA": {
+        "id": "ANULADA",
+        "label": "Anulada",
+        "variant": "secondary",
+        "className": "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "global": {
+        "company_name": "SOTEX",
+        "primary_color": "#283c7f",
+        "background_color": "#f9fafb",
+        "logo_url": "/sotex/sotex_lightMode.png",
+        "logo_width": 150,
+        "show_footer_branding": true,
+        "company_address": "Puerto Montt, Chile",
+        "footer_copyright": "Todos los derechos reservados."
+    },
+    "user_creation_mail": {
+        "subject": "Activa tu cuenta",
+        "title": "Activa tu cuenta",
+        "greeting": "Hola, {{name}}",
+        "instruction": "Se ha creado tu cuenta en el sistema. Haz clic en el siguiente enlace para activar tu usuario y configurar tu contraseña.",
+        "button_text": "Activar Cuenta",
+        "expiration_text": "Este enlace expira en {{expiration}}."
+    },
+    "password_reset_mail": {
+        "subject": "Recuperación de contraseña",
+        "title": "Recuperación de Contraseña",
+        "greeting": "Hola, {{name}}",
+        "instruction": "Has solicitado restablecer tu contraseña. Haz clic en el botón de abajo para configurar una nueva clave.",
+        "button_text": "Restablecer Contraseña",
+        "expiration_text": "Este enlace expira en {{expiration}}.",
+        "ignore_text": "Si no solicitaste este cambio, puedes ignorar este correo de forma segura."
+    }
+}

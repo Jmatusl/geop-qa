@@ -1,0 +1,372 @@
+{
+    "common": {
+        "loading": "Cargando datos...",
+        "error_loading": "Error al cargar la información.",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "actions": "Acciones",
+        "explore": "Explorar",
+        "restricted_access": "Acceso Restringido",
+        "restricted_access_desc": "No tiene permisos para ver ningún módulo de mantenimiento. Si cree que esto es un error, contacte al administrador."
+    },
+    "dashboard": {
+        "header": {
+            "title": "Mantenedores",
+            "description": "Acceda a las herramientas de administración del sistema para gestionar los recursos principales y configuraciones maestros."
+        }
+    },
+    "usuarios": {
+        "header": {
+            "title": "Gestión de Usuarios",
+            "description": "Administre los usuarios del sistema, sus datos personales y estados de acceso."
+        },
+        "actions": {
+            "add_new": "Nuevo Usuario",
+            "search_placeholder": "Filtrar por nombre, rut o email..."
+        }
+    },
+    "roles": {
+        "header": {
+            "title": "Gestión de Roles",
+            "description": "Defina los roles y permisos del sistema para controlar el acceso."
+        },
+        "actions": {
+            "add_new": "Nuevo Rol",
+            "search_placeholder": "Filtrar por nombre o código..."
+        }
+    },
+    "menus": {
+        "header": {
+            "title": "Gestión de Menús",
+            "description": "Configure la estructura del menú lateral y la navegación."
+        },
+        "actions": {
+            "add_new": "Nuevo Menú"
+        }
+    },
+    "configuraciones": {
+        "header": {
+            "title": "Configuraciones",
+            "description": "Ajustes globales del sistema, logos, colores y políticas."
+        }
+    },
+    "motivos_baja": {
+        "header": {
+            "title": "Catálogo de Motivos de Baja",
+            "description": "Administre los motivos de desactivación de usuarios."
+        },
+        "actions": {
+            "add_new": "Nuevo Motivo",
+            "search_placeholder": "Filtrar motivos..."
+        }
+    },
+    "job_positions": {
+        "header": {
+            "title": "Cargos",
+            "description": "Gestione los cargos y roles funcionales de la organización."
+        },
+        "actions": {
+            "add_new": "Nuevo Cargo",
+            "search_placeholder": "Filtrar por código o nombre..."
+        }
+    },
+    "areas": {
+        "header": {
+            "title": "Áreas",
+            "description": "Defina las áreas y departamentos operativos."
+        },
+        "actions": {
+            "add_new": "Nueva Área",
+            "search_placeholder": "Filtrar por código o nombre..."
+        }
+    },
+    "work_groups": {
+        "header": {
+            "title": "Grupos de Trabajo",
+            "description": "Administre las cuadrillas o grupos de trabajo."
+        },
+        "actions": {
+            "add_new": "Nuevo Grupo",
+            "search_placeholder": "Filtrar por código o nombre..."
+        }
+    },
+    "persons": {
+        "header": {
+            "title": "Trabajadores",
+            "description": "Gestione la ficha electrónica de los trabajadores."
+        },
+        "actions": {
+            "add_new": "Nuevo Trabajador",
+            "search_placeholder": "Buscar por RUT, nombre o email..."
+        }
+    },
+    "motivos_baja_certificaciones": {
+        "header": {
+            "title": "Motivos de Baja (Certificaciones)",
+            "description": "Gestione las razones oficiales para la revocación o suspensión de certificaciones."
+        },
+        "actions": {
+            "add_new": "Nuevo Motivo",
+            "search_placeholder": "Filtrar motivos..."
+        }
+    },
+    "temas": {
+        "header": {
+            "title": "Temas de Credenciales",
+            "description": "Gestione los diseños y configuraciones visuales de las credenciales digitales."
+        },
+        "actions": {
+            "add_new": "Nuevo Tema"
+        }
+    },
+    "email_templates": {
+        "header": {
+            "title": "Plantillas de Correo",
+            "description": "Gestiona el contenido y asunto de los correos electrónicos del sistema."
+        }
+    },
+    "mnt_installations": {
+        "header": {
+            "title": "Instalaciones",
+            "description": "Gestione las naves y recintos físicos."
+        },
+        "actions": {
+            "add_new": "Nueva Instalación",
+            "search_placeholder": "Filtrar por nombre o folio..."
+        },
+        "form": {
+            "create_title": "Crear Nueva Instalación",
+            "edit_title": "Editar Instalación",
+            "description": "Defina naves o instalaciones específicas dentro de un centro productivo.",
+            "field_name": "Nombre Comercial",
+            "field_internal_code": "Código Interno",
+            "field_folio": "Folio (Legal)",
+            "field_center": "Centro de Cultivo",
+            "field_type": "Tipo de Instalación",
+            "field_desc": "Descripción",
+            "field_obs": "Observaciones",
+            "field_active": "Operativa"
+        }
+    },
+    "mnt_areas": {
+        "header": {
+            "title": "Áreas Técnicas",
+            "description": "Gestione las áreas o especialidades de mantenimiento."
+        },
+        "actions": {
+            "add_new": "Nueva Área",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Crear Nueva Área Técnica",
+            "edit_title": "Editar Área Técnica",
+            "description": "Especialidades mecánicas, eléctricas, etc.",
+            "field_name": "Nombre de la Especialidad",
+            "field_desc": "Descripción Técnica",
+            "field_active": "Especialidad Activa"
+        }
+    },
+    "mnt_systems": {
+        "header": {
+            "title": "Sistemas",
+            "description": "Gestione los sistemas y subsistemas de los equipos."
+        },
+        "actions": {
+            "add_new": "Nuevo Sistema",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Crear Nuevo Sistema",
+            "edit_title": "Editar Sistema",
+            "description": "Asocie subsistemas a las áreas técnicas correspondientes.",
+            "field_name": "Nombre del Sistema",
+            "field_area": "Área Técnica Asociada",
+            "field_desc": "Descripción del Sistema",
+            "field_active": "Sistema Activo"
+        }
+    },
+    "mnt_equipments": {
+        "header": {
+            "title": "Maestro de Equipos",
+            "description": "Gestione el inventario técnico de equipos y maquinarias."
+        },
+        "actions": {
+            "add_new": "Nuevo Equipo",
+            "search_placeholder": "Filtrar por nombre, marca o serie..."
+        },
+        "form": {
+            "create_title": "Añadir Nuevo Equipo",
+            "edit_title": "Modificar Equipo",
+            "description": "Registre de forma precisa este equipo a un área y sistema operacionales.",
+            "field_name": "Nombre del Equipo",
+            "field_brand": "Marca",
+            "field_model": "Modelo",
+            "field_serial": "Serial No.",
+            "field_part": "Nro. de Parte",
+            "field_area": "Área Operacional",
+            "field_system": "Sistema Asociado",
+            "field_life": "Vida Útil Estimada",
+            "field_commissioning": "Fecha Puesta en Marcha",
+            "field_responsibles": "Técnicos Responsables",
+            "field_price": "Valor Referencial de Adquisición",
+            "field_image": "Imagen de Referencia",
+            "field_image_desc": "Descripción de Imagen",
+            "field_datasheet": "Ficha Técnica",
+            "field_datasheet_desc": "Descripción de Documento",
+            "field_notes": "Notas / Datos Técnicos",
+            "field_active": "Equipo Activo"
+        }
+    },
+    "mnt_applicants": {
+        "header": {
+            "title": "Solicitantes",
+            "description": "Gestione los usuarios operativos autorizados para emitir solicitudes."
+        },
+        "actions": {
+            "add_new": "Nuevo Solicitante",
+            "search_placeholder": "Filtrar por nombre o email..."
+        },
+        "form": {
+            "create_title": "Vincular Nuevo Solicitante",
+            "edit_title": "Editar Solicitante",
+            "description": "Asigne un usuario del sistema y defina su ámbito de acción.",
+            "field_name": "Nombre Completo",
+            "field_email": "Email de Notificaciones",
+            "field_installation": "Instalación Autorizada",
+            "field_job": "Cargo Operativo",
+            "field_active": "Acceso Habilitado"
+        }
+    },
+    "mnt_technical_responsibles": {
+        "header": {
+            "title": "Responsables Técnicos",
+            "description": "Gestione los técnicos y jefaturas mecánicas asignadas."
+        },
+        "actions": {
+            "add_new": "Nuevo Responsable",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Añadir Responsable Técnico",
+            "edit_title": "Editar Responsable Técnico",
+            "description": "Asigne técnicos para la ejecución y aprobación de trabajos.",
+            "field_user": "Cuenta de Usuario",
+            "field_name": "Nombre para Visualización",
+            "field_area": "Especialidad Técnica",
+            "field_active": "Responsable Activo"
+        }
+    },
+    "mnt_suppliers": {
+        "header": {
+            "title": "Proveedores Técnicos",
+            "description": "Catálogo de proveedores y tercerizadores."
+        },
+        "actions": {
+            "add_new": "Nuevo Proveedor",
+            "search_placeholder": "Filtrar por RUT o razón social..."
+        },
+        "form": {
+            "create_title": "Registrar Nuevo Proveedor",
+            "edit_title": "Editar Datos de Proveedor",
+            "description": "Información de contacto y especialidad del proveedor comercial.",
+            "field_rut": "RUT Empresa",
+            "field_line": "Giro / Actividad",
+            "field_legal": "Razón Social",
+            "field_fantasy": "Nombre Fantasía",
+            "field_contact": "Nombre de Contacto",
+            "field_email": "Email Corporativo",
+            "field_phone": "Teléfono de Contacto",
+            "field_address": "Dirección Comercial",
+            "field_active": "Vigente para Operaciones"
+        }
+    },
+    "mnt_job_positions": {
+        "header": {
+            "title": "Cargos Operativos",
+            "description": "Defina los cargos operativos para el módulo de mantenimiento."
+        },
+        "actions": {
+            "add_new": "Nuevo Cargo",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Crear Cargo",
+            "edit_title": "Editar Cargo",
+            "description": "Determine los roles jerárquicos de la operación técnica.",
+            "field_name": "Nombre del Cargo",
+            "field_desc": "Responsabilidades clave",
+            "field_active": "Cargo Activo"
+        }
+    },
+    "mnt_activity_locations": {
+        "header": {
+            "title": "Lugares de Trabajo",
+            "description": "Catálogo de ubicaciones físicas para actividades."
+        },
+        "actions": {
+            "add_new": "Nuevo Lugar",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Definir Nuevo Lugar",
+            "edit_title": "Editar Lugar",
+            "description": "Lugares específicos donde se realizan los mantenimientos.",
+            "field_name": "Nombre del Lugar",
+            "field_desc": "Referencia de Ubicación",
+            "field_active": "Lugar Disponible"
+        }
+    },
+    "mnt_farming_centers": {
+        "header": {
+            "title": "Centros de Cultivo",
+            "description": "Administre los centros productivos de la compañía."
+        },
+        "actions": {
+            "add_new": "Nuevo Centro",
+            "search_placeholder": "Filtrar por código SIEP o nombre..."
+        },
+        "form": {
+            "create_title": "Añadir Centro de Cultivo",
+            "edit_title": "Modificar Centro de Cultivo",
+            "description": "Identificación SIEP y geográfica del centro.",
+            "field_siep": "Código SIEP",
+            "field_name": "Nombre del Centro",
+            "field_location": "Ubicación Geográfica",
+            "field_active": "Centro Operacional"
+        }
+    },
+    "mnt_production_areas": {
+        "header": {
+            "title": "Áreas de Producción",
+            "description": "Defina las áreas productivas generales."
+        },
+        "actions": {
+            "add_new": "Nueva Área",
+            "search_placeholder": "Filtrar por nombre..."
+        },
+        "form": {
+            "create_title": "Crear Área de Producción",
+            "edit_title": "Editar Área de Producción",
+            "description": "Categorías maestras para la agrupación de activos.",
+            "field_name": "Nombre del Área",
+            "field_desc": "Cobertura o definición",
+            "field_active": "Área Habilitada"
+        }
+    },
+    "mnt_request_ingreso": {
+        "form": {
+            "title": "Ingreso de Requerimiento",
+            "description": "Seleccione progresivamente la ubicación y el equipo afectado para registrar la solicitud.",
+            "field_installation": "Nave / Instalación",
+            "field_type": "Tipo de Requerimiento",
+            "field_area": "Área Técnica",
+            "field_system": "Sistema",
+            "field_equipment": "Equipo Afectado",
+            "field_description": "Descripción del Problema",
+            "field_evidence": "Evidencia Fotográfica (Opcional)",
+            "button_submit": "Enviar Requerimiento"
+        }
+    }
+}

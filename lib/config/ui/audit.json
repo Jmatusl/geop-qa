@@ -1,0 +1,40 @@
+{
+    "header": {
+        "title": "Explorador de Auditoría",
+        "description": "Visualice y analice los registros de actividad y acceso de todo el sistema."
+    },
+    "filters": {
+        "user": "Usuario",
+        "event": "Evento",
+        "module": "Módulo",
+        "from": "Desde",
+        "to": "Hasta",
+        "clear": "Limpiar filtros",
+        "export_excel": "Excel",
+        "all_users": "Todos los Usuarios",
+        "all_events": "Todos los Eventos",
+        "all_modules": "Todos los Módulos",
+        "placeholder": "Todos"
+    },
+    "table": {
+        "date": "Fecha y Hora",
+        "user": "Usuario",
+        "event": "Evento",
+        "module": "Módulo",
+        "ip": "Origen (IP)",
+        "details": "Detalles"
+    },
+    "modal": {
+        "title": "Detalle del Evento de Auditoría",
+        "field_date": "Fecha y Hora",
+        "field_event": "Evento",
+        "field_ip": "Origen IP",
+        "field_endpoint": "Endpoint",
+        "field_url": "URL de Referencia",
+        "field_actor": "Usuario Autor / Actor",
+        "field_metadata": "Información Técnica (Metadata)",
+        "recovery_link": "Enlace de Recuperación Generado",
+        "system": "Sistema",
+        "auto_process": "Procesos automáticos o internos"
+    }
+}

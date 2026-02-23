@@ -1,0 +1,68 @@
+{
+    "form_login": {
+        "titulo": "Iniciar Sesión",
+        "subtitulo": "Ingrese sus credenciales para acceder",
+        "label_login": "Correo Electrónico",
+        "label_password": "Contraseña",
+        "placeholder_login": "nombre@empresa.com",
+        "placeholder_password": "••••••••",
+        "btn_login": "Entrar al Sistema",
+        "btn_loading": "Accediendo...",
+        "olvidar_contrasena": "¿Olvidaste tu contraseña?",
+        "mostrar_ocultar_password": true,
+        "mostrar_password": "Mostrar contraseña",
+        "ocultar_password": "Ocultar contraseña"
+    },
+    "toasts": {
+        "success": "¡Bienvenido!",
+        "error_login": "Error al iniciar sesión",
+        "error_connection": "Error al conectar con el servidor"
+    },
+    "validation": {
+        "email_required": "El correo es obligatorio",
+        "email_invalid": "Ingrese un correo válido",
+        "password_required": "La contraseña es obligatoria"
+    },
+    "configuracion_logos": {
+        "logo_izquierdo": {
+            "visible": true,
+            "ruta_clara": "/sotex/sotex_lightMode.png",
+            "ruta_dark": null,
+            "width": 140,
+            "height": 60,
+            "margen_superior": 24,
+            "margen_izquierdo": 24,
+            "mobile": {
+                "visible": true,
+                "width": 100,
+                "height": 40,
+                "margen_superior": 10,
+                "margen_izquierdo": 10
+            }
+        },
+        "logo_derecho": {
+            "visible": false,
+            "ruta_clara": "/custom/logo-derecho.png",
+            "ruta_dark": null,
+            "width": 120,
+            "height": 48,
+            "margen_inferior": 24,
+            "margen_derecho": 24,
+            "mobile": {
+                "visible": false
+            }
+        }
+    },
+    "titulo_sistema": {
+        "texto": "SISTEMA DE CERTIFICACIONES",
+        "estilo": "h1",
+        "modo_claro": "#283c7f",
+        "modo_oscuro": "#60a5fa"
+    },
+    "subtitulo_sistema": {
+        "texto": "Portal de Gestión de Certificados Técnicos",
+        "estilo": "h5",
+        "modo_claro": "#64748b",
+        "modo_oscuro": "#94a3b8"
+    }
+}
