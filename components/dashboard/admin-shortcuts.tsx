@@ -19,7 +19,7 @@ const defaultLinks: Link[] = [
 
 export function AdminShortcuts({ links = defaultLinks }: AdminShortcutsProps) {
   return (
-    <Card className="border-none shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 bg-gradient-to-br from-[#283c7f] to-[#1e2d5f] text-white overflow-hidden">
+    <Card className="border-none shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 bg-linear-to-br from-[#283c7f] to-[#1e2d5f] text-white overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-xl">Accesos Directos</CardTitle>
         <CardDescription className="text-indigo-100/70">Tareas comunes de administración</CardDescription>

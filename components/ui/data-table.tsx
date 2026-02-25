@@ -145,7 +145,7 @@ export function DataTable<TData, TValue>({
                   }
                 }}
               >
-                <SelectTrigger className="h-8 w-[70px]">
+                <SelectTrigger className="h-8 w-17.5">
                   <SelectValue placeholder={pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">
@@ -157,14 +157,14 @@ export function DataTable<TData, TValue>({
                 </SelectContent>
               </Select>
             ) : (
-              <div className="h-8 w-[70px] border rounded-md" /> // Placeholder while mounting
+              <div className="h-8 w-17.5 border rounded-md" /> // Placeholder while mounting
             )}
           </div>
         </div>
 
         {/* Sección Derecha: Navegación */}
         <div className="flex items-center space-x-4 lg:space-x-6">
-          <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+          <div className="flex w-25 items-center justify-center text-sm font-medium">
             Página {pageIndex} de {pageCount}
           </div>
           <div className="flex items-center space-x-2">

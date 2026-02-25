@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 export default function MantencionPage() {
-  // TODO: Add role-based redirect logic here in the future
+  // TODO: Agregar lógica de redirección basada en roles de usuario en el futuro
   // For now, redirect to the consolidated view or entry form
   redirect("/mantencion/consolidado");
 }

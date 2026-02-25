@@ -103,7 +103,7 @@ export function WREvidenceSection({ wrId, initialEvidences, isMobile = false }: 
 
   const isBusy = isResizing || isUploading;
 
-  // Render para cada item
+  // Renderizar cada item de evidencia
   const renderItem = (e: Evidence) => {
     const isPdf = e.mimeType?.includes("pdf") || e.publicUrl.endsWith(".pdf");
     const isDeletingThis = isDeleting === e.id;

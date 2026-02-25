@@ -1,1 +1,6 @@
-{}
+{
+    "prisma.pinToPrisma6": true,
+    "chat.tools.terminal.autoApprove": {
+        "npx prisma": true
+    }
+}

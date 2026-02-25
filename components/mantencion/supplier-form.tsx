@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { mntSupplierSchema } from "@/lib/validations/mantencion";
@@ -9,10 +9,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useCreateSupplier, useUpdateSupplier, Supplier } from "@/lib/hooks/mantencion/use-suppliers";
-import { Truck, Loader2, Save, X } from "lucide-react";
+import { Truck, Loader2, Save, X, Plus, Trash2, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import maintenanceConfig from "@/lib/config/ui/maintainers.json";
+import { ModalManageActivityEmails } from "./ModalManageActivityEmails";
 import { z } from "zod";
+
+interface ActivityEmail {
+  email: string;
+  enabled: boolean;
+}
 
 type FormValues = z.infer<typeof mntSupplierSchema>;
 
@@ -26,6 +33,8 @@ interface SupplierFormProps {
 export function SupplierForm({ mode, initialData, onCancel, onSuccess }: SupplierFormProps) {
   const { mutate: create, isPending: isCreating } = useCreateSupplier();
   const { mutate: update, isPending: isUpdating } = useUpdateSupplier();
+  const [alternativeEmails, setAlternativeEmails] = useState<ActivityEmail[]>([]);
+  const [showManageEmailsModal, setShowManageEmailsModal] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(mntSupplierSchema),
@@ -37,6 +46,7 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
       contactName: "",
       phone: "",
       contactEmail: "",
+      activityEmails: [],
       address: "",
       isActive: true,
     },
@@ -44,6 +54,17 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
 
   useEffect(() => {
     if (mode === "edit" && initialData) {
+      // Convert string[] to ActivityEmail[] if needed
+      const emails: ActivityEmail[] = Array.isArray(initialData.activityEmails)
+        ? (initialData.activityEmails as unknown[]).map(item =>
+            typeof item === 'string'
+              ? { email: item, enabled: true }
+              : (item as ActivityEmail)
+          )
+        : [];
+      
+      setAlternativeEmails(emails);
+      
       form.reset({
         rut: initialData.rut,
         businessLine: initialData.businessLine,
@@ -52,6 +73,7 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
         contactName: initialData.contactName || "",
         phone: initialData.phone || "",
         contactEmail: initialData.contactEmail || "",
+        activityEmails: emails.map(item => typeof item === 'string' ? item : item.email),
         address: initialData.address || "",
         isActive: initialData.isActive,
       });
@@ -67,6 +89,9 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
       contactName: data.contactName || null,
       phone: data.phone || null,
       contactEmail: data.contactEmail || null,
+      activityEmails: alternativeEmails.length > 0 
+        ? alternativeEmails.map(item => typeof item === 'string' ? item : item.email)
+        : null,
       address: data.address || null,
     };
 
@@ -213,6 +238,47 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
                     </FormItem>
                   )}
                 />
+                
+                {/* Correos Alternativos para Actividades */}
+                <div className="col-span-1 md:col-span-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <FormLabel className="text-base">Correos Alternativos (Actividades)</FormLabel>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowManageEmailsModal(true)}
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Agregar correo alternativo
+                    </Button>
+                  </div>
+                  <FormDescription className="text-sm text-muted-foreground">
+                    Correos adicionales para envío de requerimientos de actividades (además del Email Corporativo).
+                  </FormDescription>
+                  
+                  <div className="space-y-2">
+                    {alternativeEmails.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Sin correos alternativos configurados</p>
+                    ) : (
+                      alternativeEmails.map((emailObj, index) => (
+                        <div key={index} className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">{emailObj.email}</p>
+                          </div>
+                          <Badge variant={emailObj.enabled ? "default" : "secondary"} className="shrink-0">
+                            {emailObj.enabled ? "Habilitado" : "Deshabilitado"}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 <FormField
                   control={form.control}
                   name="isActive"
@@ -247,6 +313,17 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
           </Form>
         </CardContent>
       </Card>
+
+      {/* Modal para gestionar correos alternativos */}
+      <ModalManageActivityEmails
+        open={showManageEmailsModal}
+        onOpenChange={setShowManageEmailsModal}
+        supplierId={initialData?.id || ""}
+        currentEmails={alternativeEmails}
+        onSave={(updatedEmails) => {
+          setAlternativeEmails(updatedEmails);
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,13 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, value, defaultValue, ...props }: React.ComponentProps<"input">) {
+  // Normalize `value` to avoid switching between uncontrolled and controlled inputs.
+  // If callers pass `value` as undefined, we coerce to empty string so the input
+  // remains controlled for its whole lifecycle. Using an empty string is safe
+  // for most HTML input types and prevents React warnings.
+  const resolvedValue = value === undefined ? "" : value;
+
   return (
     <input
       type={type}
@@ -13,9 +19,11 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
       )}
+      value={resolvedValue}
+      defaultValue={defaultValue}
       {...props}
     />
-  )
+  );
 }
 
 export { Input }

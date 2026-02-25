@@ -1,0 +1,18 @@
+{
+    "listado": {
+        "titulo": "Requerimientos de Actividades",
+        "descripcion": "Gestión de solicitudes de trabajo y actividades operativas.",
+        "botonNuevo": "+ Nuevo Requerimiento"
+    },
+    "ingreso": {
+        "titulo": "Nuevo Requerimiento",
+        "descripcion": "Registre una solicitud de actividad con sus actividades asociadas."
+    },
+    "detalle": {
+        "titulo": "Detalle del Requerimiento"
+    },
+    "configuracion": {
+        "titulo": "Configuración del Módulo",
+        "descripcion": "Administre los catálogos, reglas del sistema y permisos del módulo de actividades."
+    }
+}

@@ -117,6 +117,7 @@ export const mntSupplierSchema = z.object({
   contactName: z.string().max(150).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
   contactEmail: z.string().email("Correo inválido").optional().nullable().or(z.literal("")),
+  activityEmails: z.array(z.string().email("Correo inválido")).optional().nullable(),
   address: z.string().max(255).optional().nullable(),
   isActive: z.boolean().default(true),
 });

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Edit, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Supplier } from "@/lib/hooks/mantencion/use-suppliers";
+import { formatRUT } from "@/lib/utils/chile-utils";
 
 export type SortDirection = "asc" | "desc" | null;
 
@@ -34,7 +35,7 @@ export const getSuppliersColumns = ({ onEdit, onDelete, currentSort, onSort }: G
   {
     accessorKey: "rut",
     header: () => <SortableHeader title="RUT" sortKey="rut" currentSort={currentSort} onSort={onSort} />,
-    cell: ({ row }) => <span className="font-mono text-xs border rounded px-1.5 py-0.5 bg-muted text-muted-foreground">{row.original.rut}</span>,
+    cell: ({ row }) => <span className="font-mono text-sm font-semibold text-slate-700 dark:text-slate-300">{formatRUT(row.original.rut)}</span>,
   },
   {
     accessorKey: "legalName",

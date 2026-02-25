@@ -12,6 +12,7 @@ export interface Supplier {
   contactName: string | null;
   phone: string | null;
   contactEmail: string | null;
+  activityEmails?: string[] | null;
   address: string | null;
   isActive: boolean;
   createdAt: string;

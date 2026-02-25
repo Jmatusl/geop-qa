@@ -8,6 +8,8 @@ import { seedAdmin } from "./seeds/core/admin";
 import { seedMockWorkers } from "./seeds/mock/workers";
 import { seedMantencion } from "./seeds/seed-mantencion";
 import { seedMantencionMock } from "./seeds/mock/seed-mantencion-mock";
+import { seedActividades } from "./seeds/seed-actividades";
+import { seedActividadesMock } from "./seeds/mock/seed-actividades-mock";
 
 const prisma = new PrismaClient();
 
@@ -27,11 +29,13 @@ async function main() {
     await seedSettings(prisma, adminUser.id);
     await seedEmailTemplates(prisma, adminUser.id);
     await seedMantencion(prisma);
+    await seedActividades(prisma);
 
     // 2. Mock (Solo si la flag está activa)
     if (isMockMode) {
       await seedMockWorkers(prisma, roles, catalog);
       await seedMantencionMock(prisma);
+      await seedActividadesMock(prisma);
     }
 
     console.log("");

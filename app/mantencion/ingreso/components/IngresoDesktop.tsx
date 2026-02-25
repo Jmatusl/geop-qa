@@ -655,7 +655,7 @@ export default function IngresoDesktop({ data }: IngresoFormProps) {
                     </FormLabel>
                   </div>
                   <FormControl>
-                    <Textarea {...field} placeholder="Descripción detallada" className="w-full min-h-[110px] resize-none text-sm" maxLength={MAX_DESCRIPTION} autoComplete="off" />
+                    <Textarea {...field} placeholder="Descripción detallada" className="w-full min-h-27.5 resize-none text-sm" maxLength={MAX_DESCRIPTION} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

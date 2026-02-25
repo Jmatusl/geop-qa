@@ -38,7 +38,7 @@ export default function WRDetailDesktop({ wr, catalogs, currentUser }: Props) {
   const [statusId, setStatusId] = useState(wr.statusId);
   const [ocNumber, setOcNumber] = useState(wr.ocNumber || "");
   const [ocValue, setOcValue] = useState(wr.ocValue ? formatCLP(wr.ocValue) : "");
-  // Keep raw numeric values separately
+  // Mantener valores numéricos sin formato por separado
   const [rawOcValue, setRawOcValue] = useState(wr.ocValue || 0);
 
   const [invoiceNumber, setInvoiceNumber] = useState(wr.invoiceNumber || "");
