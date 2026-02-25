@@ -3,6 +3,29 @@ import { PrismaClient } from "@prisma/client";
 export async function cleanup(prisma: PrismaClient) {
   console.log("🧹 Limpiando base de datos (preservando estructura)...");
 
+  // Limpiar Actividades (Operacional - debe ir ANTES de usuarios)
+  // Hijos de actividades y requerimientos
+  await prisma.actReceptionEvidence.deleteMany();
+  await prisma.actActivityReception.deleteMany();
+  await prisma.actActivityAttachment.deleteMany();
+  await prisma.actAttachment.deleteMany();
+  await prisma.actComment.deleteMany();
+  await prisma.actTimeline.deleteMany();
+  await prisma.actEmailSent.deleteMany();
+
+  // Actividades individuales
+  await prisma.actActivity.deleteMany();
+
+  // Requerimientos (tienen FK a usuarios)
+  await prisma.actRequirement.deleteMany();
+
+  // Catálogos de actividades
+  await prisma.actStatusAct.deleteMany();
+  await prisma.actStatusReq.deleteMany();
+  await prisma.actPriority.deleteMany();
+  await prisma.actActivityType.deleteMany();
+  await prisma.actMasterActivityName.deleteMany();
+
   // Limpiar Mantención (Operacional y Maestros - excluyendo Config)
   // Hijos e interacciones inmediatos
   await prisma.mntRequestEvidence.deleteMany();
@@ -50,10 +73,20 @@ export async function cleanup(prisma: PrismaClient) {
   await prisma.area.deleteMany();
   await prisma.jobPosition.deleteMany();
 
+  // Sistema de Permisos y Notificaciones por Módulo (tienen FK a usuarios)
+  await prisma.userNotificationPreference.deleteMany();
+  await prisma.userModulePermission.deleteMany();
+  await prisma.moduleApprovalRule.deleteMany();
+  await prisma.moduleNotificationSetting.deleteMany();
+  await prisma.modulePermission.deleteMany();
+  await prisma.module.deleteMany();
+
   // Módulo Core / Sistema
   await prisma.accessLog.deleteMany();
   await prisma.appSettingAudit.deleteMany();
   await prisma.menuAudit.deleteMany();
+  await prisma.emailTemplate.deleteMany();
+  await prisma.signature.deleteMany();
   await prisma.session.deleteMany();
   await prisma.activationToken.deleteMany();
   await prisma.passwordResetToken.deleteMany();

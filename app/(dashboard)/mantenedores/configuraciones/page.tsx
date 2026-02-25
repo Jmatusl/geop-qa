@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailConfigForm } from "@/components/settings/forms/email-config-form";
 import { AuthMailConfigForm } from "@/components/settings/forms/auth-mail-config-form";
-import { NotificationRulesForm } from "@/components/settings/forms/notification-rules-form";
 import { ExpirationConfigForm } from "@/components/settings/forms/expiration-config-form";
 import { PersonImageConfigForm } from "@/components/settings/forms/person-image-config-form";
 import { GoogleSSOForm } from "@/components/settings/forms/google-sso-form";
@@ -193,9 +192,6 @@ export default function SettingsPage() {
 
           {/* MAIL_CONFIG-AUTH */}
           {getSettingByKey("MAIL_CONFIG-AUTH") && <AuthMailConfigForm setting={getSettingByKey("MAIL_CONFIG-AUTH")!} />}
-
-          {/* NOTIFICATION_CONFIG */}
-          {getSettingByKey("NOTIFICATION_CONFIG") && <NotificationRulesForm setting={getSettingByKey("NOTIFICATION_CONFIG")!} />}
 
           {/* SECURITY_MESSAGES (Fits better here as it implies communication to user) */}
           {getSettingByKey("SECURITY_MESSAGES") && <SecurityMessagesForm setting={getSettingByKey("SECURITY_MESSAGES")!} />}

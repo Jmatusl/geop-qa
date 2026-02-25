@@ -216,10 +216,10 @@ export async function createWorkRequirement(data: { providerId: string; title: s
 
     // 3. Obtener estado inicial
     const initialStatus = await prisma.mntWorkRequirementStatus.findFirst({
-      where: { name: "PENDIENTE" },
+      where: { name: "Pendiente" },
     });
 
-    if (!initialStatus) throw new Error("El estado PENDIENTE para requerimientos de trabajo no existe.");
+    if (!initialStatus) throw new Error("El estado Pendiente para requerimientos de trabajo no existe.");
 
     // 4. Crear el WR y sus relaciones en una transacción
     const wr = await prisma.mntWorkRequirement.create({

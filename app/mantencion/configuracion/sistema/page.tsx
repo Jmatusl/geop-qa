@@ -15,17 +15,9 @@ export default async function SistemaConfigPage() {
 
   const config = await getMntSystemConfig();
 
-  // Obtener usuarios para el selector de Aprobación Cruzada
-  const { prisma } = await import("@/lib/prisma");
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, firstName: true, lastName: true, email: true },
-    orderBy: { firstName: "asc" },
-  });
-
   return (
     <div className="w-full">
-      <SistemaConfigClient initialConfig={config} users={users} />
+      <SistemaConfigClient initialConfig={config} />
     </div>
   );
 }

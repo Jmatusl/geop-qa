@@ -64,8 +64,8 @@ export async function seedActividades(prisma: PrismaClient) {
   const estadosActividad = [
     { name: "Pendiente", code: "PEN", colorHex: "#9CA3AF", displayOrder: 1 },
     { name: "En Progreso", code: "EP", colorHex: "#3B82F6", displayOrder: 2 },
-    { name: "Completada", code: "COMPLETADO", colorHex: "#10B981", displayOrder: 3 },
-    { name: "Recepcionada", code: "RECEPCIONADA", colorHex: "#22C55E", displayOrder: 4 },
+    { name: "Completada", code: "COMP", colorHex: "#10B981", displayOrder: 3 },
+    { name: "Recepcionada", code: "RECEP", colorHex: "#22C55E", displayOrder: 4 },
     { name: "Cancelada", code: "CAN", colorHex: "#EF4444", displayOrder: 5 },
   ];
 
@@ -173,7 +173,7 @@ export async function seedActividades(prisma: PrismaClient) {
         icon: "ClipboardList",
         path: "/actividades",
         enabled: true,
-        order: 82,
+        order: 30,
         showIcon: true,
         roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
       },

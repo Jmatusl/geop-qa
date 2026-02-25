@@ -57,5 +57,23 @@ export async function seedMantencion(prisma: PrismaClient) {
     });
   }
 
+  // 4. Estados de Requerimiento de Trabajo (Work Requirements)
+  const workRequirementStatuses = [
+    { name: "Pendiente", colorHex: "#64748b", displayOrder: 1 },
+    { name: "Aprobado", colorHex: "#3b82f6", displayOrder: 2 },
+    { name: "OC Generada", colorHex: "#f59e0b", displayOrder: 3 },
+    { name: "Facturado", colorHex: "#8b5cf6", displayOrder: 4 },
+    { name: "Finalizado", colorHex: "#10b981", displayOrder: 5 },
+  ];
+
+  console.log("Insertando Estados de Requerimiento de Trabajo...");
+  for (const status of workRequirementStatuses) {
+    await prisma.mntWorkRequirementStatus.upsert({
+      where: { name: status.name },
+      update: {},
+      create: status,
+    });
+  }
+
   console.log("✅ Seed de Mantenimiento completado.");
 }

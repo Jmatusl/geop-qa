@@ -83,6 +83,9 @@ model User {
   signatures                     Signature[]
   userIdentities                 UserIdentity[]
   userRoles                      UserRole[]
+  modulePermissions              UserModulePermission[]
+  permissionsGranted             UserModulePermission[]         @relation("PermissionGrantedBy")
+  approvalRulesUpdated           ModuleApprovalRule[]           @relation("ApprovalRuleUpdatedBy")
   createdBy                      User?                          @relation("UserCreatedBy", fields: [createdById], references: [id])
   createdUsers                   User[]                         @relation("UserCreatedBy")
   deactivatedBy                  User?                          @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
@@ -92,6 +95,7 @@ model User {
   updatedBy                      User?                          @relation("UserUpdatedBy", fields: [updatedById], references: [id])
   updatedUsers                   User[]                         @relation("UserUpdatedBy")
   actMasterDefaultApplicant      ActMasterActivityName[]        @relation("ActMaster_DefaultApplicant")
+  notificationPreferences        UserNotificationPreference[]   @relation("UserNotificationPreferences")
 
   @@index([email])
   @@index([rut])
@@ -1173,4 +1177,129 @@ model ActTimeline {
 
   @@index([requirementId])
   @@map("act_timeline")
+}
+
+// ============================================
+// SISTEMA CENTRALIZADO DE PERMISOS POR MÓDULO
+// ============================================
+
+model Module {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String   @unique @db.VarChar(50)
+  name         String   @db.VarChar(100)
+  description  String?
+  icon         String?  @db.VarChar(50)
+  isActive     Boolean  @default(true) @map("is_active")
+  emailEnabled Boolean  @default(true) @map("email_enabled")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  permissions          ModulePermission[]
+  userPermissions      UserModulePermission[]
+  notificationSettings ModuleNotificationSetting[]
+  approvalRules        ModuleApprovalRule[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("modules")
+}
+
+model ModulePermission {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId     String   @map("module_id") @db.Uuid
+  code         String   @db.VarChar(50)
+  name         String   @db.VarChar(100)
+  description  String?
+  category     String?  @db.VarChar(50)
+  isActive     Boolean  @default(true) @map("is_active")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  module          Module                 @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  userPermissions UserModulePermission[]
+
+  @@unique([moduleId, code])
+  @@index([moduleId])
+  @@index([category])
+  @@map("module_permissions")
+}
+
+model UserModulePermission {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  moduleId     String    @map("module_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  grantedBy    String?   @map("granted_by") @db.Uuid
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(6)
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module        Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  permission    ModulePermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedByUser User?            @relation("PermissionGrantedBy", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([moduleId])
+  @@index([permissionId])
+  @@index([expiresAt])
+  @@map("user_module_permissions")
+}
+
+model ModuleNotificationSetting {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId            String   @map("module_id") @db.Uuid
+  eventKey            String   @map("event_key") @db.VarChar(100)
+  eventName           String   @map("event_name") @db.VarChar(200)
+  description         String?
+  isEnabled           Boolean  @default(true) @map("is_enabled")
+  requiredPermissions String[] @map("required_permissions")
+  template            String?  @db.VarChar(100)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, eventKey])
+  @@index([moduleId])
+  @@index([isEnabled])
+  @@map("module_notification_settings")
+}
+
+model ModuleApprovalRule {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId      String   @map("module_id") @db.Uuid
+  ruleKey       String   @map("rule_key") @db.VarChar(100)
+  ruleName      String   @map("rule_name") @db.VarChar(200)
+  description   String?
+  isEnabled     Boolean  @default(false) @map("is_enabled")
+  configuration Json?    @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy     String?  @map("updated_by") @db.Uuid
+
+  module        Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  updatedByUser User?  @relation("ApprovalRuleUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([moduleId, ruleKey])
+  @@index([moduleId])
+  @@index([isEnabled])
+  @@map("module_approval_rules")
+}
+
+model UserNotificationPreference {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  moduleCode String   @map("module_code") @db.VarChar(50)
+  eventKey   String   @map("event_key") @db.VarChar(100)
+  isOptedOut Boolean  @default(false) @map("is_opted_out")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation("UserNotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleCode, eventKey])
+  @@index([userId])
+  @@map("user_notification_preferences")
 }

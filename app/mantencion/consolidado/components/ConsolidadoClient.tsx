@@ -154,9 +154,9 @@ export default function ConsolidadoClient({ initialData, workRequirements, catal
   const stats = useMemo(() => {
     return {
       total: data.length,
-      pending: data.filter((r) => r.status.name === "SOLICITADO" || r.status.name === "PENDIENTE").length,
-      inProcess: data.filter((r) => ["APROBADO", "EN_PROCESO", "TERCERIZAR"].includes(r.status.name)).length,
-      finished: data.filter((r) => r.status.name === "FINALIZADO").length,
+      pending: data.filter((r) => r.status.name === "Solicitado" || r.status.name === "Pendiente").length,
+      inProcess: data.filter((r) => ["Aprobado", "En Proceso", "Tercerizar"].includes(r.status.name)).length,
+      finished: data.filter((r) => r.status.name === "Finalizado").length,
     };
   }, [data]);
 
@@ -424,8 +424,12 @@ export default function ConsolidadoClient({ initialData, workRequirements, catal
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
+      // Excluir solicitudes pendientes (deben ir solo a pestaña "Por Aprobar")
+      const isPending = ["Pendiente", "Solicitado"].includes(item.status.name);
+      if (isPending) return false;
+
       // Toggle: Mostrar completados y cancelados
-      const isCompletedOrCancelled = ["FINALIZADO", "CANCELADO"].includes(item.status.name);
+      const isCompletedOrCancelled = ["Finalizado", "Cancelado"].includes(item.status.name);
       if (!showCompleted && isCompletedOrCancelled) return false;
 
       // Toggle: Solo sin Solicitud de Trabajo (WR)
@@ -474,7 +478,7 @@ export default function ConsolidadoClient({ initialData, workRequirements, catal
   });
 
   const pendingData = useMemo(() => {
-    return data.filter((item) => item.status.name === "SOLICITADO" || item.status.name === "PENDIENTE");
+    return data.filter((item) => item.status.name === "Solicitado" || item.status.name === "Pendiente");
   }, [data]);
 
   const tablePending = useReactTable({

@@ -4944,49 +4944,6 @@ async function main() {
       });
     }
 
-    console.log("📝 Creando Requerimientos de Mantención Mock...");
-    const admin = await prisma.user.findFirst({ where: { email: "desarrollo@sotex.cl" } });
-    if (!admin) throw new Error("No se encontró el usuario administrador");
-
-    const equipments = await prisma.mntEquipment.findMany({
-      where: { installationId: { not: null } },
-      take: 5,
-    });
-    const applicants = await prisma.mntApplicant.findMany({ take: 5 });
-    const rqType = await prisma.mntRequestType.findFirst();
-    const rqStatus = await prisma.mntRequestStatus.findFirst({ where: { name: "Pendiente" } });
-
-    if (equipments.length > 0 && applicants.length > 0 && rqType && rqStatus) {
-      for (let i = 0; i < 5; i++) {
-        const equipment = equipments[i % equipments.length];
-        const applicant = applicants[i % applicants.length];
-
-        const rq = await prisma.mntRequest.create({
-          data: {
-            installationId: equipment.installationId!,
-            equipmentId: equipment.id,
-            typeId: rqType.id,
-            statusId: rqStatus.id,
-            applicantId: applicant.id,
-            description: `Requerimiento de prueba #${i + 1}: Falla detectada en ${equipment.name}`,
-            createdById: admin.id,
-          },
-        });
-
-        // timeline
-        await prisma.mntRequestTimeline.create({
-          data: {
-            requestId: rq.id,
-            changedById: admin.id,
-            action: "CREACIÓN",
-            newStatusId: rqStatus.id,
-            comment: "Requerimiento ingresado automáticamente por el semillero mock.",
-          },
-        });
-      }
-      console.log(`   ✓ 5 Requerimientos creados exitosamente`);
-    }
-
     console.log("✅ SEED FINALIZADO EXITOSAMENTE");
   } catch (err) {
     console.error("❌ Error:", err);

@@ -305,3 +305,828 @@ Todas las tablas de listado (ej: `/actividades/listado`) deben mantener **parida
 - Las tablas de un solo item pueden simplificar la paginación si `total < pageSize`.
 
 **Propósito**: Asegurar una experiencia coherente entre mantenedores y listados, mejorando consistencia visual y funcional en toda la aplicación.
+
+## 16. Service Layer Pattern (Arquitectura Avanzada)
+
+Para mantener la lógica de negocio separada de la capa de presentación y facilitar el testing, se debe aplicar el patrón **Service Layer**.
+
+### Estructura de Servicios
+
+```
+lib/
+└── services/
+    ├── actividades/
+    │   ├── requirement-service.ts
+    │   └── activity-service.ts
+    └── mantencion/
+        ├── request-service.ts
+        └── work-report-service.ts
+```
+
+### Reglas de Implementación
+
+- **Ubicación**: Todos los servicios deben residir en `lib/services/[modulo]/`.
+- **Nomenclatura**: Usar sufijo `-service.ts` (ej: `requirement-service.ts`).
+- **Clase de Servicio**: Cada servicio debe ser una clase TypeScript con métodos públicos para cada operación.
+- **Singleton**: Exportar una instancia única del servicio al final del archivo.
+
+### Anatomía de un Servicio
+
+```typescript
+export class RequirementService {
+  private readonly prisma = prisma;
+  private readonly auditLogger = AuditLogger;
+
+  /**
+   * Crear un nuevo requerimiento
+   */
+  async create(data: CreateRequirementInput, userId: string, metadata?: any) {
+    // 1. Validar reglas de negocio
+    await this.validateBusinessRules(data);
+
+    // 2. Transacción atómica
+    return await this.prisma.$transaction(async (tx) => {
+      const requirement = await tx.actRequirement.create({...});
+      await this.createActivities(tx, requirement.id, data.activities);
+      await this.attachFiles(tx, requirement.id, data.attachments);
+      await this.auditLogger.log({...});
+      return requirement;
+    });
+  }
+
+  /**
+   * Validar reglas de negocio
+   */
+  private async validateBusinessRules(data: any) {
+    if (data.estimatedValue > 10000000) {
+      throw new BusinessRuleError("Monto requiere aprobación previa");
+    }
+  }
+}
+
+export const requirementService = new RequirementService();
+```
+
+### Errores Personalizados
+
+Definir errores de negocio específicos:
+
+```typescript
+export class BusinessRuleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BusinessRuleError";
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(message: string, public field?: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+```
+
+### Server Actions Simplificadas
+
+Las Server Actions deben ser **thin wrappers** que delegan al servicio:
+
+```typescript
+// app/actividades/ingreso/actions.ts
+import { requirementService } from "@/lib/services/actividades/requirement-service";
+
+export async function crearRequerimiento(data: CrearRequerimientoData) {
+  const session = await verifySession();
+  if (!session) return { success: false, error: "No autorizado" };
+
+  try {
+    const requirement = await requirementService.create(data, session.user.id);
+    return { success: true, data: requirement };
+  } catch (error) {
+    if (error instanceof BusinessRuleError) {
+      return { success: false, error: error.message };
+    }
+    throw error;
+  }
+}
+```
+
+### Beneficios
+
+- ✅ Lógica de negocio testeable de forma aislada
+- ✅ Reutilización entre API Routes y Server Actions
+- ✅ Transacciones complejas más claras
+- ✅ Logging y auditoría centralizada
+
+## 17. Custom Hooks Composables
+
+Para formularios complejos y lógica de UI reutilizable, se deben crear **Custom Hooks Composables** que encapsulen toda la lógica de negocio del cliente.
+
+### Estructura de Hooks
+
+```
+lib/
+└── hooks/
+    ├── query-keys.ts              # Claves centralizadas de React Query
+    ├── prefetch-helpers.ts        # Estrategias de prefetching
+    ├── actividades/
+    │   ├── use-requirements.ts    # Hook de listados (React Query)
+    │   └── use-requirement-form.ts # Hook de formulario (React Hook Form)
+    └── mantencion/
+        ├── use-requests.ts
+        └── use-request-form.ts
+```
+
+### Anatomía de un Hook de Formulario
+
+```typescript
+// lib/hooks/actividades/use-requirement-form.ts
+export function useRequirementForm({
+  initialData,
+  catalogs,
+  currentUser,
+  isEditing = false,
+}: UseRequirementFormProps) {
+  // 1. Computar valores por defecto (useMemo)
+  const defaultValues = useMemo(() => {...}, [initialData, catalogs]);
+
+  // 2. Inicializar formulario
+  const methods = useForm<CrearRequerimientoData>({
+    resolver: zodResolver(crearRequerimientoSchema),
+    defaultValues,
+  });
+
+  // 3. Handlers especializados
+  const handleMasterActivitySelect = useCallback((masterId: string) => {
+    const master = catalogs.masterActivityNames.find(m => m.id === masterId);
+    setValue("title", master.name);
+    setValue("description", master.defaultDescription);
+  }, [catalogs, setValue]);
+
+  // 4. Validaciones custom
+  const validateDates = useCallback(() => {
+    const estimatedDate = watch("estimatedDate");
+    const activities = watch("actividades");
+    // Lógica de validación...
+  }, [watch]);
+
+  // 5. Retornar API del hook
+  return {
+    methods,
+    handlers: { handleMasterActivitySelect, addActivity, removeActivity },
+    validators: { validateDates, validateAmounts },
+    state: { isValid, isEditing },
+  };
+}
+```
+
+### Uso en Componentes
+
+```typescript
+// Componente simplificado
+export default function RequirementForm({ catalogs, currentUser }) {
+  const { methods, handlers, validators, state } = useRequirementForm({
+    catalogs,
+    currentUser,
+  });
+
+  return (
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(onSubmit)}>
+        {/* Formulario limpio sin lógica */}
+      </form>
+    </FormProvider>
+  );
+}
+```
+
+### Beneficios
+
+- ✅ Componentes más livianos (< 300 líneas)
+- ✅ Lógica testeable de forma aislada
+- ✅ Reutilización entre Client/Desktop
+- ✅ Separación clara de concerns
+
+## 18. Query Keys y Prefetching Estratégico
+
+Para optimizar el rendimiento percibido (perceived performance), se debe implementar una estrategia de **prefetching inteligente** con React Query.
+
+### Query Keys Centralizadas
+
+```typescript
+// lib/hooks/query-keys.ts
+export const actividadesQueryKeys = {
+  all: ['actividades'] as const,
+  lists: () => [...actividadesQueryKeys.all, 'list'] as const,
+  list: (filters: Filters) => [...actividadesQueryKeys.lists(), filters] as const,
+  details: () => [...actividadesQueryKeys.all, 'detail'] as const,
+  detail: (id: string) => [...actividadesQueryKeys.details(), id] as const,
+  
+  catalogs: {
+    all: ['actividades', 'catalogs'] as const,
+    masterActivities: ['actividades', 'catalogs', 'master-activities'] as const,
+    users: ['actividades', 'catalogs', 'users'] as const,
+  },
+};
+```
+
+### Estrategias de Prefetching
+
+#### 1. Prefetching en Hover (Links)
+
+```typescript
+<Link 
+  href={`/actividades/${req.id}`}
+  onMouseEnter={() => {
+    queryClient.prefetchQuery({
+      queryKey: actividadesQueryKeys.detail(req.id),
+      queryFn: () => getRequirementDetail(req.id),
+    });
+  }}
+>
+  Ver Detalle
+</Link>
+```
+
+#### 2. Prefetching de Catálogos al Montar
+
+```typescript
+// app/(dashboard)/actividades/layout.tsx
+"use client";
+
+export default function ActividadesLayout({ children }) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Precargar catálogos al entrar al módulo
+    prefetchActivityCatalogs(queryClient);
+  }, [queryClient]);
+
+  return <>{children}</>;
+}
+```
+
+#### 3. Prefetching de Página Siguiente
+
+```typescript
+// En componente de listado
+useEffect(() => {
+  if (data?.total && currentPage * pageSize < data.total) {
+    // Precargar siguiente página
+    prefetchNextPage(queryClient, currentPage, filters);
+  }
+}, [currentPage, data, filters, queryClient]);
+```
+
+### Invalidación Granular
+
+```typescript
+// Helpers de invalidación
+export const queryInvalidation = {
+  invalidateRequirementLists: (queryClient: any) => {
+    queryClient.invalidateQueries({ 
+      queryKey: actividadesQueryKeys.lists() 
+    });
+  },
+  
+  invalidateRequirement: (queryClient: any, id: string) => {
+    queryClient.invalidateQueries({ 
+      queryKey: actividadesQueryKeys.detail(id) 
+    });
+  },
+};
+```
+
+### Stale Times Configurados
+
+```typescript
+export const staleTimes = {
+  catalogs: 5 * 60 * 1000,    // 5 minutos (cambian poco)
+  lists: 30 * 1000,            // 30 segundos (actualizaciones frecuentes)
+  details: 60 * 1000,          // 1 minuto
+  realtime: 15 * 1000,         // 15 segundos (alta interactividad)
+};
+```
+
+### Beneficios
+
+- ✅ Navegación instantánea (perceived performance)
+- ✅ Invalidación granular (no refetch de todo)
+- ✅ Type-safety en query keys
+- ✅ Reducción de llamadas redundantes
+
+## 19. Aplicación de Mejoras en Futuros Módulos
+
+Todos los nuevos módulos desarrollados **DEBEN** seguir estas arquitecturas avanzadas desde el inicio:
+
+### Checklist de Implementación
+
+Al crear un nuevo módulo, asegurarse de implementar:
+
+- [ ] **Service Layer**: Crear servicio en `lib/services/[modulo]/` con lógica de negocio
+- [ ] **Custom Hooks**: Crear hooks composables en `lib/hooks/[modulo]/` para formularios
+- [ ] **Query Keys**: Definir query keys centralizadas en `lib/hooks/query-keys.ts`
+- [ ] **Prefetching**: Implementar estrategia de prefetch en hover y navegación
+- [ ] **Error Handling**: Usar errores de negocio personalizados (`BusinessRuleError`, `ValidationError`)
+- [ ] **Transacciones**: Usar `$transaction` para operaciones complejas
+- [ ] **Auditoría**: Registrar todas las acciones críticas con `AuditLogger`
+
+### Ejemplo de Estructura Completa
+
+```
+app/
+└── [nuevo-modulo]/
+    ├── layout.tsx                          # Layout con prefetch de catálogos
+    ├── page.tsx                            # Listado principal
+    ├── ingreso/
+    │   ├── page.tsx                        # Orquestador (Server Component)
+    │   ├── actions.ts                      # Thin wrappers a servicios
+    │   └── components/
+    │       ├── IngresoClient.tsx           # Vista móvil
+    │       └── IngresoDesktop.tsx          # Vista escritorio
+    └── [id]/
+        ├── page.tsx
+        └── components/
+            ├── DetalleClient.tsx
+            └── DetalleDesktop.tsx
+
+lib/
+├── services/
+│   └── [nuevo-modulo]/
+│       └── [entidad]-service.ts           # Lógica de negocio
+├── hooks/
+│   └── [nuevo-modulo]/
+│       ├── use-[entidades].ts             # Query hook (listados)
+│       └── use-[entidad]-form.ts          # Form hook (formularios)
+└── validations/
+    └── [nuevo-modulo].ts                  # Esquemas Zod
+
+components/
+└── [nuevo-modulo]/
+    └── [Componente].tsx
+```
+
+### Orden de Implementación Recomendado
+
+1. **Sprint 1**: Service Layer + Errores personalizados
+2. **Sprint 1**: Custom Hooks para formularios
+3. **Sprint 2**: Query Keys + Prefetching básico
+4. **Sprint 2**: Optimizaciones (prefetch avanzado, optimistic updates)
+5. **Sprint 3**: Testing unitario de servicios
+
+### Validación de Cumplimiento
+
+Antes de considerar un módulo "completo", verificar:
+
+- ✅ Server Actions < 100 líneas (lógica delegada a servicios)
+- ✅ Componentes de formulario < 300 líneas (lógica en hooks)
+- ✅ Todas las queries usan query keys centralizadas
+- ✅ Prefetching implementado en links principales
+- ✅ Transacciones atómicas para operaciones críticas
+- ✅ Auditoría en todas las mutaciones
+
+**Propósito**: Mantener la arquitectura escalable, testeable y mantenible a lo largo de todo el proyecto, evitando deuda técnica y facilitando el onboarding de nuevos desarrolladores.
+
+## 20. Sistema de Permisos por Módulo
+
+Para mantener la escalabilidad y consistencia al agregar nuevos módulos operativos con permisos y notificaciones:
+
+### Arquitectura de Permisos
+
+- **Centralización**: Todos los permisos operativos deben gestionarse desde `/mantenedores/usuarios/[id]` en una pestaña dedicada "Permisos por Módulo"
+- **Normalización**: Usar tablas relacionales (`modules`, `module_permissions`, `user_module_permissions`) en lugar de JSON en `app_setting`
+- **Service Layer**: Toda lógica de permisos debe pasar por `lib/services/permissions/module-permission-service.ts`
+- **Documentación**: Ver `docs/propuesta-sistema-permisos-centralizado.md` para diseño completo
+
+### Estructura de Base de Datos
+
+```prisma
+model Module {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  code        String   @unique  // 'actividades', 'mantencion', 'inventario'
+  name        String
+  icon        String?  // Nombre de icono Lucide
+  isActive    Boolean  @default(true)
+  emailEnabled Boolean @default(true)  // Switch global de notificaciones
+  
+  permissions          ModulePermission[]
+  userPermissions      UserModulePermission[]
+  notificationSettings ModuleNotificationSetting[]
+  approvalRules        ModuleApprovalRule[]
+}
+
+model ModulePermission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  moduleId    String
+  code        String   // 'autoriza', 'chequea', 'recepciona'
+  name        String
+  description String?
+  category    String?  // 'approval', 'operation', 'admin'
+  
+  module      Module   @relation(fields: [moduleId], references: [id])
+  userPermissions UserModulePermission[]
+  
+  @@unique([moduleId, code])
+}
+
+model UserModulePermission {
+  id           String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId       String
+  moduleId     String
+  permissionId String
+  grantedAt    DateTime @default(now())
+  grantedBy    String?
+  expiresAt    DateTime?
+  
+  user       User             @relation(fields: [userId], references: [id])
+  module     Module           @relation(fields: [moduleId], references: [id])
+  permission ModulePermission @relation(fields: [permissionId], references: [id])
+  
+  @@unique([userId, permissionId])
+}
+```
+
+### Agregar Permisos a un Nuevo Módulo
+
+1. **Crear el módulo** (en seed o migración):
+```typescript
+const inventario = await prisma.module.create({
+  data: {
+    code: 'inventario',
+    name: 'Inventario',
+    icon: 'Package',
+    displayOrder: 3,
+  },
+});
+```
+
+2. **Definir permisos del módulo**:
+```typescript
+await prisma.modulePermission.createMany({
+  data: [
+    {
+      moduleId: inventario.id,
+      code: 'gestiona_stock',
+      name: 'Gestionar Stock',
+      description: 'Puede ajustar inventario y realizar movimientos',
+      category: 'operation',
+    },
+    {
+      moduleId: inventario.id,
+      code: 'aprueba_compras',
+      name: 'Aprobar Órdenes de Compra',
+      description: 'Autoriza órdenes de compra mayores',
+      category: 'approval',
+    },
+  ],
+});
+```
+
+3. **Verificar permisos en código**:
+```typescript
+// En Server Actions o API Routes
+import { modulePermissionService } from '@/lib/services/permissions/module-permission-service';
+
+const hasPermission = await modulePermissionService.userHasPermission(
+  session.user.id,
+  'inventario',
+  'gestiona_stock'
+);
+
+if (!hasPermission) {
+  return { success: false, error: 'No autorizado' };
+}
+```
+
+### Service Layer de Permisos
+
+Crear `lib/services/permissions/module-permission-service.ts`:
+
+```typescript
+export class ModulePermissionService {
+  /**
+   * Verificar si un usuario tiene un permiso específico
+   */
+  async userHasPermission(
+    userId: string,
+    moduleCode: string,
+    permissionCode: string
+  ): Promise<boolean> {
+    const permission = await prisma.userModulePermission.findFirst({
+      where: {
+        userId,
+        module: { code: moduleCode },
+        permission: { code: permissionCode },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      }
+    });
+    return !!permission;
+  }
+
+  /**
+   * Obtener todos los permisos de un usuario en un módulo
+   */
+  async getUserPermissions(
+    userId: string,
+    moduleCode: string
+  ): Promise<string[]> {
+    const permissions = await prisma.userModulePermission.findMany({
+      where: {
+        userId,
+        module: { code: moduleCode },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      },
+      include: { permission: true }
+    });
+    return permissions.map(p => p.permission.code);
+  }
+
+  /**
+   * Otorgar permisos a un usuario
+   */
+  async grantPermissions(
+    userId: string,
+    moduleCode: string,
+    permissionCodes: string[],
+    grantedBy: string
+  ): Promise<void> {
+    const module = await prisma.module.findUnique({
+      where: { code: moduleCode },
+      include: { permissions: true }
+    });
+    if (!module) throw new Error('Módulo no encontrado');
+
+    const permissions = module.permissions.filter(p => 
+      permissionCodes.includes(p.code)
+    );
+
+    await prisma.$transaction(
+      permissions.map(perm =>
+        prisma.userModulePermission.upsert({
+          where: {
+            userId_permissionId: {
+              userId,
+              permissionId: perm.id
+            }
+          },
+          create: {
+            userId,
+            moduleId: module.id,
+            permissionId: perm.id,
+            grantedBy
+          },
+          update: {}
+        })
+      )
+    );
+  }
+}
+
+export const modulePermissionService = new ModulePermissionService();
+```
+
+### UI Centralizada
+
+Componente `PermissionsTab` en `/mantenedores/usuarios/[id]`:
+
+- **Tabs dinámicos**: Uno por cada módulo activo en `modules` table
+- **Categorización**: Agrupar permisos por `category` (Aprobaciones, Operaciones, Admin)
+- **Badge contador**: Mostrar cantidad de permisos activos por módulo
+- **Checkbox interactivo**: Toggle para otorgar/revocar permisos
+- **Descripción clara**: Cada permiso muestra su `name` y `description`
+
+### Notificaciones por Módulo
+
+Usar tabla `ModuleNotificationSetting`:
+
+```typescript
+model ModuleNotificationSetting {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  moduleId    String
+  eventKey    String   // 'onNewRequest', 'onApproval'
+  eventName   String
+  description String?
+  isEnabled   Boolean  @default(true)
+  recipients  Json?    // { type: 'role' | 'user', ids: [...] }
+  
+  module Module @relation(fields: [moduleId], references: [id])
+  
+  @@unique([moduleId, eventKey])
+}
+```
+
+**Gestión Centralizada**: Las notificaciones se administran desde `/mantenedores/notificaciones` con tabs dinámicos por módulo.
+
+**Switch Global por Módulo**: El modelo `Module` incluye el campo `emailEnabled` (Boolean, default: true) que actúa como master switch:
+- Cuando `emailEnabled = false`, todas las notificaciones del módulo están deshabilitadas, sin importar el estado individual de cada evento.
+- En el componente `ModuleNotificationsManager`, el switch global deshabilita visualmente todos los toggles de eventos cuando está apagado (opacity reducida, `disabled=true`).
+- API Endpoint: `PATCH /api/v1/notifications/modules/[moduleCode]/toggle-global` actualiza el campo `emailEnabled`.
+- Esta funcionalidad permite a los administradores deshabilitar todas las notificaciones de un módulo de golpe sin tener que desactivar cada evento individualmente.
+
+### Reglas de Aprobación
+
+Para reglas como "Aprobación Cruzada" de mantención:
+
+```typescript
+model ModuleApprovalRule {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  moduleId      String
+  ruleKey       String   // 'crossApproval', 'autoApproval'
+  ruleName      String
+  description   String?
+  isEnabled     Boolean  @default(false)
+  configuration Json?    // { crossApprovers: [userId] }
+  
+  module Module @relation(fields: [moduleId], references: [id])
+  
+  @@unique([moduleId, ruleKey])
+}
+```
+
+### Prohibiciones
+
+- ❌ **No** usar `app_setting` con JSON para nuevos permisos
+- ❌ **No** crear rutas `/[modulo]/configuracion/sistema` separadas
+- ❌ **No** duplicar lógica de permisos en cada módulo
+- ❌ **No** almacenar permisos como strings hardcodeados en el código
+
+### Ventajas
+
+- ✅ **Escalabilidad**: Agregar módulo = INSERT en tablas, sin código
+- ✅ **Auditoría**: `grantedBy`, `grantedAt` en cada permiso
+- ✅ **Integridad**: Foreign keys con CASCADE automático
+- ✅ **UX unificada**: Una sola ubicación para todos los permisos
+- ✅ **Expiración**: Campo `expiresAt` para permisos temporales
+- ✅ **Queries eficientes**: Índices y JOINs nativos vs parsing JSON
+
+**Propósito**: Eliminar la necesidad de refactoring al agregar nuevos módulos operativos, manteniendo una arquitectura limpia y escalable.
+### Sistema de Notificaciones Basado en Permisos
+
+El sistema de notificaciones implementa una arquitectura **multi-nivel** donde las notificaciones se envían automáticamente a los usuarios según sus permisos operativos, con capacidad de personalización individual.
+
+#### Arquitectura de Decisión
+
+```
+¿Módulo activo y emailEnabled? NO → No enviar
+                               SÍ ↓
+¿Notificación habilitada globalmente? NO → No enviar
+                                      SÍ ↓
+¿Usuario tiene algún permiso requerido? NO → No enviar
+                                         SÍ ↓
+¿Usuario tiene opt-out activo? SÍ → No enviar
+                                NO → ✅ ENVIAR
+```
+
+#### Estructura de Base de Datos
+
+```prisma
+model ModuleNotificationSetting {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()"))
+  moduleId            String
+  eventKey            String   // 'onNewRequest', 'onApproval'
+  eventName           String
+  description         String?
+  isEnabled           Boolean  @default(true)
+  requiredPermissions String[] // ['autoriza', 'chequea'] - Permisos que dan acceso
+  template            String?
+  
+  module Module @relation(fields: [moduleId], references: [id])
+  
+  @@unique([moduleId, eventKey])
+}
+
+model UserNotificationPreference {
+  id         String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId     String
+  moduleCode String
+  eventKey   String
+  isOptedOut Boolean  @default(false) // Usuario desactiva notificación para sí mismo
+  
+  user User @relation("UserNotificationPreferences", fields: [userId], references: [id])
+  
+  @@unique([userId, moduleCode, eventKey])
+}
+```
+
+#### Configuración Global (`/mantenedores/notificaciones` - Solo ADMIN)
+
+- Muestra **TODOS los módulos activos** en tabs dinámicos
+- Por cada evento de notificación:
+  - ✅ Habilitar/Deshabilitar globalmente
+  - ✅ **Vinculación a Permisos**: Define qué permisos dan acceso a recibir esa notificación
+  - Ejemplo: "Nuevo Requerimiento" → requiredPermissions: ["autoriza", "chequea"]
+- Switch global por módulo (`emailEnabled`) para deshabilitar todas las notificaciones del módulo de golpe
+
+#### Preferencias Personales (`/perfil/notificaciones` - Cada usuario)
+
+- **Filtrado Automático**: Solo muestra notificaciones donde el usuario tiene al menos uno de los permisos requeridos
+- **No puede activar** notificaciones deshabilitadas globalmente
+- **Puede hacer opt-out** de notificaciones específicas que le corresponden
+- Tabs dinámicos por módulo (solo módulos donde tiene permisos)
+
+#### Service Layer (`lib/services/notifications/notification-service.ts`)
+
+```typescript
+export class NotificationService {
+  /**
+   * Determina si un usuario debe recibir una notificación
+   */
+  async shouldUserReceiveNotification(
+    userId: string,
+    moduleCode: string,
+    eventKey: string
+  ): Promise<boolean>;
+
+  /**
+   * Obtiene configuración de notificaciones filtrada por permisos del usuario
+   */
+  async getUserNotificationConfig(userId: string): Promise<UserNotificationConfig[]>;
+
+  /**
+   * Establece preferencia de opt-out
+   */
+  async setUserNotificationPreference(
+    userId: string,
+    moduleCode: string,
+    eventKey: string,
+    isOptedOut: boolean
+  ): Promise<void>;
+
+  /**
+   * Obtiene IDs de usuarios que deben recibir una notificación (para envío masivo)
+   */
+  async getUsersForNotification(
+    moduleCode: string,
+    eventKey: string
+  ): Promise<string[]>;
+}
+```
+
+#### API Routes
+
+- `GET /api/v1/notifications/modules` - Módulos activos con notificaciones (para admin)
+- `PATCH /api/v1/notifications/modules/[moduleCode]/events/[eventKey]` - Toggle global de notificación
+- `PATCH /api/v1/notifications/modules/[moduleCode]/toggle-global` - Toggle switch maestro del módulo
+- `GET /api/v1/notifications/preferences` - Configuración personal del usuario actual
+- `PATCH /api/v1/notifications/preferences` - Actualizar opt-out personal
+
+#### Ejemplo de Vinculación Notificación-Permisos
+
+**Seed de Actividades:**
+```typescript
+{
+  eventKey: "onNewRequest",
+  eventName: "Nuevo Requerimiento",
+  isEnabled: true,
+  requiredPermissions: ["autoriza", "chequea", "revisa"], // Quienes pueden procesar
+}
+```
+
+**Seed de Mantención:**
+```typescript
+{
+  eventKey: "onApproval",
+  eventName: "Aprobaciones y Rechazos",
+  isEnabled: true,
+  requiredPermissions: ["aprueba", "aprobacion_cruzada"], // Quienes aprueban
+}
+```
+
+#### Escalabilidad Modular
+
+Al agregar un nuevo módulo (ej: Inventario):
+1. Crear módulo en tabla `modules`
+2. Crear permisos (`gestiona_stock`, `aprueba_compras`)
+3. Crear notificaciones **vinculadas a esos permisos**:
+   ```typescript
+   {
+     eventKey: "onLowStock",
+     requiredPermissions: ["gestiona_stock"],
+     isEnabled: true
+   }
+   ```
+4. **Sin tocar código**: Las interfaces ya muestran automáticamente:
+   - `/mantenedores/notificaciones`: Nueva tab con el módulo
+   - `/perfil/notificaciones`: Usuarios con permisos de inventario ven sus notificaciones
+
+#### Prohibiciones
+
+- ❌ **No** usar destinatarios por rol (todo se basa en permisos)
+- ❌ **No** hardcodear listas de usuarios en notificaciones
+- ❌ **No** crear configuraciones de notificaciones fuera de `module_notification_settings`
+- ❌ **No** permitir que usuarios activen notificaciones si no tienen los permisos requeridos
+
+#### Ventajas
+
+- ✅ **Precisión**: Solo reciben notificaciones quienes pueden actuar
+- ✅ **Autonomía**: Usuarios pueden personalizar sin afectar a otros
+- ✅ **Auditoría**: Historial completo de opt-outs
+- ✅ **Escalabilidad**: Agregar módulo = agregar registros, sin código
+- ✅ **Rendimiento**: Queries eficientes con índices en permisos y preferencias
+- ✅ **UX consistente**: Una sola ubicación para cada tipo de configuración

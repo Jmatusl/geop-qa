@@ -1,5 +1,5 @@
 import { getConsolidatedRequests, getExtendedConsolidatedCatalogs, getWorkRequirements } from "./actions";
-import ConsolidadoClient from "./components/ConsolidadoClient";
+import ConsolidadoWrapper from "./components/ConsolidadoWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,7 @@ export default async function ConsolidadoPage() {
 
   return (
     <div className="w-full">
-      <ConsolidadoClient initialData={requests} workRequirements={workRequirements} catalogs={catalogs} />
+      <ConsolidadoWrapper initialData={requests} workRequirements={workRequirements} catalogs={catalogs} />
     </div>
   );
 }

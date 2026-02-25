@@ -1,22 +1,13 @@
 import { redirect } from "next/navigation";
-import { verifySession } from "@/lib/auth/session";
-import { getUserNotificationPreferences } from "./actions";
-import { NotificacionesClient } from "./components/NotificacionesClient";
 
-export const metadata = {
-  title: "Mis Notificaciones | MantenimientoGEOP",
-  description: "Configure sus preferencias individuales de alertas y notificaciones.",
-};
-
-export default async function NotificacionesPage() {
-  const session = await verifySession();
-  if (!session) redirect("/login");
-
-  const initialPrefs = await getUserNotificationPreferences();
-
-  return (
-    <div className="w-full">
-      <NotificacionesClient initialPrefs={initialPrefs} />
-    </div>
-  );
+/**
+ * Redirección a la configuración global de notificaciones
+ * 
+ * Esta ruta redirige a /mantenedores/notificaciones donde se encuentra
+ * la configuración global de notificaciones para todos los módulos operativos.
+ * 
+ * Para preferencias personales, usar /perfil/notificaciones
+ */
+export default function NotificacionesPageRedirect() {
+  redirect("/mantenedores/notificaciones");
 }

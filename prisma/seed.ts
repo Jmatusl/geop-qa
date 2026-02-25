@@ -10,6 +10,7 @@ import { seedMantencion } from "./seeds/seed-mantencion";
 import { seedMantencionMock } from "./seeds/mock/seed-mantencion-mock";
 import { seedActividades } from "./seeds/seed-actividades";
 import { seedActividadesMock } from "./seeds/mock/seed-actividades-mock";
+import { seedModulesAndPermissions } from "./seeds/modules-permissions";
 
 const prisma = new PrismaClient();
 
@@ -28,6 +29,7 @@ async function main() {
     const adminUser = await seedAdmin(prisma, roles["ADMIN"].id);
     await seedSettings(prisma, adminUser.id);
     await seedEmailTemplates(prisma, adminUser.id);
+    await seedModulesAndPermissions(prisma);
     await seedMantencion(prisma);
     await seedActividades(prisma);
 

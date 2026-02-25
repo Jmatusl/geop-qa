@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import maintenanceConfig from "@/lib/config/ui/maintainers.json";
 import { ModalManageActivityEmails } from "./ModalManageActivityEmails";
 import { z } from "zod";
+import { formatRUT, cleanRUT } from "@/lib/utils/chile-utils";
 
 interface ActivityEmail {
   email: string;
@@ -141,7 +142,19 @@ export function SupplierForm({ mode, initialData, onCancel, onSuccess }: Supplie
                     <FormItem>
                       <FormLabel className="text-base">{formTexts?.field_rut}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ej: 76123456-K" {...field} className="h-11 w-full" autoComplete="off" />
+                        <Input 
+                          placeholder="Ej: 76.123.456-K" 
+                          value={formatRUT(field.value)}
+                          onChange={(e) => {
+                            const cleaned = cleanRUT(e.target.value);
+                            field.onChange(cleaned);
+                          }}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          className="h-11 w-full" 
+                          autoComplete="off" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

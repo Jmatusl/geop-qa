@@ -89,7 +89,18 @@ export const getColumns = ({ onEdit, onDelete, currentSort, onSort }: GetColumns
   {
     accessorKey: "rut",
     header: () => (SORTABLE_COLUMNS.rut ? <SortableHeader title="RUT" sortKey="rut" currentSort={currentSort} onSort={onSort} /> : "RUT"),
-    cell: ({ row }) => formatRUT(row.original.rut),
+    cell: ({ row }) => {
+      const user = row.original;
+      return (
+        <Button
+          variant="link"
+          className="p-0 h-auto font-normal text-blue-600 dark:text-blue-400 hover:underline"
+          onClick={() => onEdit(user)}
+        >
+          {formatRUT(user.rut)}
+        </Button>
+      );
+    },
   },
   {
     accessorFn: (row) => `${row.firstName} ${row.lastName}`,

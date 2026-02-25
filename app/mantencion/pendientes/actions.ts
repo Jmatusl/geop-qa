@@ -20,7 +20,7 @@ export async function getPendingRequests() {
 
   const where: any = {
     status: {
-      name: "PENDIENTE",
+      name: "Pendiente",
     },
   };
 
@@ -79,7 +79,7 @@ export async function approveRequest(requestId: string) {
 
   try {
     const statusAprobado = await prisma.mntRequestStatus.findUnique({
-      where: { name: "APROBADO" },
+      where: { name: "Aprobado" },
     });
 
     if (!statusAprobado) throw new Error("Estado APROBADO no encontrado");
@@ -134,7 +134,7 @@ export async function rejectRequest(requestId: string, reason: string) {
 
   try {
     const statusRechazado = await prisma.mntRequestStatus.findUnique({
-      where: { name: "RECHAZADO" },
+      where: { name: "Rechazado" },
     });
 
     if (!statusRechazado) throw new Error("Estado RECHAZADO no encontrado");

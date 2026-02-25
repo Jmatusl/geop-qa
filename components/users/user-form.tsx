@@ -31,6 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { User } from "@/components/users/users-table-columns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SessionList } from "@/components/profile/session-list";
+import { PermissionsTab } from "@/components/users/PermissionsTab";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { useSettings } from "@/lib/hooks/use-settings";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -205,6 +206,7 @@ export function UserForm({ mode, initialData, onCancel, onSuccess }: UserFormPro
             <TabsList className="mb-4">
               <TabsTrigger value="details">Detalles de Cuenta</TabsTrigger>
               {mode === "edit" && <TabsTrigger value="sessions">Sesiones Activas</TabsTrigger>}
+              {mode === "edit" && <TabsTrigger value="permissions">Permisos por Módulo</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="details">
@@ -583,6 +585,10 @@ export function UserForm({ mode, initialData, onCancel, onSuccess }: UserFormPro
             </TabsContent>
 
             <TabsContent value="sessions">{mode === "edit" && initialData && <SessionList isAdminView targetUserId={initialData.id} />}</TabsContent>
+            
+            <TabsContent value="permissions">
+              {mode === "edit" && initialData && <PermissionsTab userId={initialData.id} />}
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
