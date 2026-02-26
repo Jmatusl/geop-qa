@@ -731,6 +731,325 @@ CREATE TABLE "signatures" (
 );
 
 -- CreateTable
+CREATE TABLE "act_activity_types" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(100) NOT NULL,
+    "code" VARCHAR(10) NOT NULL,
+    "description" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "act_activity_types_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_priorities" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(50) NOT NULL,
+    "code" VARCHAR(10) NOT NULL,
+    "color_hex" VARCHAR(7) NOT NULL,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "act_priorities_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_status_reqs" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(50) NOT NULL,
+    "code" VARCHAR(20) NOT NULL,
+    "color_hex" VARCHAR(7),
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "act_status_reqs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_requirements" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "folio" SERIAL NOT NULL,
+    "folio_prefix" VARCHAR(10) NOT NULL DEFAULT 'REQ',
+    "title" VARCHAR(200),
+    "master_activity_name_id" UUID,
+    "master_activity_name_text" TEXT,
+    "description" TEXT NOT NULL,
+    "observations" TEXT,
+    "activity_type_id" UUID NOT NULL,
+    "priority_id" UUID NOT NULL,
+    "status_id" UUID NOT NULL,
+    "location_id" UUID,
+    "area_id" UUID,
+    "applicant_user_id" UUID,
+    "nombre_solicitante" VARCHAR(150),
+    "responsible_user_id" UUID,
+    "estimated_date" DATE,
+    "estimated_time" VARCHAR(10),
+    "estimated_value" DECIMAL(15,2) DEFAULT 0,
+    "is_approved" BOOLEAN NOT NULL DEFAULT false,
+    "approved_at" TIMESTAMPTZ(6),
+    "approved_by" UUID,
+    "created_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "user_check_requerido" BOOLEAN NOT NULL DEFAULT false,
+    "user_check_observaciones" TEXT,
+    "user_check_requerido_aprobado" BOOLEAN NOT NULL DEFAULT false,
+    "user_checked_by" UUID,
+    "user_checked_at" TIMESTAMPTZ(6),
+    "ship_id" UUID,
+
+    CONSTRAINT "act_requirements_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_emails_sent" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "requirement_id" UUID NOT NULL,
+    "requirement_folio" VARCHAR(50),
+    "provider_name" VARCHAR(255),
+    "recipient" VARCHAR(255) NOT NULL,
+    "subject" VARCHAR(500),
+    "sent_by_id" UUID NOT NULL,
+    "sent_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_emails_sent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_master_activity_names" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(200) NOT NULL,
+    "description" TEXT,
+    "default_location_id" UUID,
+    "default_area_id" UUID,
+    "default_applicant_user_id" UUID,
+    "default_description" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "act_master_activity_names_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_activities" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "requirement_id" UUID NOT NULL,
+    "name" VARCHAR(200) NOT NULL,
+    "activity_type_id" UUID,
+    "description" TEXT,
+    "location" VARCHAR(200),
+    "location_id" UUID,
+    "start_date" DATE,
+    "end_date" DATE,
+    "status_activity" VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+    "status_id" UUID,
+    "estimated_value" DECIMAL(15,2) DEFAULT 0,
+    "registered_time" INTEGER,
+    "responsible_user_id" UUID,
+    "supplier_id" UUID,
+    "observations" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "checked_at" TIMESTAMPTZ(6),
+    "checked_by" UUID,
+    "is_checked" BOOLEAN NOT NULL DEFAULT false,
+    "userId" UUID,
+
+    CONSTRAINT "act_activities_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_status_acts" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" VARCHAR(50) NOT NULL,
+    "code" VARCHAR(10) NOT NULL,
+    "color_hex" VARCHAR(7),
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "act_status_acts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_comments" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "requirement_id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "comment" TEXT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_comments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_attachments" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "requirement_id" UUID NOT NULL,
+    "storage_path" TEXT NOT NULL,
+    "public_url" TEXT NOT NULL,
+    "file_name" VARCHAR(255) NOT NULL,
+    "file_size" INTEGER,
+    "mime_type" VARCHAR(100),
+    "uploaded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_attachments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_activity_attachments" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "activity_id" UUID NOT NULL,
+    "storage_path" TEXT NOT NULL,
+    "public_url" TEXT NOT NULL,
+    "file_name" VARCHAR(255) NOT NULL,
+    "file_size" INTEGER,
+    "mime_type" VARCHAR(100),
+    "uploaded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_activity_attachments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_activity_receptions" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "activity_id" UUID NOT NULL,
+    "is_accepted" BOOLEAN NOT NULL DEFAULT false,
+    "comment" TEXT,
+    "received_by_id" UUID NOT NULL,
+    "received_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_activity_receptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_reception_evidences" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "reception_id" UUID NOT NULL,
+    "storage_path" TEXT NOT NULL,
+    "public_url" TEXT NOT NULL,
+    "file_size" INTEGER,
+    "mime_type" VARCHAR(50),
+    "captured_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_reception_evidences_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "act_timeline" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "requirement_id" UUID NOT NULL,
+    "changed_by" UUID NOT NULL,
+    "action" VARCHAR(50) NOT NULL,
+    "prev_status_id" UUID,
+    "new_status_id" UUID,
+    "comment" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "act_timeline_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "modules" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "code" VARCHAR(50) NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" TEXT,
+    "icon" VARCHAR(50),
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "email_enabled" BOOLEAN NOT NULL DEFAULT true,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "modules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "module_permissions" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "module_id" UUID NOT NULL,
+    "code" VARCHAR(50) NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" TEXT,
+    "category" VARCHAR(50),
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "module_permissions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_module_permissions" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" UUID NOT NULL,
+    "module_id" UUID NOT NULL,
+    "permission_id" UUID NOT NULL,
+    "granted_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "granted_by" UUID,
+    "expires_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "user_module_permissions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "module_notification_settings" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "module_id" UUID NOT NULL,
+    "event_key" VARCHAR(100) NOT NULL,
+    "event_name" VARCHAR(200) NOT NULL,
+    "description" TEXT,
+    "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+    "required_permissions" TEXT[],
+    "template" VARCHAR(100),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "module_notification_settings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "module_approval_rules" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "module_id" UUID NOT NULL,
+    "rule_key" VARCHAR(100) NOT NULL,
+    "rule_name" VARCHAR(200) NOT NULL,
+    "description" TEXT,
+    "is_enabled" BOOLEAN NOT NULL DEFAULT false,
+    "configuration" JSONB,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_by" UUID,
+
+    CONSTRAINT "module_approval_rules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_notification_preferences" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "user_id" UUID NOT NULL,
+    "module_code" VARCHAR(50) NOT NULL,
+    "event_key" VARCHAR(100) NOT NULL,
+    "is_opted_out" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "user_notification_preferences_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_ApplicantInstallations" (
     "A" UUID NOT NULL,
     "B" UUID NOT NULL
@@ -974,6 +1293,147 @@ CREATE UNIQUE INDEX "mnt_work_requirement_relations_work_requirement_id_request_
 CREATE INDEX "mnt_work_requirement_evidences_work_requirement_id_idx" ON "mnt_work_requirement_evidences"("work_requirement_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "act_activity_types_name_key" ON "act_activity_types"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_activity_types_code_key" ON "act_activity_types"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_priorities_name_key" ON "act_priorities"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_priorities_code_key" ON "act_priorities"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_status_reqs_name_key" ON "act_status_reqs"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_status_reqs_code_key" ON "act_status_reqs"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_requirements_folio_key" ON "act_requirements"("folio");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_status_id_idx" ON "act_requirements"("status_id");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_priority_id_idx" ON "act_requirements"("priority_id");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_activity_type_id_idx" ON "act_requirements"("activity_type_id");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_applicant_user_id_idx" ON "act_requirements"("applicant_user_id");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_responsible_user_id_idx" ON "act_requirements"("responsible_user_id");
+
+-- CreateIndex
+CREATE INDEX "act_requirements_area_id_idx" ON "act_requirements"("area_id");
+
+-- CreateIndex
+CREATE INDEX "act_emails_sent_requirement_id_idx" ON "act_emails_sent"("requirement_id");
+
+-- CreateIndex
+CREATE INDEX "act_emails_sent_sent_by_id_idx" ON "act_emails_sent"("sent_by_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_master_activity_names_name_key" ON "act_master_activity_names"("name");
+
+-- CreateIndex
+CREATE INDEX "act_activities_requirement_id_idx" ON "act_activities"("requirement_id");
+
+-- CreateIndex
+CREATE INDEX "act_activities_location_id_idx" ON "act_activities"("location_id");
+
+-- CreateIndex
+CREATE INDEX "act_activities_status_id_idx" ON "act_activities"("status_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_status_acts_name_key" ON "act_status_acts"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "act_status_acts_code_key" ON "act_status_acts"("code");
+
+-- CreateIndex
+CREATE INDEX "act_comments_requirement_id_idx" ON "act_comments"("requirement_id");
+
+-- CreateIndex
+CREATE INDEX "act_attachments_requirement_id_idx" ON "act_attachments"("requirement_id");
+
+-- CreateIndex
+CREATE INDEX "act_activity_attachments_activity_id_idx" ON "act_activity_attachments"("activity_id");
+
+-- CreateIndex
+CREATE INDEX "act_activity_receptions_activity_id_idx" ON "act_activity_receptions"("activity_id");
+
+-- CreateIndex
+CREATE INDEX "act_activity_receptions_received_by_id_idx" ON "act_activity_receptions"("received_by_id");
+
+-- CreateIndex
+CREATE INDEX "act_reception_evidences_reception_id_idx" ON "act_reception_evidences"("reception_id");
+
+-- CreateIndex
+CREATE INDEX "act_timeline_requirement_id_idx" ON "act_timeline"("requirement_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "modules_code_key" ON "modules"("code");
+
+-- CreateIndex
+CREATE INDEX "modules_code_idx" ON "modules"("code");
+
+-- CreateIndex
+CREATE INDEX "modules_is_active_idx" ON "modules"("is_active");
+
+-- CreateIndex
+CREATE INDEX "module_permissions_module_id_idx" ON "module_permissions"("module_id");
+
+-- CreateIndex
+CREATE INDEX "module_permissions_category_idx" ON "module_permissions"("category");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "module_permissions_module_id_code_key" ON "module_permissions"("module_id", "code");
+
+-- CreateIndex
+CREATE INDEX "user_module_permissions_user_id_idx" ON "user_module_permissions"("user_id");
+
+-- CreateIndex
+CREATE INDEX "user_module_permissions_module_id_idx" ON "user_module_permissions"("module_id");
+
+-- CreateIndex
+CREATE INDEX "user_module_permissions_permission_id_idx" ON "user_module_permissions"("permission_id");
+
+-- CreateIndex
+CREATE INDEX "user_module_permissions_expires_at_idx" ON "user_module_permissions"("expires_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_module_permissions_user_id_permission_id_key" ON "user_module_permissions"("user_id", "permission_id");
+
+-- CreateIndex
+CREATE INDEX "module_notification_settings_module_id_idx" ON "module_notification_settings"("module_id");
+
+-- CreateIndex
+CREATE INDEX "module_notification_settings_is_enabled_idx" ON "module_notification_settings"("is_enabled");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "module_notification_settings_module_id_event_key_key" ON "module_notification_settings"("module_id", "event_key");
+
+-- CreateIndex
+CREATE INDEX "module_approval_rules_module_id_idx" ON "module_approval_rules"("module_id");
+
+-- CreateIndex
+CREATE INDEX "module_approval_rules_is_enabled_idx" ON "module_approval_rules"("is_enabled");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "module_approval_rules_module_id_rule_key_key" ON "module_approval_rules"("module_id", "rule_key");
+
+-- CreateIndex
+CREATE INDEX "user_notification_preferences_user_id_idx" ON "user_notification_preferences"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_notification_preferences_user_id_module_code_event_key_key" ON "user_notification_preferences"("user_id", "module_code", "event_key");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "_ApplicantInstallations_AB_unique" ON "_ApplicantInstallations"("A", "B");
 
 -- CreateIndex
@@ -989,10 +1449,10 @@ ALTER TABLE "users" ADD CONSTRAINT "users_deactivated_by_fkey" FOREIGN KEY ("dea
 ALTER TABLE "users" ADD CONSTRAINT "users_deactivation_reason_id_fkey" FOREIGN KEY ("deactivation_reason_id") REFERENCES "user_deactivation_reasons"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1034,16 +1494,16 @@ ALTER TABLE "person_work_groups" ADD CONSTRAINT "person_work_groups_person_id_fk
 ALTER TABLE "person_work_groups" ADD CONSTRAINT "person_work_groups_work_group_id_fkey" FOREIGN KEY ("work_group_id") REFERENCES "work_groups"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "person_areas" ADD CONSTRAINT "person_areas_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "person_areas" ADD CONSTRAINT "person_areas_area_id_fkey" FOREIGN KEY ("area_id") REFERENCES "areas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "person_job_positions" ADD CONSTRAINT "person_job_positions_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "person_areas" ADD CONSTRAINT "person_areas_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "person_job_positions" ADD CONSTRAINT "person_job_positions_job_position_id_fkey" FOREIGN KEY ("job_position_id") REFERENCES "job_positions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "person_job_positions" ADD CONSTRAINT "person_job_positions_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "person_supervisors" ADD CONSTRAINT "person_supervisors_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "persons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1064,10 +1524,10 @@ ALTER TABLE "mnt_installations" ADD CONSTRAINT "mnt_installations_farming_center
 ALTER TABLE "mnt_systems" ADD CONSTRAINT "mnt_systems_area_id_fkey" FOREIGN KEY ("area_id") REFERENCES "mnt_areas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_equipments" ADD CONSTRAINT "mnt_equipments_system_id_fkey" FOREIGN KEY ("system_id") REFERENCES "mnt_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "mnt_equipments" ADD CONSTRAINT "mnt_equipments_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "mnt_installations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_equipments" ADD CONSTRAINT "mnt_equipments_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "mnt_installations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "mnt_equipments" ADD CONSTRAINT "mnt_equipments_system_id_fkey" FOREIGN KEY ("system_id") REFERENCES "mnt_systems"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_applicants" ADD CONSTRAINT "mnt_applicants_job_position_id_fkey" FOREIGN KEY ("job_position_id") REFERENCES "mnt_job_positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1076,10 +1536,10 @@ ALTER TABLE "mnt_applicants" ADD CONSTRAINT "mnt_applicants_job_position_id_fkey
 ALTER TABLE "mnt_applicants" ADD CONSTRAINT "mnt_applicants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_technical_responsibles" ADD CONSTRAINT "mnt_technical_responsibles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "mnt_technical_responsibles" ADD CONSTRAINT "mnt_technical_responsibles_area_id_fkey" FOREIGN KEY ("area_id") REFERENCES "mnt_areas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_technical_responsibles" ADD CONSTRAINT "mnt_technical_responsibles_area_id_fkey" FOREIGN KEY ("area_id") REFERENCES "mnt_areas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "mnt_technical_responsibles" ADD CONSTRAINT "mnt_technical_responsibles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_equipment_responsibles" ADD CONSTRAINT "mnt_equipment_responsibles_equipment_id_fkey" FOREIGN KEY ("equipment_id") REFERENCES "mnt_equipments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1091,25 +1551,25 @@ ALTER TABLE "mnt_equipment_responsibles" ADD CONSTRAINT "mnt_equipment_responsib
 ALTER TABLE "mnt_supply_items" ADD CONSTRAINT "mnt_supply_items_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "mnt_supply_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "mnt_installations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_equipment_id_fkey" FOREIGN KEY ("equipment_id") REFERENCES "mnt_equipments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_type_id_fkey" FOREIGN KEY ("type_id") REFERENCES "mnt_request_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "mnt_request_statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_applicant_id_fkey" FOREIGN KEY ("applicant_id") REFERENCES "mnt_applicants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_equipment_id_fkey" FOREIGN KEY ("equipment_id") REFERENCES "mnt_equipments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "mnt_installations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "mnt_request_statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mnt_requests" ADD CONSTRAINT "mnt_requests_type_id_fkey" FOREIGN KEY ("type_id") REFERENCES "mnt_request_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_request_evidences" ADD CONSTRAINT "mnt_request_evidences_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1118,25 +1578,28 @@ ALTER TABLE "mnt_request_evidences" ADD CONSTRAINT "mnt_request_evidences_reques
 ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_changed_by_fkey" FOREIGN KEY ("changed_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_new_status_id_fkey" FOREIGN KEY ("new_status_id") REFERENCES "mnt_request_statuses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_prev_status_id_fkey" FOREIGN KEY ("prev_status_id") REFERENCES "mnt_request_statuses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_new_status_id_fkey" FOREIGN KEY ("new_status_id") REFERENCES "mnt_request_statuses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "mnt_request_timeline" ADD CONSTRAINT "mnt_request_timeline_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_user_notification_preferences" ADD CONSTRAINT "mnt_user_notification_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_request_iterations" ADD CONSTRAINT "mnt_request_iterations_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "mnt_request_iterations" ADD CONSTRAINT "mnt_request_iterations_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "mnt_request_iterations" ADD CONSTRAINT "mnt_request_iterations_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "mnt_request_expenses" ADD CONSTRAINT "mnt_request_expenses_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mnt_work_requirements" ADD CONSTRAINT "mnt_work_requirements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_work_requirements" ADD CONSTRAINT "mnt_work_requirements_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "mnt_suppliers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1145,19 +1608,154 @@ ALTER TABLE "mnt_work_requirements" ADD CONSTRAINT "mnt_work_requirements_provid
 ALTER TABLE "mnt_work_requirements" ADD CONSTRAINT "mnt_work_requirements_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "mnt_work_requirement_statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "mnt_work_requirements" ADD CONSTRAINT "mnt_work_requirements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "mnt_work_requirement_relations" ADD CONSTRAINT "mnt_work_requirement_relations_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_work_requirement_relations" ADD CONSTRAINT "mnt_work_requirement_relations_work_requirement_id_fkey" FOREIGN KEY ("work_requirement_id") REFERENCES "mnt_work_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "mnt_work_requirement_relations" ADD CONSTRAINT "mnt_work_requirement_relations_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "mnt_requests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "mnt_work_requirement_evidences" ADD CONSTRAINT "mnt_work_requirement_evidences_work_requirement_id_fkey" FOREIGN KEY ("work_requirement_id") REFERENCES "mnt_work_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "signatures" ADD CONSTRAINT "signatures_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_activity_type_id_fkey" FOREIGN KEY ("activity_type_id") REFERENCES "act_activity_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_applicant_user_id_fkey" FOREIGN KEY ("applicant_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "mnt_activity_locations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_area_id_fkey" FOREIGN KEY ("area_id") REFERENCES "mnt_areas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_priority_id_fkey" FOREIGN KEY ("priority_id") REFERENCES "act_priorities"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_responsible_user_id_fkey" FOREIGN KEY ("responsible_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_user_checked_by_fkey" FOREIGN KEY ("user_checked_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_ship_id_fkey" FOREIGN KEY ("ship_id") REFERENCES "mnt_installations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "act_status_reqs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_requirements" ADD CONSTRAINT "act_requirements_master_activity_name_id_fkey" FOREIGN KEY ("master_activity_name_id") REFERENCES "act_master_activity_names"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_emails_sent" ADD CONSTRAINT "act_emails_sent_requirement_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "act_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_emails_sent" ADD CONSTRAINT "act_emails_sent_sent_by_id_fkey" FOREIGN KEY ("sent_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_master_activity_names" ADD CONSTRAINT "act_master_activity_names_default_area_id_fkey" FOREIGN KEY ("default_area_id") REFERENCES "mnt_areas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_master_activity_names" ADD CONSTRAINT "act_master_activity_names_default_applicant_user_id_fkey" FOREIGN KEY ("default_applicant_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_activity_type_id_fkey" FOREIGN KEY ("activity_type_id") REFERENCES "act_activity_types"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_checked_by_fkey" FOREIGN KEY ("checked_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_requirement_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "act_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_responsible_user_id_fkey" FOREIGN KEY ("responsible_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "mnt_suppliers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "mnt_activity_locations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activities" ADD CONSTRAINT "act_activities_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "act_status_acts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_comments" ADD CONSTRAINT "act_comments_requirement_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "act_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_comments" ADD CONSTRAINT "act_comments_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_attachments" ADD CONSTRAINT "act_attachments_requirement_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "act_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_attachments" ADD CONSTRAINT "act_attachments_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activity_attachments" ADD CONSTRAINT "act_activity_attachments_activity_id_fkey" FOREIGN KEY ("activity_id") REFERENCES "act_activities"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activity_attachments" ADD CONSTRAINT "act_activity_attachments_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activity_receptions" ADD CONSTRAINT "act_activity_receptions_activity_id_fkey" FOREIGN KEY ("activity_id") REFERENCES "act_activities"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_activity_receptions" ADD CONSTRAINT "act_activity_receptions_received_by_id_fkey" FOREIGN KEY ("received_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_reception_evidences" ADD CONSTRAINT "act_reception_evidences_reception_id_fkey" FOREIGN KEY ("reception_id") REFERENCES "act_activity_receptions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_timeline" ADD CONSTRAINT "act_timeline_changed_by_fkey" FOREIGN KEY ("changed_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_timeline" ADD CONSTRAINT "act_timeline_new_status_id_fkey" FOREIGN KEY ("new_status_id") REFERENCES "act_status_reqs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_timeline" ADD CONSTRAINT "act_timeline_prev_status_id_fkey" FOREIGN KEY ("prev_status_id") REFERENCES "act_status_reqs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "act_timeline" ADD CONSTRAINT "act_timeline_requirement_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "act_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "module_permissions" ADD CONSTRAINT "module_permissions_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "module_permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_granted_by_fkey" FOREIGN KEY ("granted_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "module_notification_settings" ADD CONSTRAINT "module_notification_settings_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "module_approval_rules" ADD CONSTRAINT "module_approval_rules_module_id_fkey" FOREIGN KEY ("module_id") REFERENCES "modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "module_approval_rules" ADD CONSTRAINT "module_approval_rules_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_notification_preferences" ADD CONSTRAINT "user_notification_preferences_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_ApplicantInstallations" ADD CONSTRAINT "_ApplicantInstallations_A_fkey" FOREIGN KEY ("A") REFERENCES "mnt_applicants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
