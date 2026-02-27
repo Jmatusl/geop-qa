@@ -2,7 +2,7 @@
  * Página: Listado de Solicitudes de Insumos
  * Archivo: app/insumos/listado/page.tsx
  *
- * Vista principal con estadísticas, búsqueda y tabla de solicitudes
+ * Vista principal con búsqueda y tabla de solicitudes
  */
 
 "use client";
@@ -10,7 +10,6 @@
 import { useState, useTransition } from "react";
 import { useSupplyRequests } from "@/lib/hooks/supply/use-supply-requests";
 import { useSupplyCatalogs } from "@/lib/hooks/supply/use-supply-catalogs";
-import { useSupplyDashboardKPIs } from "@/lib/hooks/supply/use-supply-dashboard";
 import { useQuery } from "@tanstack/react-query";
 import {
   useReactTable,
@@ -56,11 +55,6 @@ import {
   Search,
   Filter,
   Download,
-  ClipboardList,
-  Clock,
-  FileText,
-  CheckCircle2,
-  XCircle,
   TestTube2,
   Trash2,
 } from "lucide-react";
@@ -70,37 +64,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { crearSolicitudPrueba, limpiarDatosModulo } from "./actions";
 import RequestItemsModal from "./components/RequestItemsModal";
-
-// --------------- Tarjeta de estadística ---------------
-
-interface StatCardProps {
-  label: string;
-  value: number | undefined;
-  /** Clase Tailwind del color del número (ej: "text-amber-600") */
-  valueClass: string;
-  /** Clase Tailwind del fondo del ícono (ej: "bg-amber-100 dark:bg-amber-950") */
-  iconBgClass: string;
-  icon: React.ReactNode;
-  isLoading?: boolean;
-}
-
-function StatCard({ label, value, valueClass, iconBgClass, icon, isLoading }: StatCardProps) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-border shadow-sm p-4 flex items-center gap-4">
-      <div className={`rounded-lg p-2.5 ${iconBgClass}`}>
-        <div className={valueClass}>{icon}</div>
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground leading-tight">{label}</p>
-        {isLoading ? (
-          <Skeleton className="h-7 w-12 mt-1" />
-        ) : (
-          <p className={`text-2xl font-bold tabular-nums ${valueClass}`}>{value ?? 0}</p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // --------------- Página principal ---------------
 
@@ -139,7 +102,6 @@ export default function ListadoSolicitudesPage() {
 
   // Queries
   const { data, isLoading, isFetching, refetch } = useSupplyRequests(filters);
-  const { data: kpis, isLoading: kpisLoading } = useSupplyDashboardKPIs();
   const { installations } = useSupplyCatalogs();
   const { data: modulePermissions } = useQuery<string[]>({
     queryKey: ["permissions", "me", "insumos"],
@@ -291,50 +253,6 @@ export default function ListadoSolicitudesPage() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* ─── Tarjetas de estadísticas ─── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard
-          label="Total Solicitudes"
-          value={kpis?.totalRequests}
-          valueClass="text-slate-700 dark:text-slate-300"
-          iconBgClass="bg-slate-100 dark:bg-slate-800"
-          icon={<ClipboardList className="h-5 w-5" />}
-          isLoading={kpisLoading}
-        />
-        <StatCard
-          label="Pendientes"
-          value={kpis?.pendingRequests}
-          valueClass="text-amber-600 dark:text-amber-400"
-          iconBgClass="bg-amber-50 dark:bg-amber-950"
-          icon={<Clock className="h-5 w-5" />}
-          isLoading={kpisLoading}
-        />
-        <StatCard
-          label="En Cotización"
-          value={kpis?.inProcessRequests}
-          valueClass="text-blue-600 dark:text-blue-400"
-          iconBgClass="bg-blue-50 dark:bg-blue-950"
-          icon={<FileText className="h-5 w-5" />}
-          isLoading={kpisLoading}
-        />
-        <StatCard
-          label="Aprobadas"
-          value={kpis?.approvedRequests}
-          valueClass="text-emerald-600 dark:text-emerald-400"
-          iconBgClass="bg-emerald-50 dark:bg-emerald-950"
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          isLoading={kpisLoading}
-        />
-        <StatCard
-          label="Rechazadas"
-          value={kpis?.rejectedRequests}
-          valueClass="text-red-600 dark:text-red-400"
-          iconBgClass="bg-red-50 dark:bg-red-950"
-          icon={<XCircle className="h-5 w-5" />}
-          isLoading={kpisLoading}
-        />
       </div>
 
       {/* ─── Panel de tabla ─── */}

@@ -3,7 +3,37 @@ import { PrismaClient } from "@prisma/client";
 export async function cleanup(prisma: PrismaClient) {
   console.log("🧹 Limpiando base de datos (preservando estructura)...");
 
-  // Limpiar Actividades (Operacional - debe ir ANTES de usuarios)
+  // ============================================
+  // LIMPIAR MÓDULO DE INSUMOS (SUPPLY)
+  // ============================================
+  // Timeline y emails (sin FK salientes)
+  await prisma.supplyRequestTimeline.deleteMany();
+  await prisma.supplyQuotationEmailSent.deleteMany();
+
+  // Archivos adjuntos
+  await prisma.supplyRequestAttachment.deleteMany();
+  await prisma.supplyQuotationAttachment.deleteMany();
+
+  // Items de cotización (hijo de cotizaciones y request_items)
+  await prisma.supplyQuotationItem.deleteMany();
+
+  // Cotizaciones (hijo de solicitudes)
+  await prisma.supplyQuotation.deleteMany();
+
+  // Items de solicitud (hijo de solicitudes)
+  await prisma.supplyRequestItem.deleteMany();
+
+  // Solicitudes (tabla principal)  
+  await prisma.supplyRequest.deleteMany();
+
+  // Maestros de estados
+  await prisma.quotationStatusMaster.deleteMany();
+  await prisma.supplyItemStatusMaster.deleteMany();
+  await prisma.supplyRequestStatusMaster.deleteMany();
+
+  // ============================================
+  // LIMPIAR ACTIVIDADES
+  // ============================================
   // Hijos de actividades y requerimientos
   await prisma.actReceptionEvidence.deleteMany();
   await prisma.actActivityReception.deleteMany();
@@ -26,7 +56,9 @@ export async function cleanup(prisma: PrismaClient) {
   await prisma.actActivityType.deleteMany();
   await prisma.actMasterActivityName.deleteMany();
 
-  // Limpiar Mantención (Operacional y Maestros - excluyendo Config)
+  // ============================================
+  // LIMPIAR MANTENCIÓN
+  // ============================================
   // Hijos e interacciones inmediatos
   await prisma.mntRequestEvidence.deleteMany();
   await prisma.mntRequestTimeline.deleteMany();

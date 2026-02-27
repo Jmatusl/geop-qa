@@ -506,19 +506,11 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
 
   const insumosHijos = [
     {
-      key: "insumos-dashboard",
-      title: "Dashboard",
-      icon: "LayoutDashboard",
-      path: "/insumos",
-      order: 10,
-      roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
-    },
-    {
       key: "insumos-listado",
       title: "Listado",
       icon: "List",
       path: "/insumos/listado",
-      order: 20,
+      order: 10,
       roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
     },
     {
@@ -526,7 +518,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       title: "Nueva Solicitud",
       icon: "PlusCircle",
       path: "/insumos/ingreso",
-      order: 30,
+      order: 20,
       roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
     },
     {
@@ -534,7 +526,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       title: "Configuración",
       icon: "Sliders",
       path: "/insumos/configuracion",
-      order: 40,
+      order: 30,
       roles: ["ADMIN"],
     },
   ];
