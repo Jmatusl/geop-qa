@@ -22,80 +22,90 @@ model Role {
 }
 
 model User {
-  id                             String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                          String                         @unique @db.VarChar(255)
-  emailVerifiedAt                DateTime?                      @map("email_verified_at") @db.Timestamptz(6)
-  passwordHash                   String?                        @map("password_hash") @db.VarChar(255)
-  firstName                      String                         @map("first_name") @db.VarChar(100)
-  lastName                       String                         @map("last_name") @db.VarChar(100)
-  middleName                     String?                        @map("middle_name") @db.VarChar(100)
-  rut                            String?                        @unique @db.VarChar(12)
-  phone                          String?                        @db.VarChar(20)
-  experienceYears                Int?                           @map("experience_years")
-  avatarUrl                      String?                        @map("avatar_url")
-  avatarFile                     String?
-  mustChangePassword             Boolean                        @default(false) @map("must_change_password")
-  isActive                       Boolean                        @default(true) @map("is_active")
-  isDeactivated                  Boolean                        @default(false) @map("is_deactivated")
-  deactivationReasonId           String?                        @map("deactivation_reason_id") @db.Uuid
-  deactivationComment            String?                        @map("deactivation_comment")
-  deactivatedAt                  DateTime?                      @map("deactivated_at") @db.Timestamptz(6)
-  deactivatedById                String?                        @map("deactivated_by") @db.Uuid
-  lastLoginAt                    DateTime?                      @map("last_login_at") @db.Timestamptz(6)
-  lastLoginIp                    String?                        @map("last_login_ip")
-  failedLoginAttempts            Int                            @default(0) @map("failed_login_attempts")
-  lockedUntil                    DateTime?                      @map("locked_until") @db.Timestamptz(6)
-  createdAt                      DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                      DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdById                    String?                        @map("created_by") @db.Uuid
-  updatedById                    String?                        @map("updated_by") @db.Uuid
-  personId                       String?                        @unique @map("person_id") @db.Uuid
-  accessLogs                     AccessLog[]
-  actActivitiesChecked           ActActivity[]                  @relation("ActAct_CheckedBy")
-  actActivitiesAsResponsible     ActActivity[]                  @relation("ActAct_Responsible")
-  actActivities                  ActActivity[]
-  actAttachmentsUploaded         ActAttachment[]
-  actActivityAttachmentsUploaded ActActivityAttachment[]
-  actComments                    ActComment[]
-  actRequirementsAsApplicant     ActRequirement[]               @relation("ActReq_Applicant")
-  actRequirementsCreated         ActRequirement[]               @relation("ActReq_CreatedBy")
-  actRequirementsAsResponsible   ActRequirement[]               @relation("ActReq_Responsible")
-  actRequirementsApproved        ActRequirement[]               @relation("ActReq_ApprovedBy")
-  actRequirementsChecked         ActRequirement[]               @relation("ActReq_CheckedBy")
-  actEmailsSent                  ActEmailSent[]                 @relation("ActEmailSent_SentBy")
-  actReceptions                  ActActivityReception[]         @relation("ActReception_ReceivedBy")
-  actTimelineEntries             ActTimeline[]
-  activationTokens               ActivationToken[]
-  settingsUpdates                AppSetting[]
-  settingsAuditChanges           AppSettingAudit[]
-  emailTemplates                 EmailTemplate[]
-  menuAuditChanges               MenuAudit[]
-  mntApplicants                  MntApplicant?
-  mntRequestIterations           MntRequestIteration[]
-  mntRequestTimelines            MntRequestTimeline[]
-  mntRequestsApproved            MntRequest[]                   @relation("RequestApprovedBy")
-  mntRequestsCreated             MntRequest[]                   @relation("RequestCreatedBy")
-  mntTechnicalResponsibles       MntTechnicalResponsible?
-  mntNotificationPreference      MntUserNotificationPreference?
-  mntWorkRequirements            MntWorkRequirement[]           @relation("WR_CreatedBy")
-  passwordResetTokens            PasswordResetToken[]
-  sessions                       Session[]
-  signatures                     Signature[]
-  userIdentities                 UserIdentity[]
-  userRoles                      UserRole[]
-  modulePermissions              UserModulePermission[]
-  permissionsGranted             UserModulePermission[]         @relation("PermissionGrantedBy")
-  approvalRulesUpdated           ModuleApprovalRule[]           @relation("ApprovalRuleUpdatedBy")
-  createdBy                      User?                          @relation("UserCreatedBy", fields: [createdById], references: [id])
-  createdUsers                   User[]                         @relation("UserCreatedBy")
-  deactivatedBy                  User?                          @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
-  deactivatedUsers               User[]                         @relation("UserDeactivatedBy")
-  deactivationReason             UserDeactivationReason?        @relation(fields: [deactivationReasonId], references: [id])
-  person                         Person?                        @relation(fields: [personId], references: [id])
-  updatedBy                      User?                          @relation("UserUpdatedBy", fields: [updatedById], references: [id])
-  updatedUsers                   User[]                         @relation("UserUpdatedBy")
-  actMasterDefaultApplicant      ActMasterActivityName[]        @relation("ActMaster_DefaultApplicant")
-  notificationPreferences        UserNotificationPreference[]   @relation("UserNotificationPreferences")
+  id                                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                              String                         @unique @db.VarChar(255)
+  emailVerifiedAt                    DateTime?                      @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash                       String?                        @map("password_hash") @db.VarChar(255)
+  firstName                          String                         @map("first_name") @db.VarChar(100)
+  lastName                           String                         @map("last_name") @db.VarChar(100)
+  middleName                         String?                        @map("middle_name") @db.VarChar(100)
+  rut                                String?                        @unique @db.VarChar(12)
+  phone                              String?                        @db.VarChar(20)
+  experienceYears                    Int?                           @map("experience_years")
+  avatarUrl                          String?                        @map("avatar_url")
+  avatarFile                         String?
+  mustChangePassword                 Boolean                        @default(false) @map("must_change_password")
+  isActive                           Boolean                        @default(true) @map("is_active")
+  isDeactivated                      Boolean                        @default(false) @map("is_deactivated")
+  deactivationReasonId               String?                        @map("deactivation_reason_id") @db.Uuid
+  deactivationComment                String?                        @map("deactivation_comment")
+  deactivatedAt                      DateTime?                      @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedById                    String?                        @map("deactivated_by") @db.Uuid
+  lastLoginAt                        DateTime?                      @map("last_login_at") @db.Timestamptz(6)
+  lastLoginIp                        String?                        @map("last_login_ip")
+  failedLoginAttempts                Int                            @default(0) @map("failed_login_attempts")
+  lockedUntil                        DateTime?                      @map("locked_until") @db.Timestamptz(6)
+  createdAt                          DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                          DateTime                       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById                        String?                        @map("created_by") @db.Uuid
+  updatedById                        String?                        @map("updated_by") @db.Uuid
+  personId                           String?                        @unique @map("person_id") @db.Uuid
+  accessLogs                         AccessLog[]
+  actActivitiesChecked               ActActivity[]                  @relation("ActAct_CheckedBy")
+  actActivitiesAsResponsible         ActActivity[]                  @relation("ActAct_Responsible")
+  actActivities                      ActActivity[]
+  actAttachmentsUploaded             ActAttachment[]
+  actActivityAttachmentsUploaded     ActActivityAttachment[]
+  actComments                        ActComment[]
+  actRequirementsAsApplicant         ActRequirement[]               @relation("ActReq_Applicant")
+  actRequirementsCreated             ActRequirement[]               @relation("ActReq_CreatedBy")
+  actRequirementsAsResponsible       ActRequirement[]               @relation("ActReq_Responsible")
+  actRequirementsApproved            ActRequirement[]               @relation("ActReq_ApprovedBy")
+  actRequirementsChecked             ActRequirement[]               @relation("ActReq_CheckedBy")
+  actEmailsSent                      ActEmailSent[]                 @relation("ActEmailSent_SentBy")
+  actReceptions                      ActActivityReception[]         @relation("ActReception_ReceivedBy")
+  actTimelineEntries                 ActTimeline[]
+  activationTokens                   ActivationToken[]
+  settingsUpdates                    AppSetting[]
+  settingsAuditChanges               AppSettingAudit[]
+  emailTemplates                     EmailTemplate[]
+  menuAuditChanges                   MenuAudit[]
+  mntApplicants                      MntApplicant?
+  mntRequestIterations               MntRequestIteration[]
+  mntRequestTimelines                MntRequestTimeline[]
+  mntRequestsApproved                MntRequest[]                   @relation("RequestApprovedBy")
+  mntRequestsCreated                 MntRequest[]                   @relation("RequestCreatedBy")
+  mntTechnicalResponsibles           MntTechnicalResponsible?
+  mntNotificationPreference          MntUserNotificationPreference?
+  mntWorkRequirements                MntWorkRequirement[]           @relation("WR_CreatedBy")
+  passwordResetTokens                PasswordResetToken[]
+  sessions                           Session[]
+  signatures                         Signature[]
+  userIdentities                     UserIdentity[]
+  userRoles                          UserRole[]
+  modulePermissions                  UserModulePermission[]
+  permissionsGranted                 UserModulePermission[]         @relation("PermissionGrantedBy")
+  approvalRulesUpdated               ModuleApprovalRule[]           @relation("ApprovalRuleUpdatedBy")
+  createdBy                          User?                          @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers                       User[]                         @relation("UserCreatedBy")
+  deactivatedBy                      User?                          @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
+  deactivatedUsers                   User[]                         @relation("UserDeactivatedBy")
+  deactivationReason                 UserDeactivationReason?        @relation(fields: [deactivationReasonId], references: [id])
+  person                             Person?                        @relation(fields: [personId], references: [id])
+  updatedBy                          User?                          @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+  updatedUsers                       User[]                         @relation("UserUpdatedBy")
+  actMasterDefaultApplicant          ActMasterActivityName[]        @relation("ActMaster_DefaultApplicant")
+  notificationPreferences            UserNotificationPreference[]   @relation("UserNotificationPreferences")
+  supplyRequestsCreated              SupplyRequest[]                @relation("SupplyRequest_CreatedBy")
+  supplyQuotationsCreated            SupplyQuotation[]              @relation("SupplyQuotation_CreatedBy")
+  supplyQuotationsSent               SupplyQuotation[]              @relation("SupplyQuotation_SentBy")
+  supplyQuotationsReceived           SupplyQuotation[]              @relation("SupplyQuotation_ReceivedBy")
+  supplyQuotationsApproved           SupplyQuotation[]              @relation("SupplyQuotation_ApprovedBy")
+  supplyQuotationsRejected           SupplyQuotation[]              @relation("SupplyQuotation_RejectedBy")
+  supplyRequestAttachmentsUploaded   SupplyRequestAttachment[]      @relation("SupplyRequestAttachment_UploadedBy")
+  supplyQuotationAttachmentsUploaded SupplyQuotationAttachment[]    @relation("SupplyQuotationAttachment_UploadedBy")
+  supplyRequestTimelinesCreated      SupplyRequestTimeline[]        @relation("SupplyRequestTimeline_CreatedBy")
+  supplyQuotationEmailsSent          SupplyQuotationEmailSent[]     @relation("SupplyQuotationEmailSent_SentBy")
 
   @@index([email])
   @@index([rut])
@@ -485,6 +495,7 @@ model MntInstallation {
   requests         MntRequest[]
   applicants       MntApplicant[]    @relation("ApplicantInstallations")
   actRequirements  ActRequirement[]
+  supplyRequests   SupplyRequest[]   @relation("SupplyRequest_Installation")
 
   @@map("mnt_installations")
 }
@@ -615,6 +626,7 @@ model MntSupplier {
   updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   actActivities       ActActivity[]
   mntWorkRequirements MntWorkRequirement[]
+  supplyQuotations    SupplyQuotation[]    @relation("SupplyQuotation_Supplier")
 
   @@map("mnt_suppliers")
 }
@@ -674,13 +686,14 @@ model MntRequestStatus {
 }
 
 model MntSupplyCategory {
-  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String          @unique @db.VarChar(100)
-  description String?
-  isActive    Boolean         @default(true) @map("is_active")
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  items       MntSupplyItem[]
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String              @unique @db.VarChar(100)
+  description  String?
+  isActive     Boolean             @default(true) @map("is_active")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  items        MntSupplyItem[]
+  requestItems SupplyRequestItem[] @relation("SupplyRequestItem_Category")
 
   @@map("mnt_supply_categories")
 }
@@ -1302,4 +1315,293 @@ model UserNotificationPreference {
   @@unique([userId, moduleCode, eventKey])
   @@index([userId])
   @@map("user_notification_preferences")
+}
+
+// ============================================================================
+// MÓDULO: SOLICITUD DE INSUMOS
+// ============================================================================
+
+// ---------------------------
+// Maestros de Configuración
+// ---------------------------
+
+/// Maestro de Unidades de Medida (Kg, Litros, Unidades, Metros, etc.)
+model UnitMaster {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String   @unique @db.VarChar(10)
+  name             String   @db.VarChar(100)
+  symbol           String   @db.VarChar(10)
+  category         String   @db.VarChar(50) // mass, volume, length, quantity, time
+  description      String?
+  conversionFactor Float?   @map("conversion_factor") // Factor de conversión a unidad base
+  baseUnit         String?  @map("base_unit") @db.VarChar(10) // Unidad base de la categoría (ej: kg para masa)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("unit_master")
+}
+
+/// Estados de Solicitud (PENDIENTE, EN_PROCESO, APROBADA, RECHAZADA, ANULADA, FINALIZADA)
+model SupplyRequestStatusMaster {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String          @unique @db.VarChar(50)
+  name         String          @db.VarChar(100)
+  description  String?
+  color        String?         @db.VarChar(20) // Color para badges (slate, blue, emerald, red, amber)
+  icon         String?         @db.VarChar(50) // Icono Lucide
+  displayOrder Int             @default(0) @map("display_order")
+  isActive     Boolean         @default(true) @map("is_active")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requests     SupplyRequest[]
+
+  @@map("supply_request_status_master")
+}
+
+/// Estados de Items de Solicitud (PENDIENTE, COTIZADO, AUTORIZADO, APROBADO, RECHAZADO, ENTREGADO, NO_DISPONIBLE)
+model SupplyItemStatusMaster {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String              @unique @db.VarChar(50)
+  name         String              @db.VarChar(100)
+  description  String?
+  color        String?             @db.VarChar(20)
+  icon         String?             @db.VarChar(50)
+  displayOrder Int                 @default(0) @map("display_order")
+  isActive     Boolean             @default(true) @map("is_active")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  items        SupplyRequestItem[]
+
+  @@map("supply_item_status_master")
+}
+
+/// Estados de Cotización (PENDIENTE, ENVIADA, RECIBIDA, NO_COTIZADO, APROBADA, RECHAZADA)
+model QuotationStatusMaster {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String            @unique @db.VarChar(50)
+  name         String            @db.VarChar(100)
+  description  String?
+  color        String?           @db.VarChar(20)
+  icon         String?           @db.VarChar(50)
+  displayOrder Int               @default(0) @map("display_order")
+  isActive     Boolean           @default(true) @map("is_active")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  quotations   SupplyQuotation[]
+
+  @@map("quotation_status_master")
+}
+
+// ---------------------
+// Entidades Operativas
+// ---------------------
+
+/// Solicitud de Insumos
+model SupplyRequest {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio          String                    @unique @db.VarChar(50) // SR-0001, SR-0002...
+  title          String                    @db.VarChar(255)
+  description    String?
+  statusCode     String                    @map("status_code") @db.VarChar(50)
+  installationId String                    @map("installation_id") @db.Uuid
+  requestedDate  DateTime                  @map("requested_date") @db.Date // Fecha solicitada de entrega
+  priority       String                    @default("NORMAL") @db.VarChar(20) // BAJA, NORMAL, ALTA, URGENTE
+  justification  String? // Justificación de la solicitud
+  estimatedValue Decimal                   @default(0) @map("estimated_value") @db.Decimal(12, 2) // Valor estimado total
+  observations   String?
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String                    @map("created_by") @db.Uuid
+  // Relaciones
+  status         SupplyRequestStatusMaster @relation(fields: [statusCode], references: [code])
+  installation   MntInstallation           @relation("SupplyRequest_Installation", fields: [installationId], references: [id])
+  creator        User                      @relation("SupplyRequest_CreatedBy", fields: [createdBy], references: [id])
+  items          SupplyRequestItem[]
+  quotations     SupplyQuotation[]
+  attachments    SupplyRequestAttachment[]
+  timeline       SupplyRequestTimeline[]
+
+  @@index([folio])
+  @@index([statusCode])
+  @@index([installationId])
+  @@index([createdBy])
+  @@index([requestedDate])
+  @@index([priority])
+  @@map("supply_requests")
+}
+
+/// Item Individual de Solicitud
+model SupplyRequestItem {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId      String                 @map("request_id") @db.Uuid
+  categoryId     String                 @map("category_id") @db.Uuid
+  itemName       String                 @map("item_name") @db.VarChar(255)
+  quantity       Float
+  unit           String                 @default("UNI") @db.VarChar(50)
+  statusCode     String                 @map("status_code") @db.VarChar(50)
+  specifications String? // Especificaciones técnicas
+  estimatedPrice Float?                 @map("estimated_price") // Precio estimado (opcional)
+  observations   String?
+  displayOrder   Int                    @default(0) @map("display_order")
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Relaciones
+  request        SupplyRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  category       MntSupplyCategory      @relation("SupplyRequestItem_Category", fields: [categoryId], references: [id])
+  status         SupplyItemStatusMaster @relation(fields: [statusCode], references: [code])
+  quotationItems SupplyQuotationItem[]
+
+  @@index([requestId])
+  @@index([categoryId])
+  @@index([statusCode])
+  @@map("supply_request_items")
+}
+
+/// Cotización (puede contener múltiples items)
+model SupplyQuotation {
+  id                      String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio                   String                      @unique @db.VarChar(50) // COT-0001, COT-0002...
+  requestId               String                      @map("request_id") @db.Uuid
+  supplierId              String                      @map("supplier_id") @db.Uuid
+  statusCode              String                      @map("status_code") @db.VarChar(50)
+  quotationNumber         String?                     @map("quotation_number") @db.VarChar(100) // Número de cotización del proveedor
+  purchaseOrderNumber     String?                     @map("purchase_order_number") @db.VarChar(100) // Número de OC (solo cuando se aprueba)
+  quotationDate           DateTime?                   @map("quotation_date") @db.Date // Fecha de la cotización del proveedor
+  expirationDate          DateTime?                   @map("expiration_date") @db.Date // Fecha de vencimiento
+  totalAmount             Float?                      @map("total_amount") // Monto total de la cotización
+  observations            String? // Observaciones internas
+  observationsForSupplier String?                     @map("observations_for_supplier") // Observaciones para el proveedor
+  sentAt                  DateTime?                   @map("sent_at") @db.Timestamptz(6) // Fecha de envío al proveedor
+  sentBy                  String?                     @map("sent_by") @db.Uuid
+  receivedAt              DateTime?                   @map("received_at") @db.Timestamptz(6) // Fecha de recepción
+  receivedBy              String?                     @map("received_by") @db.Uuid
+  approvedAt              DateTime?                   @map("approved_at") @db.Timestamptz(6)
+  approvedBy              String?                     @map("approved_by") @db.Uuid
+  rejectedAt              DateTime?                   @map("rejected_at") @db.Timestamptz(6)
+  rejectedBy              String?                     @map("rejected_by") @db.Uuid
+  rejectionReason         String?                     @map("rejection_reason")
+  createdAt               DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy               String                      @map("created_by") @db.Uuid
+  // Relaciones
+  request                 SupplyRequest               @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  supplier                MntSupplier                 @relation("SupplyQuotation_Supplier", fields: [supplierId], references: [id])
+  status                  QuotationStatusMaster       @relation(fields: [statusCode], references: [code])
+  creator                 User                        @relation("SupplyQuotation_CreatedBy", fields: [createdBy], references: [id])
+  sender                  User?                       @relation("SupplyQuotation_SentBy", fields: [sentBy], references: [id])
+  receiver                User?                       @relation("SupplyQuotation_ReceivedBy", fields: [receivedBy], references: [id])
+  approver                User?                       @relation("SupplyQuotation_ApprovedBy", fields: [approvedBy], references: [id])
+  rejecter                User?                       @relation("SupplyQuotation_RejectedBy", fields: [rejectedBy], references: [id])
+  items                   SupplyQuotationItem[]
+  attachments             SupplyQuotationAttachment[]
+  emailsSent              SupplyQuotationEmailSent[]
+
+  @@index([folio])
+  @@index([requestId])
+  @@index([supplierId])
+  @@index([statusCode])
+  @@index([createdBy])
+  @@map("supply_quotations")
+}
+
+/// Item de Cotización (vincula item de solicitud con cotización específica)
+model SupplyQuotationItem {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationId    String            @map("quotation_id") @db.Uuid
+  requestItemId  String            @map("request_item_id") @db.Uuid
+  quotedQuantity Float             @map("quoted_quantity") // Cantidad cotizada
+  unitPrice      Float?            @map("unit_price") // Precio unitario (opcional)
+  subtotal       Float? // Subtotal (quotedQuantity * unitPrice)
+  supplierNotes  String?           @map("supplier_notes") // Notas del proveedor
+  displayOrder   Int               @default(0) @map("display_order")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Relaciones
+  quotation      SupplyQuotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  requestItem    SupplyRequestItem @relation(fields: [requestItemId], references: [id])
+
+  @@unique([quotationId, requestItemId])
+  @@index([quotationId])
+  @@index([requestItemId])
+  @@map("supply_quotation_items")
+}
+
+// ---------------------
+// Adjuntos y Auditoría
+// ---------------------
+
+/// Adjuntos de Solicitud
+model SupplyRequestAttachment {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId  String        @map("request_id") @db.Uuid
+  fileName   String        @map("file_name") @db.VarChar(255)
+  filePath   String        @map("file_path")
+  fileSize   Int           @map("file_size")
+  mimeType   String        @map("mime_type") @db.VarChar(100)
+  uploadedBy String        @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime      @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  // Relaciones
+  request    SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploader   User          @relation("SupplyRequestAttachment_UploadedBy", fields: [uploadedBy], references: [id])
+
+  @@index([requestId])
+  @@map("supply_request_attachments")
+}
+
+/// Adjuntos de Cotización
+model SupplyQuotationAttachment {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationId String          @map("quotation_id") @db.Uuid
+  fileName    String          @map("file_name") @db.VarChar(255)
+  filePath    String          @map("file_path")
+  fileSize    Int             @map("file_size")
+  mimeType    String          @map("mime_type") @db.VarChar(100)
+  uploadedBy  String          @map("uploaded_by") @db.Uuid
+  uploadedAt  DateTime        @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  // Relaciones
+  quotation   SupplyQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  uploader    User            @relation("SupplyQuotationAttachment_UploadedBy", fields: [uploadedBy], references: [id])
+
+  @@index([quotationId])
+  @@map("supply_quotation_attachments")
+}
+
+/// Timeline de Solicitud
+model SupplyRequestTimeline {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId   String        @map("request_id") @db.Uuid
+  action      String        @db.VarChar(100) // created, status_changed, item_added, quotation_sent, etc.
+  description String
+  metadata    Json?         @db.JsonB // Metadatos flexibles
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?       @map("created_by") @db.Uuid
+  // Relaciones
+  request     SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  creator     User?         @relation("SupplyRequestTimeline_CreatedBy", fields: [createdBy], references: [id])
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("supply_request_timeline")
+}
+
+/// Registro de Emails Enviados de Cotizaciones
+model SupplyQuotationEmailSent {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationId    String          @map("quotation_id") @db.Uuid
+  recipientEmail String          @map("recipient_email") @db.VarChar(255)
+  subject        String          @db.VarChar(500)
+  bodyHtml       String          @map("body_html")
+  attachedPdf    String?         @map("attached_pdf") // Path del PDF adjunto
+  sentAt         DateTime        @default(now()) @map("sent_at") @db.Timestamptz(6)
+  sentBy         String          @map("sent_by") @db.Uuid
+  status         String          @default("sent") @db.VarChar(20) // sent, failed, bounced
+  errorMessage   String?         @map("error_message")
+  // Relaciones
+  quotation      SupplyQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sender         User            @relation("SupplyQuotationEmailSent_SentBy", fields: [sentBy], references: [id])
+
+  @@index([quotationId])
+  @@index([sentAt])
+  @@map("supply_quotation_emails_sent")
 }

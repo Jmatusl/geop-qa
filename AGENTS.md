@@ -27,7 +27,7 @@ Este documento define las reglas de oro para el desarrollo del sistema. Deben se
   - **Componentes de Formulario**: Todos los inputs, selects y elementos interactivos dentro de un formulario deben ocupar el 100% del ancho de su contenedor (`w-full`) para garantizar alineación y consistencia visual.
   - **Padding en Contenedores**: Cuando se implemente un `container` como primer hijo de un `main` o layout principal, no debe incluir `p-4` por defecto a menos que se especifique lo contrario.
   - **Layouts de Módulos (Wrappers)**: Los layouts internos (`layout.tsx`) de cada módulo no deben aplicar paddings extensos ni clases restrictivas como `container mx-auto` por defecto. Deben permitir el paso del ancho completo (`w-full`) para que las páginas hijas gestionen su propia densidad de datos, evitando márgenes redundantes o "raros".
-  - **Modales y Diálogos**: Para formularios complejos o selectores extensos dentro de un `Dialog` o `Sheet`, se debe utilizar un ancho del **80% del viewport** (`max-w-[80vw]`) para maximizar el área de trabajo y evitar scroll innecesario en pantallas grandes.
+  - **Modales y Diálogos**: Para formularios complejos o selectores extensos dentro de un `Dialog` o `Sheet`, se debe utilizar explícitamente la clase `w-[80vw]! max-w-[80vw]!` para fijar el ancho al **80% del viewport** y maximizar el área de trabajo en pantallas grandes.
 - **Formularios**:
   - Desactivar autocompletado nativo (`autoComplete="off"`) en todos los campos sensibles o de gestión para evitar ruido visual.
   - **Gestión de RUT (Regla de Oro)**:

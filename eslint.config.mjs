@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Referencia legacy fuera de alcance de implementación actual:
+    "docs/componentes/**",
   ]),
 ]);
 

@@ -1,0 +1,161 @@
+{
+    "module": {
+        "code": "insumos",
+        "name": "Solicitud de Insumos",
+        "icon": "Package",
+        "description": "Sistema de gestión de solicitudes de insumos y materiales"
+    },
+    "routes": {
+        "base": "/insumos",
+        "dashboard": "/insumos",
+        "create": "/insumos/crear",
+        "list": "/insumos/listado",
+        "detail": "/insumos/[id]",
+        "config": "/insumos/configuracion"
+    },
+    "maintainers": {
+        "units": {
+            "route": "/mantenedores/unidades",
+            "name": "Unidades de Medida",
+            "icon": "Ruler",
+            "description": "Gestión de unidades de medida (Kg, L, M, UN, etc.)"
+        }
+    },
+    "permissions": {
+        "view": "insumos.view",
+        "create": "insumos.create",
+        "edit": "insumos.edit",
+        "delete": "insumos.delete",
+        "approve": "insumos.approve",
+        "quotation": {
+            "manage": "insumos.quotation.manage",
+            "send": "insumos.quotation.send",
+            "receive": "insumos.quotation.receive",
+            "approve": "insumos.quotation.approve"
+        }
+    },
+    "workflow": {
+        "initialStatus": "PENDIENTE",
+        "finalStatuses": [
+            "FINALIZADA",
+            "ANULADA",
+            "RECHAZADA"
+        ],
+        "requireApproval": true,
+        "autoNumbering": {
+            "enabled": true,
+            "prefix": "SI",
+            "format": "SI-{year}-{sequential}",
+            "quotationPrefix": "COT"
+        }
+    },
+    "ui": {
+        "priorities": [
+            {
+                "value": "BAJA",
+                "label": "Baja",
+                "color": "slate",
+                "icon": "ArrowDown"
+            },
+            {
+                "value": "NORMAL",
+                "label": "Normal",
+                "color": "blue",
+                "icon": "Minus"
+            },
+            {
+                "value": "ALTA",
+                "label": "Alta",
+                "color": "amber",
+                "icon": "ArrowUp"
+            },
+            {
+                "value": "URGENTE",
+                "label": "Urgente",
+                "color": "red",
+                "icon": "Zap"
+            }
+        ],
+        "dashboard": {
+            "showKPIs": true,
+            "showRecentRequests": true,
+            "showPendingQuotations": true,
+            "kpiRefreshInterval": 300000
+        },
+        "table": {
+            "defaultPageSize": 20,
+            "pageSizeOptions": [
+                10,
+                20,
+                30,
+                50,
+                100
+            ],
+            "enableFilters": true,
+            "enableSearch": true,
+            "enableExport": true
+        },
+        "form": {
+            "maxItems": 50,
+            "maxFileSize": 5242880,
+            "allowedFileTypes": [
+                ".pdf",
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".xlsx",
+                ".docx"
+            ],
+            "requireJustification": true,
+            "requireSpecifications": false
+        }
+    },
+    "email": {
+        "enabled": true,
+        "templates": {
+            "newRequest": "new-supply-request",
+            "quotationRequested": "quotation-requested",
+            "quotationReceived": "quotation-received",
+            "requestApproved": "supply-request-approved",
+            "requestRejected": "supply-request-rejected"
+        },
+        "notifications": {
+            "onNewRequest": true,
+            "onQuotationSent": true,
+            "onQuotationReceived": true,
+            "onApproval": true,
+            "onRejection": true
+        }
+    },
+    "quotation": {
+        "expirationDays": 30,
+        "allowMultipleSuppliers": true,
+        "requireMinimumQuotations": false,
+        "minimumQuotations": 3,
+        "autoMarkAsNoQuoted": {
+            "enabled": false,
+            "daysAfterSent": 15
+        }
+    },
+    "reports": {
+        "enabled": true,
+        "formats": [
+            "xlsx",
+            "pdf"
+        ],
+        "templates": {
+            "requestDetail": "supply-request-detail",
+            "quotationComparison": "quotation-comparison",
+            "monthlyReport": "monthly-supply-report"
+        }
+    },
+    "audit": {
+        "logCreation": true,
+        "logEdition": true,
+        "logStatusChange": true,
+        "logQuotationSent": true,
+        "logApproval": true,
+        "logRejection": true,
+        "retentionDays": 730
+    }
+}

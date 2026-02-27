@@ -72,7 +72,7 @@ export function ConfigurationDashboard({ categories }: ConfigurationDashboardPro
   return (
     <div className="animate-in fade-in duration-500 space-y-6">
       {/* ══ HEADER & SEARCH ══ */}
-      <div className="bg-white dark:bg-slate-900 border-b border-border sticky top-0 z-20 pb-4 px-4 lg:px-0 lg:bg-transparent lg:dark:bg-transparent lg:border-none lg:static">
+      <div className="bg-white dark:bg-slate-900 border-b border-border sticky top-0 z-20 pb-4 px-0 lg:px-0 lg:bg-transparent lg:dark:bg-transparent lg:border-none lg:static">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-5 pb-2">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-[#1e3a6e]/10 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
@@ -105,7 +105,7 @@ export function ConfigurationDashboard({ categories }: ConfigurationDashboardPro
       </div>
 
       {/* ══ VISTA MÓVIL (Lista filtrada) ══ */}
-      <div className="lg:hidden px-4 pb-8">
+      <div className="lg:hidden px-0 pb-8">
         {filteredAllItems.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {filteredAllItems.map((item) => (

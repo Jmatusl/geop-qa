@@ -11,6 +11,7 @@ import { seedMantencionMock } from "./seeds/mock/seed-mantencion-mock";
 import { seedActividades } from "./seeds/seed-actividades";
 import { seedActividadesMock } from "./seeds/mock/seed-actividades-mock";
 import { seedModulesAndPermissions } from "./seeds/modules-permissions";
+import { seedSupply } from "./seeds/seed-supply";
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,7 @@ async function main() {
     await seedModulesAndPermissions(prisma);
     await seedMantencion(prisma);
     await seedActividades(prisma);
+    await seedSupply(prisma);
 
     // 2. Mock (Solo si la flag está activa)
     if (isMockMode) {

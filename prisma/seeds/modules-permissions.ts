@@ -69,6 +69,22 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
     update: {},
   });
 
+  const insumos = await prismaClient.module.upsert({
+    where: { code: "insumos" },
+    create: {
+      code: "insumos",
+      name: "Solicitud de Insumos",
+      description: "Gestión de solicitudes de insumos, cotizaciones y compras",
+      icon: "ShoppingCart",
+      isActive: true,
+      emailEnabled: true,
+      displayOrder: 4,
+    },
+    update: {
+      emailEnabled: true,
+    },
+  });
+
   const reportes = await prismaClient.module.upsert({
     where: { code: "reportes" },
     create: {
@@ -78,7 +94,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       icon: "FileText",
       isActive: false, // Inactivo inicialmente
       emailEnabled: false, // Inactivo, notificaciones deshabilitadas
-      displayOrder: 4,
+      displayOrder: 5,
     },
     update: {},
   });
@@ -188,7 +204,67 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
   }
 
   // ============================================
-  // 4. NOTIFICACIONES DE ACTIVIDADES
+  // 4. PERMISOS DE INSUMOS
+  // ============================================
+
+  const insumosPermissions = [
+    {
+      moduleId: insumos.id,
+      code: "aprobar",
+      name: "Aprobar Solicitudes",
+      description: "Autoriza solicitudes de insumos",
+      category: "approval",
+      displayOrder: 1,
+    },
+    {
+      moduleId: insumos.id,
+      code: "gestionar_cotizaciones",
+      name: "Gestionar Cotizaciones",
+      description: "Puede gestionar cotizaciones de proveedores",
+      category: "operation",
+      displayOrder: 2,
+    },
+    {
+      moduleId: insumos.id,
+      code: "aprobar_cotizaciones",
+      name: "Aprobar Cotizaciones",
+      description: "Puede aprobar cotizaciones para orden de compra",
+      category: "approval",
+      displayOrder: 3,
+    },
+    {
+      moduleId: insumos.id,
+      code: "autorizar_cotizaciones",
+      name: "Autorizar Cotizaciones",
+      description: "Puede autorizar cotizaciones aprobadas para compra",
+      category: "approval",
+      displayOrder: 4,
+    },
+    {
+      moduleId: insumos.id,
+      code: "recepcionar_items",
+      name: "Recepcionar Items",
+      description: "Registra recepción de insumos comprados",
+      category: "operation",
+      displayOrder: 5,
+    },
+  ];
+
+  for (const perm of insumosPermissions) {
+    await prismaClient.modulePermission.upsert({
+      where: {
+        moduleId_code: {
+          moduleId: perm.moduleId,
+          code: perm.code,
+        },
+      },
+      create: perm,
+      update: {},
+    });
+  }
+
+  // ============================================
+  // 5. NOTIFICACIONES DE ACTIVIDADES
   // ============================================
 
   const actNotifications = [
@@ -341,12 +417,156 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
     update: {},
   });
 
+  // ============================================
+  // 7. NOTIFICACIONES DE INSUMOS
+  // ============================================
+
+  const insumosNotifications = [
+    {
+      moduleId: insumos.id,
+      eventKey: "onNewRequest",
+      eventName: "Nueva Solicitud",
+      description: "Notificar a los aprobadores cuando se registre una nueva solicitud de insumos",
+      isEnabled: true,
+      requiredPermissions: ["aprobar"],
+    },
+    {
+      moduleId: insumos.id,
+      eventKey: "onApproval",
+      eventName: "Aprobación / Rechazo",
+      description: "Informar al solicitante sobre la decisión del aprobador",
+      isEnabled: true,
+      requiredPermissions: ["aprobar"],
+    },
+    {
+      moduleId: insumos.id,
+      eventKey: "onQuotation",
+      eventName: "Cotización Recibida",
+      description: "Avisar cuando se reciba una cotización de proveedor",
+      isEnabled: true,
+      requiredPermissions: ["gestionar_cotizaciones", "aprobar_cotizaciones", "autorizar_cotizaciones"],
+    },
+    {
+      moduleId: insumos.id,
+      eventKey: "onPurchaseAuthorized",
+      eventName: "Compra Autorizada",
+      description: "Notificar al encargado de compras cuando se autorice una cotización",
+      isEnabled: true,
+      requiredPermissions: ["gestionar_cotizaciones"],
+    },
+    {
+      moduleId: insumos.id,
+      eventKey: "onDelivery",
+      eventName: "Recepción de Items",
+      description: "Notificar al solicitante cuando sus insumos sean recepcionados",
+      isEnabled: true,
+      requiredPermissions: ["recepcionar_items"],
+    },
+  ];
+
+  for (const notif of insumosNotifications) {
+    await prismaClient.moduleNotificationSetting.upsert({
+      where: {
+        moduleId_eventKey: {
+          moduleId: notif.moduleId,
+          eventKey: notif.eventKey,
+        },
+      },
+      create: notif,
+      update: {
+        requiredPermissions: notif.requiredPermissions,
+      },
+    });
+  }
+
+  // ============================================
+  // 8. MENÚ DEL MÓDULO DE INSUMOS
+  // ============================================
+
+  const existingInsumos = await prismaClient.menuItem.findUnique({ where: { key: "insumos" } });
+
+  let insumosParentId: string;
+  if (existingInsumos) {
+    insumosParentId = existingInsumos.id;
+  } else {
+    const insumosParent = await prismaClient.menuItem.create({
+      data: {
+        key: "insumos",
+        title: "Insumos",
+        icon: "ShoppingCart",
+        path: "/insumos",
+        enabled: true,
+        order: 40,
+        showIcon: true,
+        roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
+      },
+    });
+    insumosParentId = insumosParent.id;
+  }
+
+  const insumosHijos = [
+    {
+      key: "insumos-dashboard",
+      title: "Dashboard",
+      icon: "LayoutDashboard",
+      path: "/insumos",
+      order: 10,
+      roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+    },
+    {
+      key: "insumos-listado",
+      title: "Listado",
+      icon: "List",
+      path: "/insumos/listado",
+      order: 20,
+      roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
+    },
+    {
+      key: "insumos-ingreso",
+      title: "Nueva Solicitud",
+      icon: "PlusCircle",
+      path: "/insumos/ingreso",
+      order: 30,
+      roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
+    },
+    {
+      key: "insumos-configuracion",
+      title: "Configuración",
+      icon: "Sliders",
+      path: "/insumos/configuracion",
+      order: 40,
+      roles: ["ADMIN"],
+    },
+  ];
+
+  for (const hijo of insumosHijos) {
+    const existing = await prismaClient.menuItem.findUnique({ where: { key: hijo.key } });
+    if (!existing) {
+      await prismaClient.menuItem.create({
+        data: {
+          key: hijo.key,
+          title: hijo.title,
+          icon: hijo.icon,
+          path: hijo.path,
+          enabled: true,
+          order: hijo.order,
+          showIcon: true,
+          roles: hijo.roles,
+          parentId: insumosParentId,
+        },
+      });
+    }
+  }
+
+  console.log(`   ✓ Menú del módulo Insumos creado/actualizado`);
+
   const totalModules = await prismaClient.module.count();
   const totalPermissions = await prismaClient.modulePermission.count();
   const totalNotifications = await prismaClient.moduleNotificationSetting.count();
   const totalRules = await prismaClient.moduleApprovalRule.count();
+  const totalMenuItems = await prismaClient.menuItem.count();
 
-  console.log(`   ✓ ${totalModules} módulos, ${totalPermissions} permisos, ${totalNotifications} notificaciones, ${totalRules} reglas`);
+  console.log(`   ✓ ${totalModules} módulos, ${totalPermissions} permisos, ${totalNotifications} notificaciones, ${totalRules} reglas, ${totalMenuItems} ítems de menú`);
 }
 
 // ============================================

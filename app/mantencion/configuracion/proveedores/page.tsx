@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useSuppliers, useDeleteSupplier, Supplier, useSupplier } from "@/lib/hooks/mantencion/use-suppliers";
 import { getSuppliersColumns, SortDirection } from "./columns";
 import { SupplierForm } from "@/components/mantencion/supplier-form";
@@ -32,7 +32,9 @@ function DeleteAlertDialog({ open, onOpenChange, onConfirm, title, description }
 export default function SuppliersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const editId = searchParams.get("edit");
+  const createMode = searchParams.get("create") === "1";
   // @ts-ignore
   const { mnt_suppliers: texts } = maintenanceConfig;
   const [page, setPage] = useState(1);
@@ -44,23 +46,30 @@ export default function SuppliersPage() {
   const { data: itemToEdit, isLoading: isLoadingItem } = useSupplier(editId);
   const { mutate: deleteItem } = useDeleteSupplier();
 
-  const [externalMode, setExternalMode] = useState<"table" | "edit" | undefined>(editId ? "edit" : "table");
+  const [externalMode, setExternalMode] = useState<"table" | "create" | "edit" | undefined>(
+    editId ? "edit" : createMode ? "create" : "table"
+  );
   const [externalItem, setExternalItem] = useState<Supplier | null | undefined>(undefined);
 
   useEffect(() => {
     if (editId) {
       setExternalMode("edit");
       setExternalItem(itemToEdit || null);
+    } else if (createMode) {
+      setExternalMode("create");
+      setExternalItem(null);
     } else {
       setExternalMode("table");
       setExternalItem(null);
     }
-  }, [editId, itemToEdit]);
+  }, [editId, createMode, itemToEdit]);
 
-  const removeEditParam = () => {
+  const clearModeParams = () => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("edit");
-    router.replace(`?${params.toString()}`);
+    params.delete("create");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
     setExternalMode("table");
     setExternalItem(null);
   };
@@ -171,11 +180,11 @@ export default function SuppliersPage() {
               mode={mode}
               initialData={initialData}
               onCancel={() => {
-                if (editId) removeEditParam();
+                if (editId || createMode) clearModeParams();
                 onCancel();
               }}
               onSuccess={() => {
-                if (editId) removeEditParam();
+                if (editId || createMode) clearModeParams();
                 refetch();
                 onSuccess();
               }}

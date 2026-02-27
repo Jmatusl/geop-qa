@@ -128,7 +128,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="communications" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 max-w-4xl bg-muted/50 p-1">
+        <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-1">
           <TabsTrigger value="communications">Comunicación</TabsTrigger>
           <TabsTrigger value="system">Seguridad</TabsTrigger>
           <TabsTrigger value="integrations">Integración</TabsTrigger>

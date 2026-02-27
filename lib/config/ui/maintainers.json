@@ -368,5 +368,37 @@
             "field_evidence": "Evidencia Fotográfica (Opcional)",
             "button_submit": "Enviar Requerimiento"
         }
+    },
+    "unidades": {
+        "header": {
+            "title": "Unidades de Medida",
+            "description": "Configure las unidades de medida utilizadas en las solicitudes de insumos (Kg, Litros, Metros, Unidades, etc.)."
+        },
+        "actions": {
+            "add_new": "Nueva Unidad",
+            "search_placeholder": "Filtrar por código, nombre o símbolo..."
+        },
+        "form": {
+            "create_title": "Crear Unidad de Medida",
+            "edit_title": "Editar Unidad de Medida",
+            "description": "Defina una nueva unidad de medida para el sistema de solicitud de insumos.",
+            "field_code": "Código",
+            "field_name": "Nombre",
+            "field_symbol": "Símbolo",
+            "field_category": "Categoría",
+            "field_description": "Descripción",
+            "field_conversion_factor": "Factor de Conversión",
+            "field_base_unit": "Unidad Base",
+            "field_active": "Unidad Activa"
+        },
+        "table": {
+            "col_code": "Código",
+            "col_name": "Nombre",
+            "col_symbol": "Símbolo",
+            "col_category": "Categoría",
+            "col_conversion": "Factor Conv.",
+            "col_base_unit": "Unidad Base",
+            "col_status": "Estado"
+        }
     }
 }

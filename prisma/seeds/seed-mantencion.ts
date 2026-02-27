@@ -43,6 +43,8 @@ export async function seedMantencion(prisma: PrismaClient) {
 
   // 3. Categorías de Insumos (Opcional, básicas)
   const categories = [
+    { name: "Insumos y Materiales", description: "Materiales de construcción, ferretería y eléctricos." },
+    { name: "Víveres", description: "Alimentos, bebidas y productos de consumo." },
     { name: "Repuestos", description: "Piezas reemplazables." },
     { name: "Herramientas", description: "Útiles de trabajo." },
     { name: "Consumibles", description: "Lubricantes, paños, etc." },
