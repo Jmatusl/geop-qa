@@ -1,18 +1,18 @@
 /**
  * Query Keys - Actividades
- * 
+ *
  * Define las claves de React Query de manera centralizada y type-safe.
  * Facilita la invalidación granular y el prefetching estratégico.
- * 
+ *
  * @module QueryKeys
  */
 
 export const actividadesQueryKeys = {
   // Raíz de todas las queries de actividades
-  all: ['actividades'] as const,
+  all: ["actividades"] as const,
 
   // Listados
-  lists: () => [...actividadesQueryKeys.all, 'list'] as const,
+  lists: () => [...actividadesQueryKeys.all, "list"] as const,
   list: (filters: {
     page?: number;
     pageSize?: number;
@@ -26,70 +26,63 @@ export const actividadesQueryKeys = {
   }) => [...actividadesQueryKeys.lists(), filters] as const,
 
   // Detalles individuales
-  details: () => [...actividadesQueryKeys.all, 'detail'] as const,
+  details: () => [...actividadesQueryKeys.all, "detail"] as const,
   detail: (id: string) => [...actividadesQueryKeys.details(), id] as const,
 
   // Catálogos
   catalogs: {
-    all: ['actividades', 'catalogs'] as const,
-    activityTypes: ['actividades', 'catalogs', 'activity-types'] as const,
-    priorities: ['actividades', 'catalogs', 'priorities'] as const,
-    statuses: ['actividades', 'catalogs', 'statuses'] as const,
-    locations: ['actividades', 'catalogs', 'locations'] as const,
-    ships: ['actividades', 'catalogs', 'ships'] as const,
-    masterActivityNames: ['actividades', 'catalogs', 'master-activity-names'] as const,
-    areas: ['actividades', 'catalogs', 'areas'] as const,
-    suppliers: ['actividades', 'catalogs', 'suppliers'] as const,
-    users: ['actividades', 'catalogs', 'users'] as const,
+    all: ["actividades", "catalogs"] as const,
+    activityTypes: ["actividades", "catalogs", "activity-types"] as const,
+    priorities: ["actividades", "catalogs", "priorities"] as const,
+    statuses: ["actividades", "catalogs", "statuses"] as const,
+    locations: ["actividades", "catalogs", "locations"] as const,
+    ships: ["actividades", "catalogs", "ships"] as const,
+    masterActivityNames: ["actividades", "catalogs", "master-activity-names"] as const,
+    areas: ["actividades", "catalogs", "areas"] as const,
+    suppliers: ["actividades", "catalogs", "suppliers"] as const,
+    users: ["actividades", "catalogs", "users"] as const,
   },
 
   // Timeline y comentarios
-  timeline: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), 'timeline'] as const,
-  comments: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), 'comments'] as const,
+  timeline: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), "timeline"] as const,
+  comments: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), "comments"] as const,
 
   // Adjuntos
-  attachments: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), 'attachments'] as const,
+  attachments: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), "attachments"] as const,
 
   // Recepciones
-  receptions: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), 'receptions'] as const,
+  receptions: (requirementId: string) => [...actividadesQueryKeys.detail(requirementId), "receptions"] as const,
 };
 
 export const mantencionQueryKeys = {
   // Raíz de todas las queries de mantencion
-  all: ['mantencion'] as const,
+  all: ["mantencion"] as const,
 
   // Listados
-  lists: () => [...mantencionQueryKeys.all, 'list'] as const,
-  list: (filters: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    statusId?: string;
-    installationId?: string;
-    areaId?: string;
-  }) => [...mantencionQueryKeys.lists(), filters] as const,
+  lists: () => [...mantencionQueryKeys.all, "list"] as const,
+  list: (filters: { page?: number; pageSize?: number; search?: string; statusId?: string; installationId?: string; areaId?: string }) => [...mantencionQueryKeys.lists(), filters] as const,
 
   // Detalles
-  details: () => [...mantencionQueryKeys.all, 'detail'] as const,
+  details: () => [...mantencionQueryKeys.all, "detail"] as const,
   detail: (id: string) => [...mantencionQueryKeys.details(), id] as const,
 
   // Catálogos
   catalogs: {
-    all: ['mantencion', 'catalogs'] as const,
-    installations: ['mantencion', 'catalogs', 'installations'] as const,
-    areas: ['mantencion', 'catalogs', 'areas'] as const,
-    systems: ['mantencion', 'catalogs', 'systems'] as const,
-    equipments: ['mantencion', 'catalogs', 'equipments'] as const,
-    types: ['mantencion', 'catalogs', 'types'] as const,
-    applicants: ['mantencion', 'catalogs', 'applicants'] as const,
-    statuses: ['mantencion', 'catalogs', 'statuses'] as const,
+    all: ["mantencion", "catalogs"] as const,
+    installations: ["mantencion", "catalogs", "installations"] as const,
+    areas: ["mantencion", "catalogs", "areas"] as const,
+    systems: ["mantencion", "catalogs", "systems"] as const,
+    equipments: ["mantencion", "catalogs", "equipments"] as const,
+    types: ["mantencion", "catalogs", "types"] as const,
+    applicants: ["mantencion", "catalogs", "applicants"] as const,
+    statuses: ["mantencion", "catalogs", "statuses"] as const,
   },
 
   // Trabajo
   workReports: {
-    all: ['mantencion', 'work-reports'] as const,
+    all: ["mantencion", "work-reports"] as const,
     list: (filters: any) => [...mantencionQueryKeys.workReports.all, filters] as const,
-    detail: (id: string) => [...mantencionQueryKeys.workReports.all, 'detail', id] as const,
+    detail: (id: string) => [...mantencionQueryKeys.workReports.all, "detail", id] as const,
   },
 };
 
@@ -114,7 +107,7 @@ export const queryInvalidation = {
 
   // Invalidar un catálogo específico
   invalidateCatalog: (queryClient: any, catalogKey: keyof typeof actividadesQueryKeys.catalogs) => {
-    if (catalogKey === 'all') return;
+    if (catalogKey === "all") return;
     queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.catalogs[catalogKey] });
   },
 };
@@ -125,13 +118,51 @@ export const queryInvalidation = {
 export const staleTimes = {
   // Catálogos: 5 minutos (cambian poco)
   catalogs: 5 * 60 * 1000,
-  
+
   // Listados: 30 segundos (actualizaciones frecuentes)
   lists: 30 * 1000,
-  
+
   // Detalles: 1 minuto
   details: 60 * 1000,
-  
+
   // Timeline/Comentarios: 15 segundos (alta interactividad)
   realtime: 15 * 1000,
+};
+
+export const bodegaQueryKeys = {
+  all: ["bodega"] as const,
+  catalogs: {
+    all: ["bodega", "catalogs"] as const,
+    articles: ["bodega", "catalogs", "articles"] as const,
+    warehouses: ["bodega", "catalogs", "warehouses"] as const,
+    costCenters: ["bodega", "catalogs", "cost-centers"] as const,
+    adjustmentReasons: ["bodega", "catalogs", "adjustment-reasons"] as const,
+  },
+  movements: {
+    all: ["bodega", "movements"] as const,
+    lists: () => [...bodegaQueryKeys.movements.all, "list"] as const,
+    list: (filters: any) => [...bodegaQueryKeys.movements.lists(), filters] as const,
+    detail: (id: string) => [...bodegaQueryKeys.movements.all, "detail", id] as const,
+  },
+  lots: {
+    all: ["bodega", "lots"] as const,
+    lists: () => [...bodegaQueryKeys.lots.all, "list"] as const,
+    list: (filters: any) => [...bodegaQueryKeys.lots.lists(), filters] as const,
+  },
+  series: {
+    all: ["bodega", "serial_numbers"] as const,
+    lists: () => [...bodegaQueryKeys.series.all, "list"] as const,
+    list: (filters: any) => [...bodegaQueryKeys.series.lists(), filters] as const,
+  },
+  stock: {
+    all: ["bodega", "stock"] as const,
+    lists: () => [...bodegaQueryKeys.stock.all, "list"] as const,
+    list: (filters: any) => [...bodegaQueryKeys.stock.lists(), filters] as const,
+  },
+  internalRequests: {
+    all: ["bodega", "internal-requests"] as const,
+    lists: () => [...bodegaQueryKeys.internalRequests.all, "list"] as const,
+    list: (filters: any) => [...bodegaQueryKeys.internalRequests.lists(), filters] as const,
+    detail: (id: string) => [...bodegaQueryKeys.internalRequests.all, "detail", id] as const,
+  },
 };

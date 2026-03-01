@@ -1,0 +1,125 @@
+"use client";
+
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, Save, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { bodegaWarehouseSchema } from "@/lib/validations/bodega-master";
+
+const formSchema = bodegaWarehouseSchema;
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface WarehouseFormProps {
+  initialData?: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    location: string | null;
+    isActive: boolean;
+  };
+  onSubmit: (data: FormValues) => Promise<void>;
+  onCancel: () => void;
+  isLoading?: boolean;
+}
+
+export function WarehouseForm({ initialData, onSubmit, onCancel, isLoading = false }: WarehouseFormProps) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      code: "",
+      name: "",
+      description: "",
+      location: "",
+      isActive: true,
+    },
+  });
+
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        code: initialData.code,
+        name: initialData.name,
+        description: initialData.description || "",
+        location: initialData.location || "",
+        isActive: initialData.isActive,
+      });
+      return;
+    }
+
+    reset({
+      code: "",
+      name: "",
+      description: "",
+      location: "",
+      isActive: true,
+    });
+  }, [initialData, reset]);
+
+  const isActive = watch("isActive");
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-4 pb-20 lg:pb-0" autoComplete="off">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="code">Código</Label>
+          <Input id="code" {...register("code")} className="w-full" autoComplete="off" />
+          {errors.code ? <p className="text-sm text-destructive">{errors.code.message}</p> : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="location">Ubicación</Label>
+          <Input id="location" {...register("location")} className="w-full" autoComplete="off" />
+          {errors.location ? <p className="text-sm text-destructive">{errors.location.message}</p> : null}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="name">Nombre</Label>
+        <Input id="name" {...register("name")} className="w-full" autoComplete="off" />
+        {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Descripción</Label>
+        <Textarea id="description" {...register("description")} className="w-full" autoComplete="off" />
+        {errors.description ? <p className="text-sm text-destructive">{errors.description.message}</p> : null}
+      </div>
+
+      <div className="flex items-center justify-between rounded-xl border border-border p-4">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">Estado</p>
+          <p className="text-xs text-muted-foreground">Define si la bodega está operativa</p>
+        </div>
+        <Switch checked={isActive} onCheckedChange={(value) => setValue("isActive", value)} />
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg dark:bg-slate-900 lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+        <div className="flex w-full items-center gap-2 lg:justify-end">
+          <Button type="button" variant="outline" onClick={onCancel} className="w-full lg:w-auto">
+            <X className="mr-2 h-4 w-4" />
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isLoading} className="w-full bg-[#283c7f] text-white hover:bg-[#24366f] lg:w-auto">
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <Save className="mr-2 h-4 w-4 text-white" />}
+            Guardar
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+}

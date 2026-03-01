@@ -106,6 +106,14 @@ model User {
   supplyQuotationAttachmentsUploaded SupplyQuotationAttachment[]    @relation("SupplyQuotationAttachment_UploadedBy")
   supplyRequestTimelinesCreated      SupplyRequestTimeline[]        @relation("SupplyRequestTimeline_CreatedBy")
   supplyQuotationEmailsSent          SupplyQuotationEmailSent[]     @relation("SupplyQuotationEmailSent_SentBy")
+  bodegaInternalRequestsCreated      BodegaInternalRequest[]        @relation("BodegaInternalRequest_CreatedBy")
+  bodegaInternalRequestsRequested    BodegaInternalRequest[]        @relation("BodegaInternalRequest_RequestedBy")
+  bodegaInternalRequestLogsCreated   BodegaInternalRequestLog[]     @relation("BodegaInternalRequestLog_CreatedBy")
+  bodegaStockMovementsCreated        BodegaStockMovement[]          @relation("BodegaStockMovement_CreatedBy")
+  bodegaStockMovementsApproved       BodegaStockMovement[]          @relation("BodegaStockMovement_ApprovedBy")
+  bodegaReservationsCreated          BodegaReservation[]            @relation("BodegaReservation_CreatedBy")
+  bodegaLotsCreated                  BodegaLot[]                    @relation("BodegaLot_CreatedBy")
+  bodegaSerialNumbersCreated         BodegaSerialNumber[]           @relation("BodegaSerialNumber_CreatedBy")
 
   @@index([email])
   @@index([rut])
@@ -1604,4 +1612,330 @@ model SupplyQuotationEmailSent {
   @@index([quotationId])
   @@index([sentAt])
   @@map("supply_quotation_emails_sent")
+}
+
+// ============================================================================
+// MÓDULO: BODEGA
+// ============================================================================
+
+/// Estados de solicitud interna de bodega
+model BodegaInternalRequestStatusMaster {
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String                  @unique @db.VarChar(50)
+  name         String                  @db.VarChar(100)
+  description  String?
+  color        String?                 @db.VarChar(20)
+  icon         String?                 @db.VarChar(50)
+  displayOrder Int                     @default(0) @map("display_order")
+  isActive     Boolean                 @default(true) @map("is_active")
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  requests     BodegaInternalRequest[]
+
+  @@map("bodega_internal_request_status_master")
+}
+
+/// Bodega física
+model BodegaWarehouse {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String                  @unique @db.VarChar(30)
+  name          String                  @db.VarChar(120)
+  description   String?
+  location      String?
+  isActive      Boolean                 @default(true) @map("is_active")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  stocks        BodegaStock[]
+  requests      BodegaInternalRequest[]
+  movements     BodegaStockMovement[]
+  reservations  BodegaReservation[]
+  lots          BodegaLot[]
+  serialNumbers BodegaSerialNumber[]
+
+  @@index([isActive])
+  @@map("bodega_warehouses")
+}
+
+/// Maestro de artículos de bodega
+model BodegaArticle {
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String                      @unique @db.VarChar(50)
+  name             String                      @db.VarChar(255)
+  description      String?
+  partNumber       String?                     @map("part_number") @db.VarChar(100)
+  brand            String?                     @db.VarChar(100)
+  model            String?                     @db.VarChar(100)
+  internalCode     String?                     @map("internal_code") @db.VarChar(50)
+  articleType      String?                     @map("article_type") @db.VarChar(50)
+  quality          String?                     @db.VarChar(50)
+  isCritical       Boolean                     @default(false) @map("is_critical")
+  unit             String                      @default("UNI") @db.VarChar(20)
+  minimumStock     Decimal                     @default(0) @map("minimum_stock") @db.Decimal(14, 3)
+  isActive         Boolean                     @default(true) @map("is_active")
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  stocks           BodegaStock[]
+  requestItems     BodegaInternalRequestItem[]
+  movementItems    BodegaStockMovementItem[]
+  reservationItems BodegaReservation[]
+  lots             BodegaLot[]
+  serialNumbers    BodegaSerialNumber[]
+
+  @@index([isActive])
+  @@map("bodega_articles")
+}
+
+/// Existencia actual de artículo por bodega
+model BodegaStock {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  warehouseId      String          @map("warehouse_id") @db.Uuid
+  articleId        String          @map("article_id") @db.Uuid
+  quantity         Decimal         @default(0) @db.Decimal(14, 3)
+  reservedQuantity Decimal         @default(0) @map("reserved_quantity") @db.Decimal(14, 3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  warehouse        BodegaWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  article          BodegaArticle   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, articleId])
+  @@index([articleId])
+  @@map("bodega_stock")
+}
+
+/// Solicitud interna de bodega
+model BodegaInternalRequest {
+  id           String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio        String                            @unique @db.VarChar(50)
+  statusCode   String                            @map("status_code") @db.VarChar(50)
+  warehouseId  String                            @map("warehouse_id") @db.Uuid
+  title        String                            @db.VarChar(255)
+  description  String?
+  priority     String                            @default("NORMAL") @db.VarChar(20)
+  requiredDate DateTime?                         @map("required_date") @db.Date
+  observations String?
+  requestedBy  String                            @map("requested_by") @db.Uuid
+  createdBy    String                            @map("created_by") @db.Uuid
+  createdAt    DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status       BodegaInternalRequestStatusMaster @relation(fields: [statusCode], references: [code])
+  warehouse    BodegaWarehouse                   @relation(fields: [warehouseId], references: [id])
+  requester    User                              @relation("BodegaInternalRequest_RequestedBy", fields: [requestedBy], references: [id])
+  creator      User                              @relation("BodegaInternalRequest_CreatedBy", fields: [createdBy], references: [id])
+  items        BodegaInternalRequestItem[]
+  logs         BodegaInternalRequestLog[]
+  movements    BodegaStockMovement[]
+
+  @@index([statusCode])
+  @@index([warehouseId])
+  @@index([requestedBy])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("bodega_internal_requests")
+}
+
+/// Item de solicitud interna
+model BodegaInternalRequestItem {
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId         String                    @map("request_id") @db.Uuid
+  articleId         String                    @map("article_id") @db.Uuid
+  quantity          Decimal                   @db.Decimal(14, 3)
+  deliveredQuantity Decimal                   @default(0) @map("delivered_quantity") @db.Decimal(14, 3)
+  observations      String?
+  displayOrder      Int                       @default(0) @map("display_order")
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  request           BodegaInternalRequest     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  article           BodegaArticle             @relation(fields: [articleId], references: [id])
+  reservations      BodegaReservation[]
+  movementItems     BodegaStockMovementItem[]
+
+  @@index([requestId])
+  @@index([articleId])
+  @@map("bodega_internal_request_items")
+}
+
+/// Bitácora de solicitud interna
+model BodegaInternalRequestLog {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId   String                @map("request_id") @db.Uuid
+  action      String                @db.VarChar(100)
+  description String
+  metadata    Json?                 @db.JsonB
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?               @map("created_by") @db.Uuid
+  request     BodegaInternalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  creator     User?                 @relation("BodegaInternalRequestLog_CreatedBy", fields: [createdBy], references: [id])
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("bodega_internal_request_logs")
+}
+
+/// Movimiento de stock de bodega
+model BodegaStockMovement {
+  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio        String                    @unique @db.VarChar(50)
+  warehouseId  String                    @map("warehouse_id") @db.Uuid
+  requestId    String?                   @map("request_id") @db.Uuid
+  movementType String                    @map("movement_type") @db.VarChar(30) // INGRESO, SALIDA, AJUSTE, RESERVA, LIBERACION
+  status       String                    @default("PENDIENTE") @db.VarChar(30) // PENDIENTE, APROBADO, RECHAZADO, APLICADO
+  reason       String?
+  observations String?
+  approvedAt   DateTime?                 @map("approved_at") @db.Timestamptz(6)
+  approvedBy   String?                   @map("approved_by") @db.Uuid
+  createdBy    String                    @map("created_by") @db.Uuid
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  warehouse    BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
+  request      BodegaInternalRequest?    @relation(fields: [requestId], references: [id])
+  approver     User?                     @relation("BodegaStockMovement_ApprovedBy", fields: [approvedBy], references: [id])
+  creator      User                      @relation("BodegaStockMovement_CreatedBy", fields: [createdBy], references: [id])
+  items        BodegaStockMovementItem[]
+
+  @@index([warehouseId])
+  @@index([requestId])
+  @@index([status])
+  @@index([movementType])
+  @@index([createdAt])
+  @@map("bodega_stock_movements")
+}
+
+/// Item de movimiento de stock
+model BodegaStockMovementItem {
+  id                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movementId           String                     @map("movement_id") @db.Uuid
+  requestItemId        String?                    @map("request_item_id") @db.Uuid
+  articleId            String                     @map("article_id") @db.Uuid
+  quantity             Decimal                    @db.Decimal(14, 3)
+  unitCost             Decimal?                   @map("unit_cost") @db.Decimal(14, 2)
+  initialBalance       Decimal?                   @map("initial_balance") @db.Decimal(14, 3)
+  currentBalance       Decimal?                   @map("current_balance") @db.Decimal(14, 3)
+  parentMovementItemId String?                    @map("parent_movement_item_id") @db.Uuid
+  location             String?                    @db.VarChar(150)
+  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  movement             BodegaStockMovement        @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  requestItem          BodegaInternalRequestItem? @relation(fields: [requestItemId], references: [id])
+  parentMovementItem   BodegaStockMovementItem?   @relation("BodegaStockMovementItem_Trazabilidad", fields: [parentMovementItemId], references: [id])
+  childMovementItems   BodegaStockMovementItem[]  @relation("BodegaStockMovementItem_Trazabilidad")
+  article              BodegaArticle              @relation(fields: [articleId], references: [id])
+  generatedLots        BodegaLot[]                @relation("BodegaLot_GeneratedFromMovementItem")
+  serialNumbers        BodegaSerialNumber[]       @relation("BodegaSerialNumber_SourceMovementItem")
+
+  @@index([movementId])
+  @@index([articleId])
+  @@index([requestItemId])
+  @@map("bodega_stock_movement_items")
+}
+
+/// Lote de inventario de bodega
+model BodegaLot {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String                   @unique @db.VarChar(80)
+  warehouseId          String                   @map("warehouse_id") @db.Uuid
+  articleId            String                   @map("article_id") @db.Uuid
+  sourceMovementItemId String?                  @map("source_movement_item_id") @db.Uuid
+  initialQuantity      Decimal                  @map("initial_quantity") @db.Decimal(14, 3)
+  currentQuantity      Decimal                  @default(0) @map("current_quantity") @db.Decimal(14, 3)
+  unitCost             Decimal?                 @map("unit_cost") @db.Decimal(14, 2)
+  manufactureDate      DateTime?                @map("manufacture_date") @db.Date
+  expirationDate       DateTime?                @map("expiration_date") @db.Date
+  provider             String?                  @db.VarChar(255)
+  invoiceNumber        String?                  @map("invoice_number") @db.VarChar(100)
+  status               String                   @default("ACTIVO") @db.VarChar(30) // ACTIVO, VENCIDO, AGOTADO, RETIRADO
+  observations         String?
+  createdBy            String                   @map("created_by") @db.Uuid
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
+  article              BodegaArticle            @relation(fields: [articleId], references: [id])
+  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaLot_GeneratedFromMovementItem", fields: [sourceMovementItemId], references: [id])
+  creator              User                     @relation("BodegaLot_CreatedBy", fields: [createdBy], references: [id])
+  serialNumbers        BodegaSerialNumber[]
+
+  @@index([warehouseId])
+  @@index([articleId])
+  @@index([status])
+  @@index([expirationDate])
+  @@index([createdAt])
+  @@map("bodega_lots")
+}
+
+/// Número de serie de inventario de bodega
+model BodegaSerialNumber {
+  id                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lotId                String                   @map("lot_id") @db.Uuid
+  warehouseId          String                   @map("warehouse_id") @db.Uuid
+  articleId            String                   @map("article_id") @db.Uuid
+  sourceMovementItemId String?                  @map("source_movement_item_id") @db.Uuid
+  serialNumber         String                   @unique @map("serial_number") @db.VarChar(120)
+  status               String                   @default("DISPONIBLE") @db.VarChar(30) // DISPONIBLE, RESERVADO, ENTREGADO, BAJA
+  notes                String?
+  createdBy            String                   @map("created_by") @db.Uuid
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lot                  BodegaLot                @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
+  article              BodegaArticle            @relation(fields: [articleId], references: [id])
+  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaSerialNumber_SourceMovementItem", fields: [sourceMovementItemId], references: [id])
+  creator              User                     @relation("BodegaSerialNumber_CreatedBy", fields: [createdBy], references: [id])
+
+  @@index([lotId])
+  @@index([warehouseId])
+  @@index([articleId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("bodega_serial_numbers")
+}
+
+/// Reserva de stock para solicitud
+model BodegaReservation {
+  id            String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestItemId String                    @map("request_item_id") @db.Uuid
+  warehouseId   String                    @map("warehouse_id") @db.Uuid
+  articleId     String                    @map("article_id") @db.Uuid
+  quantity      Decimal                   @db.Decimal(14, 3)
+  status        String                    @default("ACTIVA") @db.VarChar(20) // ACTIVA, LIBERADA, CONSUMIDA, VENCIDA
+  expiresAt     DateTime?                 @map("expires_at") @db.Timestamptz(6)
+  createdBy     String                    @map("created_by") @db.Uuid
+  createdAt     DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  releasedAt    DateTime?                 @map("released_at") @db.Timestamptz(6)
+  requestItem   BodegaInternalRequestItem @relation(fields: [requestItemId], references: [id], onDelete: Cascade)
+  warehouse     BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
+  article       BodegaArticle             @relation(fields: [articleId], references: [id])
+  creator       User                      @relation("BodegaReservation_CreatedBy", fields: [createdBy], references: [id])
+
+  @@index([requestItemId])
+  @@index([warehouseId])
+  @@index([articleId])
+  @@index([status])
+  @@map("bodega_reservations")
+}
+
+/// Centro de Costo (Añadido)
+model BodegaCostCenter {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([isActive])
+  @@map("bodega_cost_centers")
+}
+
+/// Motivos de Ajuste (Añadido)
+model BodegaAdjustmentReason {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(150)
+  type        String   @db.VarChar(30) // INGRESO or SALIDA
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([isActive])
+  @@index([type])
+  @@map("bodega_adjustment_reasons")
 }

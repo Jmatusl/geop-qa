@@ -1,0 +1,29 @@
+{
+    "quickActions": [
+        {
+            "key": "ingreso",
+            "label": "Ingreso Bodega",
+            "path": "/bodega/ingreso-bodega"
+        },
+        {
+            "key": "retiro",
+            "label": "Retiro Artículos",
+            "path": "/bodega/retiro-bodega"
+        },
+        {
+            "key": "movimiento",
+            "label": "Movimiento",
+            "path": "/bodega/movimiento-articulo"
+        },
+        {
+            "key": "stock",
+            "label": "Consulta Stock",
+            "path": "/bodega/consulta-rapida"
+        },
+        {
+            "key": "solicitudes",
+            "label": "Solicitudes",
+            "path": "/bodega/solicitudes-internas"
+        }
+    ]
+}
