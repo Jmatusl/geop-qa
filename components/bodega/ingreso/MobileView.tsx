@@ -10,15 +10,22 @@
 import React, { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, PackagePlus, Check, Loader2, Pencil, ChevronLeft, Warehouse, Camera, Image as ImageIcon, X, Info } from "lucide-react";
+import { Plus, Trash2, PackagePlus, Check, Loader2, Pencil, ChevronLeft, Warehouse, Camera, Image as ImageIcon, X, Info, Search, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useBodegaArticles, type BodegaArticle } from "@/lib/hooks/bodega/use-bodega-articles";
+import { CrearArticuloDialog } from "@/components/bodega/maestros/CrearArticuloDialog";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { BuscarArticulosPanel } from "../retiro/BuscarArticulosPanel";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { useBodegaAdjustmentReasons } from "@/lib/hooks/bodega/use-bodega-masters";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
 import { useCreateBodegaMovement } from "@/lib/hooks/bodega/use-bodega-movements";
 import { useBodegaCostCenters } from "@/lib/hooks/bodega/use-bodega-masters";
+import { ConfirmacionMovimientoModal } from "@/components/bodega/movimientos/ConfirmacionMovimientoModal";
 
 // ============================================================================
 // Tipos
@@ -52,6 +59,188 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
+/**
+ * SELECTOR DE ARTÍCULO PARA MÓVIL (COMBOBOX)
+ */
+function ArticuloSelectorMobile({
+  value,
+  onSelect,
+  articles,
+  onCreated,
+  placeholder = "Seleccionar artículo...",
+  triggerRef,
+}: {
+  value: string;
+  onSelect: (val: string) => void;
+  articles: BodegaArticle[];
+  onCreated: (nuevo?: BodegaArticle) => Promise<void>;
+  placeholder?: string;
+  triggerRef?: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showOnlyWithStock, setShowOnlyWithStock] = useState(true);
+  const selectedArt = articles.find((a) => a.id === value);
+  const internalRef = useRef<HTMLButtonElement>(null);
+  const activeRef = triggerRef || internalRef;
+
+  const filteredArticles = articles.filter((a) => {
+    // Primero el filtro de stock si está activo
+    if (showOnlyWithStock && (a.stock ?? 0) <= 0) return false;
+
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return a.code.toLowerCase().includes(term) || a.name.toLowerCase().includes(term);
+  });
+
+  const isRedundant = (code: string, name: string) => {
+    if (!code || !name) return false;
+    const c = code.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const n = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return n.startsWith(c) || c.startsWith(n) || n === c;
+  };
+
+  // Función para resaltar el término buscado
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) return <span>{text}</span>;
+    const parts = text.split(new RegExp(`(${highlight})`, "gi"));
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <mark key={i} className="bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-100 font-black p-0 rounded-sm">
+              {part}
+            </mark>
+          ) : (
+            part
+          ),
+        )}
+      </span>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <button
+            ref={activeRef}
+            type="button"
+            className="flex-1 flex items-center justify-between text-left px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 truncate shadow-sm transition-all active:scale-[0.98]"
+          >
+            <span className="truncate pr-2 font-bold uppercase text-[10px] tracking-tight">
+              {value && selectedArt ? (isRedundant(selectedArt.code, selectedArt.name) ? selectedArt.name : `[${selectedArt.code}] ${selectedArt.name}`) : placeholder}
+            </span>
+            <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
+          </button>
+        </DialogTrigger>
+        <DialogContent
+          className="p-0 border-none shadow-2xl h-auto max-h-[90dvh] sm:max-h-[85vh] flex flex-col overflow-hidden max-w-[98vw] rounded-2xl sm:rounded-2xl top-[4dvh] sm:top-1/2 translate-y-0 sm:-translate-y-1/2"
+          onCloseAutoFocus={(e) => {
+            // Si el foco ya se movió a un input (por nuestro onSelect), evitamos que el Dialog lo robe de vuelta al botón trigger
+            if (document.activeElement?.tagName === "INPUT") {
+              e.preventDefault();
+            }
+          }}
+        >
+          <DialogHeader className="p-3 border-b bg-white dark:bg-slate-950 sticky top-0 z-10 space-y-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Catálogo de Artículos</DialogTitle>
+              <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded-full border border-slate-100 dark:border-slate-800 transition-all active:scale-95">
+                <input
+                  type="checkbox"
+                  checked={showOnlyWithStock}
+                  onChange={(e) => setShowOnlyWithStock(e.target.checked)}
+                  className="w-3 h-3 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-[9px] font-black uppercase text-slate-500">Solo con Stock</span>
+              </label>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Buscar por código o nombre..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 text-xs font-bold uppercase bg-slate-50 dark:bg-slate-900 border-none focus-visible:ring-0"
+                autoFocus
+              />
+            </div>
+          </DialogHeader>
+          <div className="overflow-y-auto px-3 py-2 space-y-1.5 min-h-0 bg-slate-50/50 dark:bg-slate-900/10">
+            {filteredArticles.length === 0 ? (
+              <div className="py-20 text-center flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+                  <Search className="h-6 w-6 text-slate-300" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin resultados</p>
+                  {showOnlyWithStock && (
+                    <button onClick={() => setShowOnlyWithStock(false)} className="text-[9px] font-bold text-emerald-600 uppercase underline">
+                      Ver artículos sin stock
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              filteredArticles.map((a) => {
+                const redundant = isRedundant(a.code, a.name);
+                const hasStock = (a.stock ?? 0) > 0;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => {
+                      onSelect(a.id);
+                      setOpen(false);
+                      setSearchTerm("");
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-1 rounded-lg text-xs font-bold flex flex-col gap-0 transition-all border",
+                      value === a.id
+                        ? "bg-emerald-600 text-white shadow-lg border-emerald-500"
+                        : "bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border-slate-100 dark:border-slate-800",
+                    )}
+                  >
+                    <div className="flex items-center justify-between w-full h-3">
+                      {!redundant && (
+                        <span
+                          className={cn(
+                            "text-[8px] font-black tracking-tight px-1 py-0 rounded-md",
+                            value === a.id ? "bg-emerald-500/30 text-emerald-100" : "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
+                          )}
+                        >
+                          {highlightText(a.code, searchTerm)}
+                        </span>
+                      )}
+                      {a.stock !== undefined && (
+                        <span className={cn("text-[8px] font-extrabold uppercase", hasStock ? (value === a.id ? "text-white" : "text-emerald-500") : "text-slate-400")}>Stock: {a.stock}</span>
+                      )}
+                    </div>
+                    <span className="truncate text-[11px] font-extrabold uppercase leading-tight">{highlightText(a.name, searchTerm)}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <CrearArticuloDialog
+        trigger={
+          <button
+            type="button"
+            className="flex items-center justify-center h-9.5 w-9 shrink-0 rounded-lg border border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
+            title="Crear Artículo"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        }
+        onArticuloCreado={onCreated}
+      />
+    </div>
+  );
+}
+
 // ============================================================================
 // Componente — Tarjeta de Artículo (estilo legacy)
 // ============================================================================
@@ -60,35 +249,70 @@ function ArticuloCard({
   item,
   onUpdate,
   onRemove,
-  onOpenBuscador,
+  articles,
+  onRefetchArticles,
+  selectorRef,
+  quantityRef,
+  priceRef,
 }: {
   item: IngresoItem;
   onUpdate: (id: string, field: string, value: string) => void;
   onRemove: (id: string) => void;
-  onOpenBuscador: (itemId: string) => void;
+  articles: BodegaArticle[];
+  onRefetchArticles: () => Promise<any>;
+  selectorRef?: React.RefObject<HTMLButtonElement | null>;
+  quantityRef?: React.RefObject<HTMLInputElement | null>;
+  priceRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+    <div
+      id={`card-${item.id}`}
+      className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3 scroll-mt-20 transition-all duration-300 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/20 shadow-sm focus-within:shadow-md"
+    >
       {/* Selector de artículo */}
       <div>
-        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Artículo</label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenBuscador(item.id)}
-            className="flex-1 text-left px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 truncate"
-          >
-            {item.articuloNombre || "Seleccionar artículo..."}
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenBuscador(item.id)}
-            className="flex items-center justify-center w-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 dark:hover:bg-emerald-950/30 transition-colors"
-            title="Buscar artículo"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wide">Artículo</label>
+        <ArticuloSelectorMobile
+          value={item.articuloId}
+          articles={articles}
+          triggerRef={selectorRef}
+          onSelect={(val) => {
+            const art = articles.find((a) => a.id === val);
+            if (art) {
+              onUpdate(item.id, "articuloId", art.id);
+              onUpdate(item.id, "articuloNombre", art.name);
+              onUpdate(item.id, "articuloCodigo", art.code);
+              onUpdate(item.id, "unidad", art.unit || "uds");
+              // Al seleccionar, saltar a cantidad con un delay que permita cerrar el Dialog
+              setTimeout(() => {
+                if (quantityRef?.current) {
+                  quantityRef.current.focus();
+                  // Seleccionar el texto para sobreescribir rápido
+                  if (typeof quantityRef.current.select === "function") {
+                    quantityRef.current.select();
+                  }
+                }
+              }, 400);
+            }
+          }}
+          onCreated={async (nuevo) => {
+            if (nuevo) {
+              await onRefetchArticles();
+              onUpdate(item.id, "articuloId", nuevo.id);
+              onUpdate(item.id, "articuloNombre", nuevo.name);
+              onUpdate(item.id, "articuloCodigo", nuevo.code);
+              onUpdate(item.id, "unidad", nuevo.unit || "uds");
+              setTimeout(() => {
+                if (quantityRef?.current) {
+                  quantityRef.current.focus();
+                  if (typeof quantityRef.current.select === "function") {
+                    quantityRef.current.select();
+                  }
+                }
+              }, 400);
+            }
+          }}
+        />
       </div>
 
       {/* Cantidad y Valor Unit. */}
@@ -96,9 +320,17 @@ function ArticuloCard({
         <div>
           <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Cantidad</label>
           <input
+            ref={quantityRef}
             type="text"
             inputMode="numeric"
+            enterKeyHint="next"
             value={item.cantidad}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                priceRef?.current?.focus();
+              }
+            }}
             onChange={(e) => onUpdate(item.id, "cantidad", e.target.value.replace(/[^\d]/g, ""))}
             placeholder="0"
             className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm"
@@ -107,12 +339,19 @@ function ArticuloCard({
         <div>
           <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Valor Unit.</label>
           <input
+            ref={priceRef}
             type="text"
             inputMode="numeric"
+            enterKeyHint="done"
             value={item.precioUnitario}
-            onChange={(e) => onUpdate(item.id, "precioUnitario", e.target.value.replace(/[^\d]/g, ""))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
+            onChange={(e) => onUpdate(item.id, "precioUnitario", formatNumber(e.target.value))}
             placeholder="0"
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm"
+            className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold text-blue-600 dark:text-blue-400"
           />
         </div>
       </div>
@@ -136,8 +375,9 @@ export default function MobileView() {
   const { data: bodegasData } = useBodegaWarehouses(1, 100);
   const { data: costCentersData } = useBodegaCostCenters("", true);
   const { data: config } = useBodegaConfig();
+  const { data: articlesData, refetch: refetchArticles } = useBodegaArticles(1, 1000);
   const createMovement = useCreateBodegaMovement();
-
+  const articles = articlesData?.data || [];
   const bodegas = bodegasData?.data.filter((b) => b.isActive) || [];
   const costCenters = costCentersData?.data || [];
   const configGeneral = (config?.BODEGA_GENERAL_CONFIG ?? {}) as Record<string, any>;
@@ -163,8 +403,36 @@ export default function MobileView() {
 
   // ── Artículos ──────────────────────────────────────────────────────────────
   const [items, setItems] = useState<IngresoItem[]>([{ id: generateId(), articuloId: "", articuloNombre: "", articuloCodigo: "", cantidad: "", precioUnitario: "", unidad: "uds" }]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [targetItemId, setTargetItemId] = useState<string | null>(null);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const cardRefs = useRef<Record<string, { selector: React.RefObject<HTMLButtonElement | null>; quantity: React.RefObject<HTMLInputElement | null>; price: React.RefObject<HTMLInputElement | null> }>>(
+    {},
+  );
+
+  // Inicializar refs para los items existentes
+  items.forEach((item) => {
+    if (!cardRefs.current[item.id]) {
+      cardRefs.current[item.id] = {
+        selector: React.createRef<HTMLButtonElement | null>(),
+        quantity: React.createRef<HTMLInputElement | null>(),
+        price: React.createRef<HTMLInputElement | null>(),
+      };
+    }
+  });
+
+  // Scroll y foco automático al agregar item
+  React.useEffect(() => {
+    if (lastAddedId) {
+      const element = document.getElementById(`card-${lastAddedId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Foco en el selector del nuevo artículo
+        setTimeout(() => {
+          cardRefs.current[lastAddedId]?.selector.current?.focus();
+          setLastAddedId(null);
+        }, 500);
+      }
+    }
+  }, [lastAddedId]);
 
   // ── Evidencias ─────────────────────────────────────────────────────────────
   const [fotosEvidencia, setFotosEvidencia] = useState<string[]>([]);
@@ -190,42 +458,10 @@ export default function MobileView() {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
   };
 
-  const handleOpenBuscador = (itemId: string) => {
-    setTargetItemId(itemId);
-    setDialogOpen(true);
-  };
-
-  const handleSeleccionarArticulo = (articulo: any) => {
-    if (targetItemId) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === targetItemId ? { ...i, articuloId: articulo.id, articuloNombre: articulo.nombre || articulo.name || "", articuloCodigo: articulo.codigo || articulo.sku || "" } : i)),
-      );
-    } else {
-      // Sin target: modo "carrito" — agrega si no existe
-      const existe = items.find((i) => i.articuloId === articulo.id);
-      if (!existe) {
-        setItems((prev) => [
-          ...prev,
-          {
-            id: generateId(),
-            articuloId: articulo.id,
-            articuloNombre: articulo.nombre || articulo.name || "",
-            articuloCodigo: articulo.codigo || articulo.sku || "",
-            cantidad: "",
-            precioUnitario: "",
-            unidad: articulo.unidad || "uds",
-          },
-        ]);
-      } else {
-        toast.info("El artículo ya está en la lista");
-      }
-    }
-    setDialogOpen(false);
-    setTargetItemId(null);
-  };
-
   const handleAddItem = () => {
-    setItems((prev) => [...prev, { id: generateId(), articuloId: "", articuloNombre: "", articuloCodigo: "", cantidad: "", precioUnitario: "", unidad: "uds" }]);
+    const newId = generateId();
+    setItems((prev) => [...prev, { id: newId, articuloId: "", articuloNombre: "", articuloCodigo: "", cantidad: "", precioUnitario: "", unidad: "uds" }]);
+    setLastAddedId(newId);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -269,7 +505,7 @@ export default function MobileView() {
       const fd = new FormData();
       fd.append("file", resized, "evidencia.jpg");
       fd.append("path", "bodega/evidencias");
-      const res = await fetch("/api/uploads/r2-simple", { method: "POST", body: fd });
+      const res = await fetch("/api/v1/storage/r2-simple", { method: "POST", body: fd });
       if (!res.ok) throw new Error("Error al subir imagen");
       const data = await res.json();
       const url = data.data?.url || data.url;
@@ -291,25 +527,32 @@ export default function MobileView() {
     setSubmitting(true);
     try {
       const validItems = items.filter((i) => i.articuloId && parseNumber(i.cantidad) > 0);
-      for (const item of validItems) {
-        const obsArray = [
-          observaciones ? `Justificación: ${observaciones}` : null,
-          docReferencia ? `Doc. Ref: ${docReferencia}` : null,
-          numCotizacion ? `N° Cotización: ${numCotizacion}` : null,
-          guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
-          costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
-          parseNumber(item.precioUnitario) > 0 ? `P. Unitario: ${item.precioUnitario}` : null,
-        ].filter(Boolean);
 
-        await createMovement.mutateAsync({
-          movementType: "INGRESO",
-          warehouseId,
-          articleId: item.articuloId,
-          quantity: parseNumber(item.cantidad),
-          reason: observaciones,
-          observations: obsArray.join(" | "),
-        });
-      }
+      const movementItems = validItems.map((item) => ({
+        articleId: item.articuloId,
+        quantity: parseNumber(item.cantidad),
+        unitCost: parseNumber(item.precioUnitario),
+      }));
+
+      const obsArray = [
+        observaciones ? `Justificación: ${observaciones}` : null,
+        docReferencia ? `Doc. Ref: ${docReferencia}` : null,
+        numCotizacion ? `N° Cotización: ${numCotizacion}` : null,
+        guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+        costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
+      ].filter(Boolean);
+
+      await createMovement.mutateAsync({
+        movementType: "INGRESO",
+        warehouseId,
+        items: movementItems,
+        reason: observaciones,
+        externalReference: docReferencia || null,
+        observations: obsArray.join(" | "),
+        evidence: fotosEvidencia,
+        autoVerify: autoVerifyEnabled && verificacionAuto,
+      });
+
       toast.success("Ingreso completado con éxito");
       router.push("/bodega/movimientos");
     } catch (error: any) {
@@ -430,7 +673,7 @@ export default function MobileView() {
               type="button"
               onClick={() => setShowAdvancedRef(!showAdvancedRef)}
               className={cn(
-                "flex items-center justify-center w-10 h-[42px] rounded-lg border transition-colors",
+                "flex items-center justify-center w-10 h-10.5 rounded-lg border transition-colors",
                 showAdvancedRef ? "bg-emerald-600 border-emerald-600 text-white" : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-gray-100",
               )}
               title="Más campos de referencia"
@@ -446,7 +689,7 @@ export default function MobileView() {
               type="button"
               onClick={() => cameraInputRef.current?.click()}
               disabled={uploadingFoto}
-              className="flex items-center justify-center w-10 h-[42px] rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-gray-100 transition-colors"
+              className="flex items-center justify-center w-10 h-10.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-gray-100 transition-colors"
               title="Tomar foto"
             >
               {uploadingFoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
@@ -461,7 +704,7 @@ export default function MobileView() {
               }}
               disabled={uploadingFoto}
               className={cn(
-                "flex items-center justify-center w-10 h-[42px] rounded-lg border transition-colors relative",
+                "flex items-center justify-center w-10 h-10.5 rounded-lg border transition-colors relative",
                 fotosEvidencia.length > 0
                   ? "bg-green-50 border-green-200 text-green-600 dark:bg-green-900/20 dark:border-green-800"
                   : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:bg-gray-100",
@@ -572,7 +815,17 @@ export default function MobileView() {
         {/* ── LISTA DE ARTÍCULOS ── */}
         <div className="space-y-3">
           {items.map((item) => (
-            <ArticuloCard key={item.id} item={item} onUpdate={handleUpdateItem} onRemove={handleRemoveItem} onOpenBuscador={handleOpenBuscador} />
+            <ArticuloCard
+              key={item.id}
+              item={item}
+              onUpdate={handleUpdateItem}
+              onRemove={handleRemoveItem}
+              articles={articles}
+              onRefetchArticles={refetchArticles}
+              selectorRef={cardRefs.current[item.id]?.selector}
+              quantityRef={cardRefs.current[item.id]?.quantity}
+              priceRef={cardRefs.current[item.id]?.price}
+            />
           ))}
         </div>
 
@@ -607,56 +860,17 @@ export default function MobileView() {
         </div>
       </div>
 
-      {/* ── MODAL BUSCADOR DE ARTÍCULOS ── */}
-      <BuscarArticulosPanel
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        itemsAgregados={items.filter((i) => i.articuloId).map((i) => ({ articuloId: i.articuloId }) as any)}
-        onAddItem={handleSeleccionarArticulo}
-        mostrarBodegas={false}
-      />
-
       {/* ── MODAL CONFIRMACIÓN ── */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">¿Realizar el ingreso?</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Se ingresarán <strong>{validItems.length}</strong> artículo(s) en la bodega seleccionada.
-            </p>
-
-            <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 mb-4 cursor-pointer">
-              <div
-                className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${verificacionAuto ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600"}`}
-              >
-                {verificacionAuto && <Check className="w-3.5 h-3.5 text-white" />}
-              </div>
-              <input type="checkbox" checked={verificacionAuto} onChange={(e) => setVerificacionAuto(e.target.checked)} className="sr-only" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">Verificación automática al registrar</span>
-            </label>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                disabled={submitting}
-                className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm"
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmacionMovimientoModal
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        onConfirm={handleSubmit}
+        isPending={submitting}
+        tipo="INGRESO"
+        itemCount={validItems.length}
+        verificacionAuto={verificacionAuto}
+        onVerificacionAutoChange={setVerificacionAuto}
+      />
     </div>
   );
 }

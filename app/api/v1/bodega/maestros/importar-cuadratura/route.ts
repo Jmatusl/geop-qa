@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const hasPermission = await modulePermissionService.userHasPermission(
     session.user.id,
     "bodega",
-    "administrar_maestros"
+    "administrador_bodega"
   );
 
   if (!hasPermission) {

@@ -62,10 +62,11 @@ function getTipoColor(tipo: string): string {
 
 function getEstadoColor(estado: string): string {
   switch (estado) {
-    case "APLICADO":
     case "EJECUTADO":
-    case "COMPLETADO":
+    case "APLICADO":
       return "text-green-700 dark:text-green-400";
+    case "COMPLETADO":
+      return "text-purple-700 dark:text-purple-400";
     case "PENDIENTE":
     case "BORRADOR":
       return "text-yellow-700 dark:text-yellow-400";
@@ -312,7 +313,8 @@ export default function HistorialMobileView() {
                   <option value="">Todos</option>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="APROBADO">Aprobado</option>
-                  <option value="APLICADO">Aplicado</option>
+                  <option value="EJECUTADO">Ejecutado</option>
+                  <option value="COMPLETADO">Completado</option>
                   <option value="RECHAZADO">Rechazado</option>
                 </select>
               </div>

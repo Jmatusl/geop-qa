@@ -95,6 +95,10 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
     // Si no tiene submenú Y no tiene path, no renderizar (es un padre vacío)
     if (!hasSubmenu && !item.path) return null;
 
+    // Lógica de activo especializada para evitar duplicidad entre Resumen y Subpáginas
+    const isModuleRoot = ["/bodega", "/mantencion", "/insumos", "/actividades", "/auditoria"].includes(item.path || "");
+    const itemActive = hasSubmenu ? isActive(item.path) : isModuleRoot ? pathname === item.path : isActive(item.path);
+
     const isOpen = openSubmenus[item.title];
     const shouldShowIcon = item.showIcon !== false;
 
@@ -115,23 +119,28 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className={cn("w-full justify-center px-2 hover:bg-slate-100 dark:hover:bg-slate-800", isActive(item.path) && "bg-slate-100 dark:bg-slate-800")}>
+              <Button variant="ghost" className={cn("w-full justify-center px-2 hover:bg-slate-100 dark:hover:bg-slate-800", itemActive && "bg-slate-100 dark:bg-slate-800")}>
                 <DynamicIcon name={item.icon} className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="start" className="w-48 ml-2">
               <DropdownMenuLabel>{item.title}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {item.children!.map((sub) => (
-                <DropdownMenuItem key={sub.id} asChild>
-                  <Link href={sub.path || "#"} className="w-full cursor-pointer" onClick={closeOnMobile}>
-                    <div className="flex items-center">
-                      {sub.showIcon !== false && <DynamicIcon name={sub.icon} className="h-4 w-4 mr-2" />}
-                      <span>{sub.title}</span>
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
+              {item.children!.map((sub) => {
+                const subModuleRoot = ["/bodega", "/mantencion", "/insumos", "/actividades", "/auditoria"].includes(sub.path || "");
+                const subActive = subModuleRoot ? pathname === sub.path : isActive(sub.path);
+
+                return (
+                  <DropdownMenuItem key={sub.id} asChild>
+                    <Link href={sub.path || "#"} className={cn("w-full cursor-pointer", subActive && "bg-slate-100 dark:bg-slate-800")} onClick={closeOnMobile}>
+                      <div className="flex items-center">
+                        {sub.showIcon !== false && <DynamicIcon name={sub.icon} className="h-4 w-4 mr-2" />}
+                        <span>{sub.title}</span>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -161,7 +170,7 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
         onClick={closeOnMobile}
         className={cn(
           "flex items-center py-2 px-3 rounded-md text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-800",
-          isActive(item.path) ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50" : "text-slate-600 dark:text-slate-400",
+          itemActive ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50" : "text-slate-600 dark:text-slate-400",
           isChild && (expanded || isMobile) && "pl-9",
           !expanded && !isMobile && "justify-center px-2",
         )}

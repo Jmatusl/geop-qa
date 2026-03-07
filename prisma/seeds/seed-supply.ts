@@ -68,9 +68,10 @@ export async function seedSupply(prismaClient: PrismaClient) {
     { code: "PENDIENTE", name: "Pendiente", description: "Solicitud recién creada, esperando revisión inicial", color: "slate", icon: "Clock", displayOrder: 1 },
     { code: "EN_PROCESO", name: "En Proceso", description: "Solicitud en proceso de cotización y gestión", color: "blue", icon: "Loader", displayOrder: 2 },
     { code: "APROBADA", name: "Aprobada", description: "Solicitud aprobada por el responsable", color: "emerald", icon: "CheckCircle", displayOrder: 3 },
-    { code: "RECHAZADA", name: "Rechazada", description: "Solicitud rechazada por algún responsable", color: "red", icon: "XCircle", displayOrder: 4 },
-    { code: "ANULADA", name: "Anulada", description: "Solicitud anulada por el solicitante o administrador", color: "gray", icon: "Ban", displayOrder: 5 },
-    { code: "FINALIZADA", name: "Finalizada", description: "Solicitud completada con todos los insumos entregados", color: "green", icon: "CheckCircle2", displayOrder: 6 },
+    { code: "PARCIAL", name: "Parcialmente Aprobada", description: "Algunos ítems aprobados, otros en proceso o rechazados", color: "yellow", icon: "Loader", displayOrder: 4 },
+    { code: "RECHAZADA", name: "Rechazada", description: "Solicitud rechazada por algún responsable", color: "red", icon: "XCircle", displayOrder: 5 },
+    { code: "ANULADA", name: "Anulada", description: "Solicitud anulada por el solicitante o administrador", color: "gray", icon: "Ban", displayOrder: 6 },
+    { code: "FINALIZADA", name: "Finalizada", description: "Solicitud completada con todos los insumos entregados", color: "green", icon: "CheckCircle2", displayOrder: 7 },
   ];
 
   let reqStatusCreated = 0;
@@ -116,6 +117,7 @@ export async function seedSupply(prismaClient: PrismaClient) {
     { code: "APROBADA", name: "Aprobada", description: "Cotización aprobada para compra", color: "emerald", icon: "CheckCircle", displayOrder: 4 },
     { code: "RECHAZADA", name: "Rechazada", description: "Cotización rechazada", color: "red", icon: "XCircle", displayOrder: 5 },
     { code: "VENCIDA", name: "Vencida", description: "Cotización vencida por tiempo", color: "orange", icon: "AlertCircle", displayOrder: 6 },
+    { code: "CANCELADA", name: "Cancelada", description: "Cancelada automáticamente por aprobación de otra cotización", color: "orange", icon: "AlertCircle", displayOrder: 7 },
   ];
 
   let quotStatusCreated = 0;

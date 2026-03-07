@@ -13,10 +13,18 @@ export async function seedBodega(prismaClient: PrismaClient) {
   // ============================================
   const statuses = [
     {
+      code: "BORRADOR",
+      name: "Borrador",
+      description: "Solicitud registrada pero no enviada a aprobación",
+      color: "slate",
+      icon: "Clock",
+      displayOrder: 0,
+    },
+    {
       code: "PENDIENTE",
       name: "Pendiente",
       description: "Solicitud registrada y pendiente de revisión",
-      color: "slate",
+      color: "amber",
       icon: "Clock",
       displayOrder: 1,
     },
@@ -37,28 +45,52 @@ export async function seedBodega(prismaClient: PrismaClient) {
       displayOrder: 3,
     },
     {
-      code: "PARCIAL",
-      name: "Atención Parcial",
-      description: "Solicitud atendida parcialmente",
-      color: "amber",
-      icon: "PackageMinus",
+      code: "EN_PREPARACION",
+      name: "En Preparación",
+      description: "Artículos siendo recolectados en bodega",
+      color: "blue",
+      icon: "Package",
       displayOrder: 4,
+    },
+    {
+      code: "PREPARADA",
+      name: "En Preparación",
+      description: "Solicitud verificada, artículos listos para retiro físico",
+      color: "indigo",
+      icon: "Package",
+      displayOrder: 5,
+    },
+    {
+      code: "LISTA_PARA_ENTREGA",
+      name: "Lista para Entrega",
+      description: "Artículos listos en el mesón de entrega",
+      color: "indigo",
+      icon: "ClipboardCheck",
+      displayOrder: 6,
+    },
+    {
+      code: "PARCIAL",
+      name: "Entrega Parcial",
+      description: "Solicitud entregada parcialmente, con ítems pendientes",
+      color: "purple",
+      icon: "PackageCheck",
+      displayOrder: 7,
     },
     {
       code: "ENTREGADA",
       name: "Entregada",
-      description: "Solicitud completamente entregada",
-      color: "green",
-      icon: "PackageCheck",
-      displayOrder: 5,
+      description: "Productos entregados satisfactoriamente",
+      color: "slate",
+      icon: "Check",
+      displayOrder: 8,
     },
     {
       code: "ANULADA",
       name: "Anulada",
-      description: "Solicitud anulada por el solicitante o administrador",
+      description: "Solicitud cancelada definitivamente",
       color: "gray",
       icon: "Ban",
-      displayOrder: 6,
+      displayOrder: 9,
     },
   ];
 
@@ -79,6 +111,41 @@ export async function seedBodega(prismaClient: PrismaClient) {
     statusesUpserted++;
   }
   console.log(`   ✓ Estados de solicitud interna: ${statusesUpserted} upserted`);
+
+  // ============================================
+  // 2. CONFIGURACIÓN GENERAL BODEGA
+  // ============================================
+  await prismaClient.appSetting.upsert({
+    where: { key: "BODEGA_GENERAL_CONFIG" },
+    create: {
+      key: "BODEGA_GENERAL_CONFIG",
+      description: "Configuración general del módulo de bodega (Ingresos, Egresos, OC)",
+      isActive: true,
+      value: {
+        auto_ejecutar_oc: false,
+        auto_aprobar_solicitudes: false,
+        ingresos_evidencia_obligatoria: true,
+        egresos_evidencia_obligatoria: true,
+        ocultar_transito: false,
+        alertar_stock_minimo: true,
+      },
+    },
+    update: {}, // No sobrescribir si ya existe, para pruebas manuales
+  });
+  console.log("   ✓ Configuración general de bodega creada");
+
+  await prismaClient.bodegaWarehouse.upsert({
+    where: { code: "TRANSITO" },
+    create: {
+      code: "TRANSITO",
+      name: "EN TRÁNSITO",
+      description: "Bodega virtual para movimientos inter-bodegas (Trazabilidad)",
+      location: "VIRTUAL",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  console.log("   ✓ Bodega virtual de TRÁNSITO creada");
 
   console.log("  ✅ Módulo de Bodega listo");
 }

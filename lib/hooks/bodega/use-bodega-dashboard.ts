@@ -80,7 +80,7 @@ export function useBodegasDashboard(params?: { soloActivas?: boolean; search?: s
   return useQuery<BodegaDashboard[]>({
     queryKey: ["bodega", "dashboard", "bodegas", params],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/bodega/bodegas?${queryParams.toString()}`);
+      const res = await fetch(`/api/v1/bodega/reportes/dashboard-bodegas?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Error al cargar bodegas del dashboard");
 
       const json = await res.json();
@@ -93,12 +93,12 @@ export function useBodegasDashboard(params?: { soloActivas?: boolean; search?: s
         ubicacion: b.location,
         responsable: null,
         estadisticas: {
-          totalItems: 0,
+          totalItems: b.estadisticas.totalItems || 0,
           stockNegativo: 0,
           bajoMinimo: 0,
           ingresosHoy: 0,
           egresosHoy: 0,
-          valorTotal: 0,
+          valorTotal: b.estadisticas.valorTotal || 0,
         },
         isActive: b.isActive,
       }));

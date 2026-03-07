@@ -43,11 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const canManageStock = await modulePermissionService.userHasPermission(
-      session.user.id,
-      "bodega",
-      "gestionar_stock",
-    );
+    const canManageStock = await modulePermissionService.userHasPermission(session.user.id, "bodega", "retira_items");
 
     if (!canManageStock) {
       return NextResponse.json({ error: "Sin permisos para registrar movimientos" }, { status: 403 });
@@ -59,17 +55,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.errors[0]?.message || "Datos inválidos" }, { status: 400 });
     }
 
+    // Si pide autoVerify, chequear permiso de aprobación extra
+    if (parsed.data.autoVerify) {
+      const canApprove = await modulePermissionService.userHasPermission(session.user.id, "bodega", "aprueba_solicitudes");
+      if (!canApprove) {
+        return NextResponse.json({ error: "Sin permisos de aprobación para auto-verificación" }, { status: 403 });
+      }
+    }
+
     const created = await bodegaStockMovementService.createMovement(parsed.data, session.user.id);
 
     await AuditLogger.logAction(request, session.user.id, {
       action: "CREATE",
       module: "bodega_movimientos",
-      targetId: created.id,
+      targetId: created?.id || "0",
       newData: {
         movementType: parsed.data.movementType,
         warehouseId: parsed.data.warehouseId,
-        articleId: parsed.data.articleId,
-        quantity: parsed.data.quantity,
+        items: parsed.data.items || [{ articleId: parsed.data.articleId, quantity: parsed.data.quantity }],
+        reason: parsed.data.reason,
       },
     });
 

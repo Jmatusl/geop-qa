@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const buffer = report.getBuffer();
 
     // 5. Enviar Email
-    const { generateWrEmailHtml } = await import("@/lib/email/templates/work-requirement");
+    const { generateWrEmailHtml } = await import("@/lib/email/templates/mantenimiento/work-requirement");
     const html = generateWrEmailHtml({
       folio: wr.folio.toString(),
       createdAt: wr.createdAt,

@@ -7,7 +7,7 @@
  * del sistema original, manteniendo la integración con el backend GEOP.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, createRef } from "react";
 import {
   X,
   Plus,
@@ -29,6 +29,9 @@ import {
   LayoutGrid,
   LogOut,
   ShieldAlert,
+  ChevronsUpDown,
+  ArrowUpDown,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +42,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { useBodegaArticles } from "@/lib/hooks/bodega/use-bodega-articles";
@@ -50,7 +56,279 @@ import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
 import { CrearArticuloDialog } from "@/components/bodega/maestros/CrearArticuloDialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, SlidersHorizontal, Settings2 } from "lucide-react";
+import { ConfirmacionMovimientoModal } from "@/components/bodega/movimientos/ConfirmacionMovimientoModal";
+
+/**
+ * SELECTOR DE ARTÍCULO (COMBOBOX FILTRABLE)
+ */
+function ArticuloSelector({
+  value,
+  onSelect,
+  articles,
+  onCreated,
+  placeholder = "Buscar repuesto...",
+  triggerRef,
+}: {
+  value: string;
+  onSelect: (val: string) => void;
+  articles: BodegaArticle[];
+  onCreated: (nuevo?: BodegaArticle) => Promise<void>;
+  placeholder?: string;
+  triggerRef?: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const [openMobile, setOpenMobile] = useState(false);
+  const [openDesktop, setOpenDesktop] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showOnlyWithStock, setShowOnlyWithStock] = useState(true);
+  const selectedArt = articles.find((a) => a.id === value);
+  const internalRef = useRef<HTMLButtonElement>(null);
+  const activeRef = triggerRef || internalRef;
+
+  // Filtrado reactivo para móvil y desktop
+  const filteredArticles = articles.filter((a) => {
+    // Filtro de stock
+    if (showOnlyWithStock && (a.stock ?? 0) <= 0) return false;
+
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return a.code.toLowerCase().includes(term) || a.name.toLowerCase().includes(term);
+  });
+
+  const isRedundant = (code: string, name: string) => {
+    if (!code || !name) return false;
+    const c = code.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const n = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return n.startsWith(c) || c.startsWith(n) || n === c;
+  };
+
+  // Función para resaltar el término buscado
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) return <span>{text}</span>;
+    const parts = text.split(new RegExp(`(${highlight})`, "gi"));
+    return (
+      <span>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <mark key={i} className="bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 font-bold p-0 rounded-sm">
+              {part}
+            </mark>
+          ) : (
+            part
+          ),
+        )}
+      </span>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2 w-full">
+      {/* VISTA MÓVIL */}
+      <div className="lg:hidden w-full">
+        <Dialog open={openMobile} onOpenChange={setOpenMobile}>
+          <DialogTrigger asChild>
+            <Button
+              ref={activeRef as any}
+              variant="outline"
+              role="combobox"
+              className="w-full h-10 justify-between font-bold uppercase text-[10px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 shadow-sm active:scale-95"
+            >
+              <span className="truncate mr-2">
+                {value && selectedArt ? (isRedundant(selectedArt.code, selectedArt.name) ? selectedArt.name : `[${selectedArt.code}] ${selectedArt.name}`) : placeholder}
+              </span>
+              <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent
+            className="p-0 sm:max-w-md h-auto max-h-[90dvh] sm:max-h-[85vh] flex flex-col gap-0 overflow-hidden border-none shadow-2xl rounded-2xl sm:rounded-2xl top-[4dvh] sm:top-1/2 translate-y-0 sm:-translate-y-1/2"
+            onCloseAutoFocus={(e) => {
+              if (document.activeElement?.tagName === "INPUT") {
+                e.preventDefault();
+              }
+            }}
+          >
+            <DialogHeader className="p-4 border-b bg-white dark:bg-slate-950 sticky top-0 z-10 space-y-3">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-[10px] font-black uppercase tracking-widest text-[#283c7f]">Selector de Repuestos</DialogTitle>
+                <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded-full border border-slate-100 transition-all active:scale-95">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyWithStock}
+                    onChange={(e) => setShowOnlyWithStock(e.target.checked)}
+                    className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-[9px] font-black uppercase text-slate-500">Stock {">"} 0</span>
+                </label>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Código o nombre..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10 text-xs font-bold uppercase bg-slate-50 border-none focus-visible:ring-0"
+                  autoFocus
+                />
+              </div>
+            </DialogHeader>
+            <div className="overflow-y-auto px-3 py-2 space-y-1.5 min-h-0 bg-slate-50/50 dark:bg-slate-900/10">
+              {filteredArticles.length === 0 ? (
+                <div className="py-20 text-center space-y-2">
+                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Sin resultados</p>
+                  {showOnlyWithStock && (
+                    <Button variant="link" size="sm" onClick={() => setShowOnlyWithStock(false)} className="text-[9px] font-black text-blue-600 p-0 h-auto uppercase">
+                      Mostrar todo el catálogo
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                filteredArticles.map((a) => {
+                  const redundant = isRedundant(a.code, a.name);
+                  const hasStock = (a.stock ?? 0) > 0;
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => {
+                        onSelect(a.id);
+                        setOpenMobile(false);
+                        setSearchTerm("");
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-1 rounded-lg text-xs font-bold flex flex-col gap-0 transition-all border",
+                        value === a.id
+                          ? "bg-[#283c7f] text-white shadow-lg border-[#283c7f]"
+                          : "bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border-slate-100 dark:border-slate-800",
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full h-3">
+                        <span className={cn("text-[8px] font-black tracking-tight px-1 py-0 rounded-md", value === a.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500")}>
+                          {highlightText(a.code, searchTerm)}
+                        </span>
+                        {a.stock !== undefined && (
+                          <span className={cn("text-[8px] font-extrabold uppercase", (a.stock ?? 0) > 0 ? (value === a.id ? "text-white/80" : "text-emerald-500") : "text-slate-400")}>
+                            Stock: {a.stock}
+                          </span>
+                        )}
+                      </div>
+                      <span className="truncate text-[11px] font-extrabold uppercase leading-tight">{highlightText(a.name, searchTerm)}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* VISTA DESKTOP */}
+      <div className="hidden lg:flex items-center gap-2 w-full">
+        <Popover open={openDesktop} onOpenChange={setOpenDesktop}>
+          <PopoverTrigger asChild>
+            <Button
+              ref={activeRef as any}
+              variant="outline"
+              role="combobox"
+              aria-expanded={openDesktop}
+              className="w-full h-8 justify-between font-bold uppercase text-[10px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 hover:bg-slate-50 transition-colors"
+            >
+              <span className="truncate mr-2">
+                {value && selectedArt ? (isRedundant(selectedArt.code, selectedArt.name) ? selectedArt.name : `[${selectedArt.code}] ${selectedArt.name}`) : placeholder}
+              </span>
+              <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            className="p-0 shadow-2xl border-slate-200 dark:border-slate-800 w-125 flex flex-col overflow-hidden"
+            align="start"
+            sideOffset={8}
+            onCloseAutoFocus={(e) => {
+              if (document.activeElement?.tagName === "INPUT") {
+                e.preventDefault();
+              }
+            }}
+          >
+            <div className="p-2 border-b bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+              <div className="relative flex-1 max-w-75">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                  placeholder="Filtrar por código o nombre..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 h-8 text-[10px] font-bold uppercase bg-white dark:bg-slate-950 border-slate-200 focus-visible:ring-1 focus-visible:ring-[#283c7f]"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-1 rounded transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showOnlyWithStock}
+                  onChange={(e) => setShowOnlyWithStock(e.target.checked)}
+                  className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-[9px] font-black uppercase text-slate-500">Solo con stock</span>
+              </label>
+            </div>
+
+            <div className="max-h-87.5 overflow-y-auto p-1">
+              {filteredArticles.length === 0 ? (
+                <div className="py-10 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">No se encontraron resultados</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-px">
+                  {filteredArticles.map((a) => {
+                    const redundant = isRedundant(a.code, a.name);
+                    const isSelected = value === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => {
+                          onSelect(a.id);
+                          setOpenDesktop(false);
+                          setSearchTerm("");
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded flex items-center gap-3 transition-colors",
+                          isSelected ? "bg-blue-600 text-white" : "hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-700 dark:text-slate-300",
+                        )}
+                      >
+                        <Check className={cn("h-3.5 w-3.5 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <div className="flex items-center gap-2 truncate">
+                            {!redundant && (
+                              <span className={cn("text-[9px] font-black px-1 rounded", isSelected ? "bg-blue-500 text-white" : "text-[#283c7f] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40")}>
+                                [{highlightText(a.code, searchTerm)}]
+                              </span>
+                            )}
+                            <span className="text-[11px] font-bold uppercase truncate">{highlightText(a.name, searchTerm)}</span>
+                          </div>
+                          <span className={cn("text-[10px] font-black tabular-nums shrink-0 ml-4", (a.stock ?? 0) > 0 ? (isSelected ? "text-blue-100" : "text-emerald-600") : "text-slate-400")}>
+                            {a.stock ?? 0} UN
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <CrearArticuloDialog
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 w-8 lg:h-8 lg:w-8 shrink-0 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-600 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-500 transition-all active:scale-95 p-0"
+            title="Crear Nuevo Artículo"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        }
+        onArticuloCreado={onCreated}
+      />
+    </div>
+  );
+}
 
 interface ItemMovimiento {
   id: string; // Temporal para la UI
@@ -93,6 +371,35 @@ export function CrearMovimientoCompacto({
   const [justificacion, setJustificacion] = useState("");
   const [items, setItems] = useState<ItemMovimiento[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, { selector: React.RefObject<HTMLButtonElement | null>; quantity: React.RefObject<HTMLInputElement | null>; price: React.RefObject<HTMLInputElement | null> }>>(
+    {},
+  );
+
+  // Registrar refs para cada item
+  items.forEach((item) => {
+    if (!rowRefs.current[item.id]) {
+      rowRefs.current[item.id] = {
+        selector: createRef<HTMLButtonElement | null>(),
+        quantity: createRef<HTMLInputElement | null>(),
+        price: createRef<HTMLInputElement | null>(),
+      };
+    }
+  });
+
+  // Efecto para scroll y foco al agregar fila
+  useEffect(() => {
+    if (lastAddedId) {
+      const element = document.getElementById(`row-${lastAddedId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          rowRefs.current[lastAddedId]?.selector.current?.focus();
+          setLastAddedId(null);
+        }, 500);
+      }
+    }
+  }, [lastAddedId]);
 
   // Evidencia
   const [fotosEvidencia, setFotosEvidencia] = useState<string[]>([]);
@@ -106,18 +413,22 @@ export function CrearMovimientoCompacto({
   const { data: costCentersData } = useBodegaSimpleMasters("centros-costo", "");
   const { data: configData } = useBodegaConfig();
   const createMovement = useCreateBodegaMovement();
-  const { isBodegaAdmin, isSupervisor } = useBodegaAuth();
+  const { isBodegaAdmin, canApprove } = useBodegaAuth();
 
-  const warehouses = warehousesData?.data.filter((w) => w.isActive) ?? [];
+  const configGeneral = (configData?.BODEGA_GENERAL_CONFIG ?? {}) as Record<string, any>;
+  const ocultarTransito = !!configGeneral.ocultar_transito;
+
+  const warehouses = (warehousesData?.data.filter((w) => w.isActive) ?? []).filter((w) => {
+    if (skipTransitoFilter) return true;
+    return !ocultarTransito || w.code !== "TRANSITO";
+  });
   const articles = articlesData?.data.filter((a) => a.isActive) ?? [];
   const costCenters = costCentersData?.data ?? [];
-  const configGeneral = (configData?.BODEGA_GENERAL_CONFIG ?? {}) as Record<string, any>;
   const evidenciaObligatoria = (tipo.startsWith("INGRESO") ? configGeneral.ingresos_evidencia_obligatoria : configGeneral.egresos_evidencia_obligatoria) === true;
 
-  // Lógica de Permisos
-  const isAutoEjecutar = configGeneral.auto_ejecutar_oc === true;
-  const isAutoAprobar = configGeneral.auto_aprobar_solicitudes === true;
-  const canApprove = isBodegaAdmin || isSupervisor; // Permiso "Aprobar Solicitudes" equivalente a Supervisor/Admin
+  // Lógica de Permisos y Reglas de Módulo
+  const isAutoEjecutar = !!configData?.BODEGA_GENERAL_CONFIG?.auto_ejecutar_oc;
+  const isAutoAprobar = !!configData?.BODEGA_GENERAL_CONFIG?.auto_aprobar_solicitudes;
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [verificacionAuto, setVerificacionAuto] = useState(true);
@@ -125,7 +436,7 @@ export function CrearMovimientoCompacto({
   // Articulo seleccionado en el mini-buscador
   const [selectedArtId, setSelectedArtId] = useState("");
   const [selectedCant, setSelectedCant] = useState("1");
-  const [selectedPrice, setSelectedPrice] = useState("0");
+  const [selectedPrice, setSelectedPrice] = useState("");
 
   const esTransferencia = tipo.includes("TRANSFERENCIA") || tipo === "MOVIMIENTO";
   const esEgreso = tipo.includes("SALIDA") || tipo.includes("RETIRO");
@@ -133,19 +444,37 @@ export function CrearMovimientoCompacto({
 
   // Al cargar, si es transferencia e ingreso (como en la versión legacy), configurar destino
   useEffect(() => {
-    if (warehouses.length > 0 && !sinDestinoPorDefecto) {
-      if (!warehouseId) setWarehouseId(warehouses[0].id);
-      if (esTransferencia && !destinationWarehouseId && warehouses.length > 1) {
-        setDestinationWarehouseId(warehouses[1].id);
+    if (warehousesData?.data && warehousesData.data.length > 0 && !sinDestinoPorDefecto) {
+      const allWarehouses = warehousesData.data;
+      const transitoWarehouse = allWarehouses.find((w) => w.code === "TRANSITO");
+
+      if (!warehouseId) {
+        // Priorizar TRANSITO, sino cargar la primera disponible (que ya viene filtrada en 'warehouses')
+        if (transitoWarehouse) {
+          setWarehouseId(transitoWarehouse.id);
+        } else if (warehouses.length > 0) {
+          setWarehouseId(warehouses[0].id);
+        }
+      }
+
+      if (esTransferencia && !destinationWarehouseId) {
+        // Para transferencias, si warehouseId es TRANSITO, el destino debería ser algo distinto
+        if (transitoWarehouse && warehouseId === transitoWarehouse.id) {
+          const firstNonTransito = warehouses.find((w) => w.code !== "TRANSITO");
+          if (firstNonTransito) setDestinationWarehouseId(firstNonTransito.id);
+        } else if (warehouses.length > 1) {
+          setDestinationWarehouseId(warehouses[1].id);
+        }
       }
     }
-  }, [warehouses, warehouseId, esTransferencia, destinationWarehouseId, sinDestinoPorDefecto]);
+  }, [warehousesData, warehouses, warehouseId, esTransferencia, destinationWarehouseId, sinDestinoPorDefecto]);
 
   const handleAddEmptyRow = () => {
+    const newId = crypto.randomUUID();
     setItems([
       ...items,
       {
-        id: crypto.randomUUID(),
+        id: newId,
         articuloId: "",
         codigo: "",
         nombre: "",
@@ -154,6 +483,7 @@ export function CrearMovimientoCompacto({
         unidad: "UN",
       },
     ]);
+    setLastAddedId(newId);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,7 +497,7 @@ export function CrearMovimientoCompacto({
       formData.append("file", file);
       formData.append("path", "bodega/evidencias");
 
-      const res = await fetch("/api/uploads/r2-simple", {
+      const res = await fetch("/api/v1/storage/r2-simple", {
         method: "POST",
         body: formData,
       });
@@ -232,49 +562,62 @@ export function CrearMovimientoCompacto({
     const validItems = items.filter((i) => i.articuloId && i.articuloId.trim() !== "");
 
     try {
-      // Para cada item, enviamos un movimiento (limitación actual del backend v1)
-      for (const item of validItems) {
-        if (esTransferencia) {
-          // 1. Egreso Origen
-          await createMovement.mutateAsync({
-            movementType: "SALIDA",
-            warehouseId,
-            articleId: item.articuloId,
-            quantity: item.cantidad,
-            reason: "EGRESO_TRANSFERENCIA",
-            observations: `${justificacion} | DESTINO: ${destinationWarehouseId}`,
-          });
+      if (esTransferencia) {
+        // Para transferencias, enviamos ambos lados en una sola acción de "TRANSFERENCIA"
+        // NOTA: Si el backend requiere movimientos separados, el servicio de bodega debería manejarlo
+        // pero por ahora enviamos el esquema de items múltiples al endpoint de creación.
 
-          // 2. Ingreso Destino
-          await createMovement.mutateAsync({
-            movementType: "INGRESO",
-            warehouseId: destinationWarehouseId,
-            articleId: item.articuloId,
-            quantity: item.cantidad,
-            reason: "INGRESO_TRANSFERENCIA",
-            observations: `${justificacion} | ORIGEN: ${warehouseId}`,
-          });
-        } else {
-          // Movimiento Simple (INGRESO o SALIDA)
-          const obsArray = [
-            `Justificación: ${justificacion}`,
-            documentoReferencia ? `Doc. Ref: ${documentoReferencia}` : null,
-            numeroCotizacion ? `N° Cotización: ${numeroCotizacion}` : null,
-            guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
-            costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
-            item.unitPrice ? `P. Unitario: ${item.unitPrice.replace(/\D/g, "")}` : null,
-            `Verificación Automática: ${isAutoVerified ? "SI" : "NO"}`,
-          ].filter(Boolean);
+        // 1. Egreso Origen
+        await createMovement.mutateAsync({
+          movementType: "SALIDA",
+          warehouseId,
+          items: validItems.map((i) => ({
+            articleId: i.articuloId,
+            quantity: i.cantidad,
+            unitCost: i.unitPrice ? parseInt(i.unitPrice.replace(/\D/g, "")) : 0,
+          })),
+          reason: "EGRESO_TRANSFERENCIA",
+          observations: `${justificacion} | DESTINO: ${destinationWarehouseId}`,
+          autoVerify: isAutoVerified,
+        });
 
-          await createMovement.mutateAsync({
-            movementType: tipo as any,
-            warehouseId,
-            articleId: item.articuloId,
-            quantity: item.cantidad,
-            reason: justificacion,
-            observations: obsArray.join(" | "),
-          });
-        }
+        // 2. Ingreso Destino
+        await createMovement.mutateAsync({
+          movementType: "INGRESO",
+          warehouseId: destinationWarehouseId,
+          items: validItems.map((i) => ({
+            articleId: i.articuloId,
+            quantity: i.cantidad,
+            unitCost: i.unitPrice ? parseInt(i.unitPrice.replace(/\D/g, "")) : 0,
+          })),
+          reason: "INGRESO_TRANSFERENCIA",
+          observations: `${justificacion} | ORIGEN: ${warehouseId}`,
+          autoVerify: isAutoVerified,
+        });
+      } else {
+        // Movimiento Simple (INGRESO o SALIDA) con múltiples artículos
+        const obsArray = [
+          `Justificación: ${justificacion}`,
+          documentoReferencia ? `Doc. Ref: ${documentoReferencia}` : null,
+          numeroCotizacion ? `N° Cotización: ${numeroCotizacion}` : null,
+          guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+          costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
+          `Verificación Automática: ${isAutoVerified ? "SI" : "NO"}`,
+        ].filter(Boolean);
+
+        await createMovement.mutateAsync({
+          movementType: tipo as any,
+          warehouseId,
+          items: validItems.map((i) => ({
+            articleId: i.articuloId,
+            quantity: i.cantidad,
+            unitCost: i.unitPrice ? parseInt(i.unitPrice.replace(/\D/g, "")) : 0,
+          })),
+          reason: justificacion,
+          observations: obsArray.join(" | "),
+          evidence: fotosEvidencia,
+          autoVerify: isAutoVerified,
+        });
       }
 
       toast.success("Registro completado exitosamente");
@@ -346,7 +689,7 @@ export function CrearMovimientoCompacto({
                 {esIngreso ? "BODEGA DESTINO" : "BODEGA ORIGEN"} * {esIngreso ? <ArrowUpDown className="h-3 w-3" /> : <Warehouse className="h-3 w-3" />}
               </label>
               <Select value={warehouseId} onValueChange={setWarehouseId}>
-                <SelectTrigger className="h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
+                <SelectTrigger className="w-full h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
                   <SelectValue placeholder="Seleccione bodega" />
                 </SelectTrigger>
                 <SelectContent>
@@ -371,7 +714,7 @@ export function CrearMovimientoCompacto({
                   BODEGA DESTINO * <ArrowRightLeft className="w-3 h-3" />
                 </label>
                 <Select value={destinationWarehouseId} onValueChange={setDestinationWarehouseId}>
-                  <SelectTrigger className="h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
+                  <SelectTrigger className="w-full h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
                     <SelectValue placeholder="Seleccione destino" />
                   </SelectTrigger>
                   <SelectContent>
@@ -392,7 +735,7 @@ export function CrearMovimientoCompacto({
                   CENTRO DE COSTO * <SlidersHorizontal className="h-3 w-3" />
                 </label>
                 <Select value={costCenterId} onValueChange={setCostCenterId}>
-                  <SelectTrigger className="h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
+                  <SelectTrigger className="w-full h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 rounded-md bg-slate-50/50">
                     <SelectValue placeholder="Seleccione C. Costo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -416,7 +759,7 @@ export function CrearMovimientoCompacto({
                   placeholder="Ej: OC-2024..."
                   value={documentoReferencia}
                   onChange={(e) => setDocumentoReferencia(e.target.value.toUpperCase())}
-                  className="h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 bg-slate-50/50 rounded-md"
+                  className="w-full h-10 text-xs font-bold uppercase border-slate-200 dark:border-slate-800 bg-slate-50/50 rounded-md"
                 />
                 <Button
                   variant="outline"
@@ -438,7 +781,7 @@ export function CrearMovimientoCompacto({
                     placeholder="COT-..."
                     value={numeroCotizacion}
                     onChange={(e) => setNumeroCotizacion(e.target.value.toUpperCase())}
-                    className="h-9 text-xs font-bold uppercase border-blue-200 dark:border-blue-800 bg-white"
+                    className="w-full h-9 text-xs font-bold uppercase border-blue-200 dark:border-blue-800 bg-white"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -447,7 +790,7 @@ export function CrearMovimientoCompacto({
                     placeholder="GD-..."
                     value={guiaDespacho}
                     onChange={(e) => setGuiaDespacho(e.target.value.toUpperCase())}
-                    className="h-9 text-xs font-bold uppercase border-blue-200 dark:border-blue-800 bg-white"
+                    className="w-full h-9 text-xs font-bold uppercase border-blue-200 dark:border-blue-800 bg-white"
                   />
                 </div>
               </div>
@@ -467,16 +810,54 @@ export function CrearMovimientoCompacto({
                 value={justificacion}
                 onChange={(e) => setJustificacion(e.target.value)}
                 autoComplete="off"
-                className="h-10 text-sm border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 rounded-md font-medium"
+                className="w-full h-10 text-sm border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 rounded-md font-medium"
                 maxLength={300}
               />
+              {evidenciaObligatoria && fotosEvidencia.length === 0 && (
+                <div className="flex items-center gap-1.5 mt-1 animate-in fade-in slide-in-from-top-1 text-red-500">
+                  <Info className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">La foto de evidencia es obligatoria para registrar el {esIngreso ? "ingreso" : "movimiento"}.</span>
+                </div>
+              )}
             </div>
           </div>
+          {/* Previsualización de Fotos */}
+          {showFotoPreview && fotosEvidencia.length > 0 && (
+            <div className="mt-6 p-4 rounded-xl border border-emerald-100 bg-emerald-50/30 dark:bg-emerald-950/20 dark:border-emerald-900/40 animate-in slide-in-from-top-2">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Archivos Adjuntos ({fotosEvidencia.length})</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFotoPreview(false)}
+                  className="h-6 text-[10px] uppercase font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
+                >
+                  Cerrar Panel
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {fotosEvidencia.map((url, i) => (
+                  <div key={i} className="group relative aspect-square rounded-lg border border-white dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
+                    <img src={url} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    <button
+                      onClick={() => setFotosEvidencia((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="absolute top-1 right-1 h-6 w-6 rounded-md bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/40 backdrop-blur-sm">
+                      <p className="text-[8px] text-white font-bold truncate text-center uppercase tracking-tighter">Imagen {i + 1}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Selector de Artículos (Carrito) Style Legacy */}
-      <Card className="rounded-md border shadow-sm overflow-hidden bg-white dark:bg-slate-950 min-h-[300px]">
+      <Card className="rounded-md border shadow-sm overflow-hidden bg-white dark:bg-slate-950 min-h-75">
         <div className="px-6 py-4 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50/20 dark:bg-slate-800/80">
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-tight flex items-center gap-2 italic dark:text-white">
@@ -520,65 +901,57 @@ export function CrearMovimientoCompacto({
                 </TableRow>
               ) : (
                 items.map((item, index) => (
-                  <TableRow key={item.id} className="h-16 border-b dark:border-slate-800 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
+                  <TableRow
+                    key={item.id}
+                    id={`row-${item.id}`}
+                    className="h-16 border-b dark:border-slate-800 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/40 scroll-mt-20 focus-within:bg-blue-50/50 dark:focus-within:bg-blue-900/10 focus-within:ring-1 focus-within:ring-blue-500/30"
+                  >
                     <TableCell className="text-center text-[10px] font-bold text-slate-300 dark:text-slate-600 italic">{(index + 1).toString().padStart(2, "0")}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 w-full min-w-[300px]">
-                        <Select
-                          value={item.articuloId || ""}
-                          onValueChange={(val) => {
-                            const art = articles.find((a) => a.id === val);
-                            const unName = art ? (typeof (art as any)?.unit === "string" ? (art as any)?.unit : (art as any)?.unit?.code || "UN") : "UN";
-                            const newItems = [...items];
-                            newItems[index] = { ...newItems[index], articuloId: val, codigo: art?.code || "", nombre: art?.name || "", unidad: unName };
-                            setItems(newItems);
-                          }}
-                        >
-                          <SelectTrigger className="w-full h-10 font-bold uppercase text-[11px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-                            <SelectValue placeholder="Buscar repuesto..." />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-80 w-[400px]">
-                            {articles.map((a) => (
-                              <SelectItem key={a.id} value={a.id} className="text-[11px] font-bold uppercase">
-                                [{a.code}] {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {/* Botón para crear un nuevo artículo y auto-seleccionarlo */}
-                        <CrearArticuloDialog
-                          trigger={
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 shrink-0 border-dashed hover:border-[#283c7f] hover:text-[#283c7f] transition-colors"
-                              title="Crear Nuevo Artículo"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          }
-                          onArticuloCreado={async (nuevo?: BodegaArticle) => {
-                            if (!nuevo) return;
-                            // Refrescar la lista de artículos
-                            await refetchArticles();
-                            // Auto-seleccionar el nuevo artículo en esta fila
-                            const unName = nuevo.unit || "UN";
-                            const newItems = [...items];
-                            newItems[index] = {
-                              ...newItems[index],
-                              articuloId: nuevo.id,
-                              codigo: nuevo.code || "",
-                              nombre: nuevo.name || "",
-                              unidad: unName,
-                            };
-                            setItems(newItems);
-                          }}
-                        />
-                      </div>
+                      <ArticuloSelector
+                        value={item.articuloId || ""}
+                        articles={articles}
+                        triggerRef={rowRefs.current[item.id]?.selector}
+                        onSelect={(val) => {
+                          const art = articles.find((a) => a.id === val);
+                          const unName = art ? (typeof (art as any)?.unit === "string" ? (art as any)?.unit : (art as any)?.unit?.code || "UN") : "UN";
+                          const newItems = [...items];
+                          newItems[index] = { ...newItems[index], articuloId: val, codigo: art?.code || "", nombre: art?.name || "", unidad: unName };
+                          setItems(newItems);
+                          // Saltar a cantidad con un delay mayor para permitir cerrar el Dialog/Popover
+                          setTimeout(() => {
+                            const qInput = rowRefs.current[item.id]?.quantity.current;
+                            if (qInput) {
+                              qInput.focus();
+                              if (typeof qInput.select === "function") qInput.select();
+                            }
+                          }, 400);
+                        }}
+                        onCreated={async (nuevo?: BodegaArticle) => {
+                          if (!nuevo) return;
+                          await refetchArticles();
+                          const unName = nuevo.unit || "UN";
+                          const newItems = [...items];
+                          newItems[index] = {
+                            ...newItems[index],
+                            articuloId: nuevo.id,
+                            codigo: nuevo.code || "",
+                            nombre: nuevo.name || "",
+                            unidad: unName,
+                          };
+                          setItems(newItems);
+                          setTimeout(() => {
+                            const qInput = rowRefs.current[item.id]?.quantity.current;
+                            if (qInput) {
+                              qInput.focus();
+                              if (typeof qInput.select === "function") qInput.select();
+                            }
+                          }, 400);
+                        }}
+                      />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-md border border-slate-100 dark:border-slate-800 w-24 mx-auto p-0.5">
+                      <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-md border border-slate-100 dark:border-slate-800 w-full mx-auto p-0.5">
                         <button
                           className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
                           onClick={() => {
@@ -587,51 +960,64 @@ export function CrearMovimientoCompacto({
                             setItems(newItems);
                           }}
                         >
-                          -
+                          <ArrowLeft className="h-3 w-3" />
                         </button>
-                        <input
-                          type="text"
+                        <Input
+                          ref={rowRefs.current[item.id]?.quantity as any}
+                          type="number"
+                          enterKeyHint="next"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (esIngreso) {
+                                rowRefs.current[item.id]?.price.current?.focus();
+                              } else {
+                                e.currentTarget.blur();
+                              }
+                            }
+                          }}
+                          className="h-7 w-12 text-center text-[11px] font-bold border-none bg-transparent focus-visible:ring-0 p-0"
                           value={item.cantidad}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value.replace(/\D/g, "") || "0");
                             const newItems = [...items];
-                            newItems[index].cantidad = val;
+                            newItems[index].cantidad = parseInt(e.target.value) || 0;
                             setItems(newItems);
                           }}
-                          className="w-full bg-transparent text-center font-black text-[11px] border-none focus:ring-0 p-0"
                         />
                         <button
-                          className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors"
+                          className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors"
                           onClick={() => {
                             const newItems = [...items];
-                            newItems[index].cantidad += 1;
+                            newItems[index].cantidad = (newItems[index].cantidad || 0) + 1;
                             setItems(newItems);
                           }}
                         >
-                          +
+                          <ArrowRight className="h-3 w-3" />
                         </button>
                       </div>
                     </TableCell>
                     {esIngreso && (
                       <TableCell>
-                        <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-md border border-slate-100 dark:border-slate-800 w-28 mx-auto">
-                          <input
-                            type="text"
-                            value={item.unitPrice || ""}
-                            onChange={(e) => {
-                              // Solo números
-                              const pureValue = e.target.value.replace(/\D/g, "");
-                              // Formato miles (Chile)
-                              const formatted = pureValue ? new Intl.NumberFormat("es-CL").format(parseInt(pureValue)) : "";
-
-                              const newItems = [...items];
-                              newItems[index].unitPrice = formatted;
-                              setItems(newItems);
-                            }}
-                            placeholder="0"
-                            className="w-full bg-transparent text-center font-black text-[11px] border-none focus:ring-0 h-8 p-0 dark:text-blue-400"
-                          />
-                        </div>
+                        <Input
+                          ref={rowRefs.current[item.id]?.price as any}
+                          type="text"
+                          enterKeyHint="done"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="h-9 text-center text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 rounded-md"
+                          placeholder="$ 0"
+                          value={item.unitPrice}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            const formatted = val ? new Intl.NumberFormat("es-CL").format(parseInt(val)) : "";
+                            const newItems = [...items];
+                            newItems[index].unitPrice = formatted;
+                            setItems(newItems);
+                          }}
+                        />
                       </TableCell>
                     )}
                     <TableCell>
@@ -702,12 +1088,14 @@ export function CrearMovimientoCompacto({
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent className="rounded-md p-10 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-[500px] bg-white dark:bg-slate-950">
+        <AlertDialogContent className="rounded-md p-10 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-125 bg-white dark:bg-slate-950">
           <AlertDialogHeader>
             <div className="w-20 h-20 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-8 mx-auto border-4 border-blue-100 dark:border-blue-900/30">
               <ArrowRightLeft className="h-10 w-10 text-blue-600 dark:text-blue-400 stroke-3 italic animate-pulse" />
             </div>
-            <AlertDialogTitle className="text-2xl font-black uppercase tracking-tight text-center text-slate-900 dark:text-white mb-4 italic leading-none">¿Confirmar Movimiento?</AlertDialogTitle>
+            <AlertDialogTitle className="text-2xl font-black uppercase tracking-tight text-center text-slate-900 dark:text-white mb-4 italic leading-none">
+              {tipo.includes("INGRESO") ? "¿Confirmar Ingreso?" : tipo.includes("TRANSFERENCIA") ? "¿Confirmar Transferencia?" : "¿Confirmar Egreso?"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-center text-slate-500 dark:text-slate-400 font-medium leading-relaxed px-4 uppercase text-[10px] tracking-widest">
               Está por procesar la transferencia de <span className="font-black text-slate-900 dark:text-blue-100 px-2 py-1 bg-slate-100 dark:bg-blue-900/40 rounded-md">{totalUnidades} unidades</span>
               . Esto afectará el stock de ambas bodegas inmediatamente.
@@ -718,7 +1106,7 @@ export function CrearMovimientoCompacto({
               REVISAR DATOS
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => handleSubmit(false)}
+              onClick={() => handleSubmit(true)}
               className="h-12 flex-1 rounded-md bg-[#284893] hover:bg-slate-900 dark:hover:bg-blue-800 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-900/20 border-none transition-all active:scale-95"
             >
               Confirmar Envío
@@ -727,76 +1115,16 @@ export function CrearMovimientoCompacto({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de confirmación para verificación automática (Legacy Parity) */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-950 rounded-2xl p-6 shadow-2xl scale-in-center overflow-hidden border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                <ShieldAlert className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-gray-100 italic uppercase tracking-tighter">¿CONFIRMAR REGISTRO?</h3>
-            </div>
-
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-              Está por procesar un registro de <strong>{items.filter((i) => i.articuloId).length}</strong> artículo(s). La configuración actual permite la validación o habilitación automática.
-            </p>
-
-            {/* Switch de Verificación */}
-            <div
-              className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer mb-6 ${
-                verificacionAuto
-                  ? "bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800"
-                  : "bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 hover:border-slate-300"
-              }`}
-              onClick={() => setVerificacionAuto(!verificacionAuto)}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-slate-900 dark:text-gray-100 uppercase tracking-tight">AUTO-ACTIVAR / VERIFICAR</span>
-                  {verificacionAuto && <Badge className="bg-blue-600 hover:bg-blue-700 text-[9px] h-4 px-1 leading-none text-white border-none italic">OPCIONAL</Badge>}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                  {verificacionAuto ? "Se saltará el flujo de verificación y la operación aplicará inmediatamente." : "Se mantendrá como pendiente hasta que se verifique manualmente."}
-                </p>
-              </div>
-              <div
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center border-2 transition-all ${
-                  verificacionAuto ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-500/20" : "border-slate-300 dark:border-slate-600"
-                }`}
-              >
-                {verificacionAuto && <Check className="w-4 h-4 text-white" />}
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="flex-1 h-12 rounded-xl border-slate-200 dark:border-slate-800 text-sm font-black uppercase text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => handleSubmit(verificacionAuto)}
-                disabled={createMovement.isPending}
-                className="flex-1 h-12 rounded-xl bg-[#284893] hover:bg-[#1e3a7a] text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20 active:scale-95 transition-transform"
-              >
-                {createMovement.isPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    PROCESAR
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmacionMovimientoModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        onConfirm={handleSubmit}
+        isPending={createMovement.isPending}
+        tipo={tipo}
+        itemCount={items.filter((i) => i.articuloId).length}
+        verificacionAuto={verificacionAuto}
+        onVerificacionAutoChange={setVerificacionAuto}
+      />
     </div>
   );
 }

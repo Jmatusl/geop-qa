@@ -15,11 +15,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const hasPermission = await modulePermissionService.userHasPermission(
-      session.user.id,
-      "bodega",
-      "gestionar_stock",
-    );
+    const hasPermission = await modulePermissionService.userHasPermission(session.user.id, "bodega", "retira_items");
 
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para aplicar movimientos" }, { status: 403 });
@@ -28,8 +24,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const observations = typeof body?.observations === "string" ? body.observations : undefined;
+    const items = Array.isArray(body?.items) ? body.items : undefined;
 
-    const applied = await bodegaStockMovementService.applyMovement(id, session.user.id, observations);
+    const applied = await bodegaStockMovementService.applyMovement(id, session.user.id, observations, items);
 
     await AuditLogger.logAction(request, session.user.id, {
       action: "UPDATE",

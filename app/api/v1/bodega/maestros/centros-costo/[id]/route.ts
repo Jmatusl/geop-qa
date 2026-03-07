@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const session = await verifySession();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "gestionar_stock");
+  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
   if (!allowed) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
 
   const { id } = await params;
@@ -49,7 +49,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await verifySession();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "gestionar_stock");
+  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
   if (!allowed) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
 
   const { id } = await params;

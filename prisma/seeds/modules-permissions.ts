@@ -1,12 +1,12 @@
 /**
  * Seed: Módulos y Permisos del Sistema
- * 
+ *
  * Puebla las tablas del sistema centralizado de permisos:
  * - modules
  * - module_permissions
  * - module_notification_settings
  * - module_approval_rules
- * 
+ *
  * Ejecutar: npx tsx prisma/seeds/modules-permissions.ts
  */
 
@@ -31,11 +31,11 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       description: "Gestión de requerimientos y actividades operativas",
       icon: "ClipboardList",
       isActive: true,
-      emailEnabled: true,
+      emailEnabled: false,
       displayOrder: 1,
     },
     update: {
-      emailEnabled: true, // Asegurar que esté habilitado
+      emailEnabled: false, 
     },
   });
 
@@ -47,11 +47,11 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       description: "Sistema de mantención preventiva y correctiva",
       icon: "Wrench",
       isActive: true,
-      emailEnabled: true,
+      emailEnabled: false,
       displayOrder: 2,
     },
     update: {
-      emailEnabled: true, // Asegurar que esté habilitado
+      emailEnabled: false, 
     },
   });
 
@@ -77,11 +77,11 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       description: "Gestión de solicitudes de insumos, cotizaciones y compras",
       icon: "ShoppingCart",
       isActive: true,
-      emailEnabled: true,
+      emailEnabled: false,
       displayOrder: 4,
     },
     update: {
-      emailEnabled: true,
+      emailEnabled: false,
     },
   });
 
@@ -97,6 +97,22 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       displayOrder: 5,
     },
     update: {},
+  });
+
+  const bodega = await prismaClient.module.upsert({
+    where: { code: "bodega" },
+    create: {
+      code: "bodega",
+      name: "Bodega",
+      description: "Gestión de stock, movimientos e inventario",
+      icon: "Warehouse",
+      isActive: true,
+      emailEnabled: false,
+      displayOrder: 6,
+    },
+    update: {
+      emailEnabled: false,
+    },
   });
 
   // ============================================
@@ -263,6 +279,54 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
     });
   }
 
+  const bodegaPermissions = [
+    {
+      moduleId: bodega.id,
+      code: "gestiona_solicitudes",
+      name: "Gestiona Solicitudes",
+      description: "Puede crear y editar solicitudes internas de bodega",
+      category: "operation",
+      displayOrder: 1,
+    },
+    {
+      moduleId: bodega.id,
+      code: "aprueba_solicitudes",
+      name: "Aprueba Solicitudes",
+      description: "Puede aprobar o rechazar solicitudes de bodega",
+      category: "approval",
+      displayOrder: 2,
+    },
+    {
+      moduleId: bodega.id,
+      code: "retira_items",
+      name: "Retira Items (Bodeguero)",
+      description: "Puede registrar retiros de artículos en las solicitudes",
+      category: "operation",
+      displayOrder: 3,
+    },
+    {
+      moduleId: bodega.id,
+      code: "administrador_bodega",
+      name: "Administrador Bodega",
+      description: "Acceso completo al módulo de bodega",
+      category: "admin",
+      displayOrder: 4,
+    },
+  ];
+
+  for (const perm of bodegaPermissions) {
+    await prismaClient.modulePermission.upsert({
+      where: {
+        moduleId_code: {
+          moduleId: bodega.id,
+          code: perm.code,
+        },
+      },
+      create: perm,
+      update: {},
+    });
+  }
+
   // ============================================
   // 5. NOTIFICACIONES DE ACTIVIDADES
   // ============================================
@@ -273,7 +337,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onNewRequest",
       eventName: "Nuevo Requerimiento",
       description: "Notificar a responsables cuando se registre un nuevo requerimiento",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["autoriza", "chequea", "revisa"],
     },
     {
@@ -281,7 +345,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onAssign",
       eventName: "Asignación de Responsable",
       description: "Avisar al responsable asignado",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["autoriza", "chequea"],
     },
     {
@@ -289,7 +353,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onStatusChange",
       eventName: "Cambio de Estado",
       description: "Informar al solicitante sobre cambios de estado",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["autoriza", "chequea", "revisa"],
     },
     {
@@ -297,7 +361,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onComplete",
       eventName: "Completado",
       description: "Notificar al solicitante cuando el requerimiento sea completado",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["recepciona"],
     },
   ];
@@ -327,7 +391,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onNewRequest",
       eventName: "Nuevo Requerimiento",
       description: "Notificar a los aprobadores cuando se registre una nueva falla",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["aprueba", "aprobacion_cruzada"],
     },
     {
@@ -335,7 +399,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onApproval",
       eventName: "Aprobaciones y Rechazos",
       description: "Informar al solicitante sobre la decisión de la jefatura",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["aprueba", "aprobacion_cruzada"],
     },
     {
@@ -343,7 +407,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onReprogram",
       eventName: "Cambios de Estado y Reprogramación",
       description: "Avisar si un trabajo se terceriza o se cambia la fecha estimada",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["aprueba", "gestiona_proveedores"],
     },
     {
@@ -351,7 +415,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onClose",
       eventName: "Cierre Técnico",
       description: "Enviar el informe PDF automáticamente al finalizar el requerimiento",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["cierra_tecnicamente"],
     },
   ];
@@ -427,7 +491,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onNewRequest",
       eventName: "Nueva Solicitud",
       description: "Notificar a los aprobadores cuando se registre una nueva solicitud de insumos",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["aprobar"],
     },
     {
@@ -435,7 +499,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onApproval",
       eventName: "Aprobación / Rechazo",
       description: "Informar al solicitante sobre la decisión del aprobador",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["aprobar"],
     },
     {
@@ -443,7 +507,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onQuotation",
       eventName: "Cotización Recibida",
       description: "Avisar cuando se reciba una cotización de proveedor",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["gestionar_cotizaciones", "aprobar_cotizaciones", "autorizar_cotizaciones"],
     },
     {
@@ -451,7 +515,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onPurchaseAuthorized",
       eventName: "Compra Autorizada",
       description: "Notificar al encargado de compras cuando se autorice una cotización",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["gestionar_cotizaciones"],
     },
     {
@@ -459,7 +523,7 @@ export async function seedModulesAndPermissions(prismaClient: PrismaClient) {
       eventKey: "onDelivery",
       eventName: "Recepción de Items",
       description: "Notificar al solicitante cuando sus insumos sean recepcionados",
-      isEnabled: true,
+      isEnabled: false,
       requiredPermissions: ["recepcionar_items"],
     },
   ];
@@ -570,9 +634,9 @@ if (require.main === module) {
 
   async function main() {
     console.log("🌱 Iniciando seed de Módulos y Permisos...\n");
-    
+
     await seedModulesAndPermissions(prisma);
-    
+
     console.log("\n✨ Seed completado exitosamente!");
   }
 

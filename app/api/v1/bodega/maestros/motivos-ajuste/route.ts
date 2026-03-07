@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
   }
 
-  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "gestionar_stock");
+  const allowed = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
   if (!allowed) {
     return NextResponse.json({ success: false, error: "Sin permisos para gestionar maestros" }, { status: 403 });
   }

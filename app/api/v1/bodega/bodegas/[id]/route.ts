@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const hasPermission = await modulePermissionService.userHasPermission(
       session.user.id,
       "bodega",
-      "administrar_maestros"
+      "administrador_bodega"
     );
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para administrar maestros" }, { status: 403 });
@@ -65,7 +65,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     const hasPermission = await modulePermissionService.userHasPermission(
       session.user.id,
       "bodega",
-      "administrar_maestros"
+      "administrador_bodega"
     );
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para administrar maestros" }, { status: 403 });

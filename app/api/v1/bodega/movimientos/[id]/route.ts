@@ -22,7 +22,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({ data });
-  } catch {
-    return NextResponse.json({ error: "Error al obtener el movimiento" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Error en GET /api/v1/bodega/movimientos/[id]:", error);
+    return NextResponse.json({ error: error.message || "Error al obtener el movimiento" }, { status: 500 });
   }
 }

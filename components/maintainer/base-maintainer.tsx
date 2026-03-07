@@ -33,6 +33,7 @@ interface BaseMaintainerProps<TData> {
   headerActions?: React.ReactNode;
   externalMode?: "table" | "create" | "edit";
   externalItem?: TData | null;
+  onModeChange?: (mode: "table" | "create" | "edit", item: TData | null) => void;
 }
 
 export function BaseMaintainer<TData>({
@@ -56,39 +57,47 @@ export function BaseMaintainer<TData>({
   headerActions,
   externalMode,
   externalItem,
+  onModeChange,
 }: BaseMaintainerProps<TData>) {
-  const [mode, setMode] = useState<"table" | "create" | "edit">(externalMode || "table");
-  const [selectedItem, setSelectedItem] = useState<TData | null>(externalItem || null);
+  const isControlled = externalMode !== undefined;
 
-  // Sync with external state if provided
-  React.useEffect(() => {
-    if (externalMode) {
-      setMode(externalMode);
-    }
-    if (externalItem !== undefined) {
-      setSelectedItem(externalItem);
-    }
-  }, [externalMode, externalItem]);
+  const [internalMode, setInternalMode] = useState<"table" | "create" | "edit">("table");
+  const [internalItem, setInternalItem] = useState<TData | null>(null);
+
+  const mode = isControlled ? externalMode : internalMode;
+  const selectedItem = externalItem !== undefined ? externalItem : internalItem;
 
   const handleCreate = () => {
-    setSelectedItem(null);
-    setMode("create");
+    if (!isControlled) {
+      setInternalItem(null);
+      setInternalMode("create");
+    }
+    onModeChange?.("create", null);
   };
 
   const handleEdit = (item: TData) => {
     if (onPreEdit) onPreEdit(item);
-    setSelectedItem(item);
-    setMode("edit");
+    if (!isControlled) {
+      setInternalItem(item);
+      setInternalMode("edit");
+    }
+    onModeChange?.("edit", item);
   };
 
   const handleCancel = () => {
-    setMode("table");
-    setSelectedItem(null);
+    if (!isControlled) {
+      setInternalMode("table");
+      setInternalItem(null);
+    }
+    onModeChange?.("table", null);
   };
 
   const handleSuccess = () => {
-    setMode("table");
-    setSelectedItem(null);
+    if (!isControlled) {
+      setInternalMode("table");
+      setInternalItem(null);
+    }
+    onModeChange?.("table", null);
   };
 
   const columns = useMemo(() => {

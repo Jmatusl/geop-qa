@@ -12,6 +12,7 @@ import { seedActividades } from "./seeds/seed-actividades";
 import { seedActividadesMock } from "./seeds/mock/seed-actividades-mock";
 import { seedModulesAndPermissions } from "./seeds/modules-permissions";
 import { seedSupply } from "./seeds/seed-supply";
+import { seedBodega } from "./seeds/seed-bodega";
 
 const prisma = new PrismaClient();
 
@@ -34,6 +35,26 @@ async function main() {
     await seedMantencion(prisma);
     await seedActividades(prisma);
     await seedSupply(prisma);
+    await seedBodega(prisma);
+
+    // 3. Asignar todos los permisos al admin al finalizar
+    console.log("🔐 Asignando todos los permisos de todos los módulos al usuario admin...");
+    const allPermissions = await prisma.modulePermission.findMany({
+      include: { module: true }
+    });
+    
+    // Limpiar permisos previos para evitar duplicados en re-seeds
+    await prisma.userModulePermission.deleteMany({ where: { userId: adminUser.id } });
+    
+    await prisma.userModulePermission.createMany({
+      data: allPermissions.map((p) => ({
+        userId: adminUser.id,
+        moduleId: p.moduleId,
+        permissionId: p.id,
+        grantedAt: new Date(),
+      })),
+    });
+    console.log(`   ✓ ${allPermissions.length} permisos totales asignados de los módulos: ${[...new Set(allPermissions.map(p => p.module.name))].join(", ")}.`);
 
     // 2. Mock (Solo si la flag está activa)
     if (isMockMode) {

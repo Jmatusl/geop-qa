@@ -12,12 +12,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get("search") || "").trim();
     const warehouseId = (searchParams.get("warehouseId") || "").trim();
+    const articleId = (searchParams.get("articleId") || "").trim();
 
-    if (search.length < 2) {
-      return NextResponse.json({ total: 0, resultados: [] });
-    }
-
-    const result = await bodegaStockMovementService.quickSearchInventory(search, warehouseId || undefined);
+    const result = await bodegaStockMovementService.quickSearchInventory(search, warehouseId || undefined, articleId || undefined);
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Error en consulta rápida" }, { status: 500 });

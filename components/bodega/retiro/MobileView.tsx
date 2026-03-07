@@ -7,14 +7,17 @@
  * Colores: orange para acciones, whi bg limpio.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, PackageMinus, Check, Loader2, Search, ChevronLeft, Warehouse, Pencil, X, Camera, Image as ImageIcon, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BuscarArticulosPanel } from "./BuscarArticulosPanel";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
+import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
+import { ConfirmacionRetiroModal } from "./ConfirmacionRetiroModal";
 
 // ============================================================================
 // Tipos
@@ -26,9 +29,11 @@ interface RetiroItem {
   nombre: string;
   bodegaOrigenId: string;
   bodegaOrigenNombre: string;
-  cantidad: string;
+  cantidad: number;
   stockDisponible: number;
+  stockGlobal: number;
   unidad: string;
+  bodegasStock?: { bodegaId: string; bodegaNombre: string; stock: number }[];
 }
 
 // ============================================================================
@@ -74,8 +79,23 @@ const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<B
 // Componente Principal
 // ============================================================================
 
-export default function MobileView() {
+interface MobileViewProps {
+  initialData?: {
+    requestId: string;
+    folio: string;
+    warehouseId: string;
+    justificacion: string;
+    referencia: string;
+    fechaRequerida: string;
+    items: RetiroItem[];
+    fotosEvidencia?: string[];
+  };
+  isEditMode?: boolean;
+}
+
+export default function MobileView({ initialData, isEditMode }: MobileViewProps = {}) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: configData } = useBodegaConfig();
 
   const configGeneral = configData?.["BODEGA_GENERAL_CONFIG"] || {};
@@ -98,8 +118,80 @@ export default function MobileView() {
   const [justificacion, setJustificacion] = useState("");
   const [prioridad] = useState("NORMAL"); // Oculto pero enviado al backend
 
-  // ── Artículos ──────────────────────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────────
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [aprobacionAuto, setAprobacionAuto] = useState(true);
+  const [creando, setCreando] = useState(false);
+  const [successData, setSuccessData] = useState<{ id: string; folio: string } | null>(null);
+
+  // ── Catálogos ──────────────────────────────────────────────────────────────
+  const { data: bodegasData } = useBodegaWarehouses(1, 100);
+  const bodegas = useMemo(() => bodegasData?.data.filter((b: any) => b.isActive) || [], [bodegasData?.data]);
+
+  const [warehouseId, setWarehouseId] = useState<string>("");
   const [items, setItems] = useState<RetiroItem[]>([]);
+
+  // ── Sincronización modo edición ──────────────────────────────────────────
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      setJustificacion(initialData.justificacion);
+      setFecha(initialData.fechaRequerida);
+      setItems(initialData.items);
+      setWarehouseId(initialData.warehouseId);
+      if (initialData.fotosEvidencia) {
+        setFotosEvidencia(initialData.fotosEvidencia);
+      }
+    }
+  }, [initialData?.requestId, isEditMode]);
+
+  // Fallback para bodega inicial si no estamos en edición
+  useEffect(() => {
+    if (!isEditMode && bodegas.length > 0 && !warehouseId) {
+      setWarehouseId(bodegas[0].id);
+    }
+  }, [bodegas, warehouseId, isEditMode]);
+
+  // Sincronizar stock de los items cuando cambie la bodega global o items
+  useEffect(() => {
+    let active = true;
+    if (warehouseId && bodegas.length > 0 && items.length > 0) {
+      const articleIds = items.map((i) => i.articuloId);
+      
+      fetch("/api/v1/bodega/stock/batch-query", {
+        method: "POST",
+        body: JSON.stringify({ warehouseId, articleIds }),
+      })
+        .then((res) => res.json())
+        .then((stockMap) => {
+          if (active) {
+            setItems((prev) => {
+              const needsUpdate = prev.some((item) => 
+                item.bodegaOrigenId === warehouseId && 
+                item.stockDisponible !== (stockMap[item.articuloId] || 0)
+              );
+              if (!needsUpdate) return prev;
+
+              return prev.map((item) => {
+                if (item.bodegaOrigenId === warehouseId) {
+                  return {
+                    ...item,
+                    stockDisponible: stockMap[item.articuloId] || 0,
+                  };
+                }
+                return item;
+              });
+            });
+          }
+        })
+        .catch((err) => console.error("Error al refrescar stock:", err));
+    }
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, bodegas, items.length]);
+
+  // ── Artículos ──────────────────────────────────────────────────────────────
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // ── Evidencias ─────────────────────────────────────────────────────────────
@@ -109,11 +201,6 @@ export default function MobileView() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [paso2, setPaso2] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
   // ── Handlers artículos ─────────────────────────────────────────────────────
 
   const handleSeleccionarArticulo = (articulo: any, bodegaId?: string | null) => {
@@ -121,31 +208,55 @@ export default function MobileView() {
     const b = articulo.bodegas?.find((b: any) => b.bodegaId === bodegaId);
     if (!b) return;
 
-    const existe = items.find((i) => i.articuloId === articulo.id && i.bodegaOrigenId === bodegaId);
-    if (!existe) {
-      setItems((prev) => [
-        ...prev,
-        {
-          articuloId: articulo.id,
-          codigo: articulo.codigo,
-          nombre: articulo.nombre,
+    setItems((prev: RetiroItem[]) => {
+      const existeIndex = prev.findIndex((i) => i.articuloId === articulo.id);
+
+      const stockGlobal = articulo.stockTotal ?? articulo.bodegas.reduce((sum: number, b: any) => sum + (b.cantidadDisponible || 0), 0);
+      const bodegasStock = articulo.bodegas.map((b: any) => ({
+        bodegaId: b.bodegaId,
+        bodegaNombre: b.bodegaNombre,
+        stock: b.cantidadDisponible || 0,
+      }));
+
+      if (existeIndex !== -1) {
+        const newItems = [...prev];
+        newItems[existeIndex] = {
+          ...newItems[existeIndex],
           bodegaOrigenId: bodegaId,
           bodegaOrigenNombre: b.bodegaNombre,
-          cantidad: "",
           stockDisponible: b.cantidadDisponible ?? b.stockDisponible ?? 0,
-          unidad: articulo.unidad || "uds",
-        },
-      ]);
-    }
+          stockGlobal,
+          bodegasStock,
+        };
+        toast.info(`${articulo.nombre} actualizado (Global: ${stockGlobal})`);
+        return newItems;
+      }
+
+      const newItem: RetiroItem = {
+        articuloId: articulo.id,
+        codigo: articulo.codigo,
+        nombre: articulo.nombre,
+        bodegaOrigenId: bodegaId,
+        bodegaOrigenNombre: b.bodegaNombre,
+        cantidad: 0,
+        stockDisponible: b.cantidadDisponible ?? b.stockDisponible ?? 0,
+        stockGlobal,
+        unidad: articulo.unidad || "uds",
+        bodegasStock,
+      };
+
+      toast.success(`${articulo.nombre} agregado (Global: ${stockGlobal})`);
+      return [...prev, newItem];
+    });
   };
 
   const handleUpdateCantidad = (articuloId: string, bodegaOrigenId: string, cantidadStr: string) => {
     const val = parseNumber(cantidadStr);
-    setItems((prev) =>
+    setItems((prev: RetiroItem[]) =>
       prev.map((i) => {
-        if (i.articuloId === articuloId && i.bodegaOrigenId === bodegaOrigenId) {
-          if (val > i.stockDisponible) return { ...i, cantidad: formatNumber(String(i.stockDisponible)) };
-          return { ...i, cantidad: cantidadStr };
+        if (i.articuloId === articuloId) {
+          const v = Math.min(val, i.stockGlobal);
+          return { ...i, cantidad: v };
         }
         return i;
       }),
@@ -168,7 +279,7 @@ export default function MobileView() {
       const fd = new FormData();
       fd.append("file", resized, "evidencia.jpg");
       fd.append("path", "bodega/evidencias");
-      const res = await fetch("/api/uploads/r2-simple", { method: "POST", body: fd });
+      const res = await fetch("/api/v1/storage/r2-simple", { method: "POST", body: fd });
       if (!res.ok) throw new Error("Error al subir imagen");
       const data = await res.json();
       const url = data.data?.url || data.url;
@@ -186,78 +297,95 @@ export default function MobileView() {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
+  const handleCrearSolicitud = async (isAutoApprovedForce?: boolean) => {
+    // En móvil, si NO es paso2 (solicitud diferida), activamos aprobación automática si tiene permisos.
+    // La entrega inmediata real dependerá de las reglas globales en el backend.
+    const finalAutoApprove = isAutoApprovedForce !== undefined ? isAutoApprovedForce : aprobacionAuto && canApprove;
+    const isAutoCompletar = (entregaInmediata || autoApproveGlobal) && finalAutoApprove;
+    setCreando(true);
+    setConfirmOpen(false);
+
     try {
-      if (entregaInmediata && (canApprove || autoApproveGlobal) && !paso2) {
-        // FLUJO DE PARIDAD: Si la entrega inmediata está activa, creamos el Egreso/Salida real directamente.
-        const externalFolio = `DIR-${Date.now()}`;
+      const url = isEditMode && initialData?.requestId ? `/api/v1/bodega/solicitudes-internas/${initialData.requestId}` : "/api/v1/bodega/solicitudes-internas";
 
-        for (const i of validItems) {
-          const response = await fetch("/api/v1/bodega/movimientos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              movementType: "SALIDA",
-              warehouseId: i.bodegaOrigenId,
-              articleId: i.articuloId,
-              quantity: parseNumber(i.cantidad),
-              reason: `Entrega Inmediata Móvil`,
-              observations: justificacion + " | [auto_approved:true]",
-            }),
-          });
+      const res = await fetch(url, {
+        method: isEditMode ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `RETIRO MÓVIL: ${justificacion.substring(0, 25)}${justificacion.length > 25 ? "..." : ""}`,
+          description: justificacion + (isAutoCompletar ? " | [auto_approved:true]" : ""),
+          priority: prioridad,
+          requiredDate: fecha,
+          warehouseId: warehouseId || (validItems[0]?.bodegaOrigenId ?? null),
+          fotoEvidenciaUrl: fotosEvidencia.length > 0 ? fotosEvidencia[0] : undefined,
+          metadatos: { fotosEvidencia, origen: "mobile" },
+          items: validItems.flatMap((i) => {
+            if (i.cantidad <= i.stockDisponible || !i.bodegasStock) {
+              return [
+                {
+                  articleId: i.articuloId,
+                  warehouseId: i.bodegaOrigenId,
+                  quantity: i.cantidad,
+                },
+              ];
+            }
 
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || "Error al contabilizar entrega inmediata móvil");
-          }
-        }
+            let restante = i.cantidad;
+            const itemsDistribuidos = [];
 
-        toast.success("Retiro inmediato procesado", {
-          description: `EGRESO DIRECTO — ${validItems.length} artículo(s)`,
-        });
-
-        router.push("/bodega");
-      } else {
-        // FLUJO DE SOLICITUD INTERNA
-        const res = await fetch("/api/v1/bodega/solicitudes-internas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: `RETIRO MÓVIL: ${justificacion.substring(0, 25)}${justificacion.length > 25 ? "..." : ""}`,
-            description: justificacion + (autoApproveGlobal && !paso2 ? " | [auto_approved:true]" : ""),
-            priority: prioridad,
-            requiredDate: fecha,
-            warehouseId: validItems[0]?.bodegaOrigenId ?? null,
-            fotoEvidenciaUrl: fotosEvidencia.length > 0 ? fotosEvidencia[0] : undefined,
-            metadatos: { fotosEvidencia, origen: "mobile" },
-            items: validItems.map((i) => ({
+            // 1. Tomar de la bodega preferida
+            const qtyPreferida = Math.min(restante, i.stockDisponible);
+            itemsDistribuidos.push({
               articleId: i.articuloId,
               warehouseId: i.bodegaOrigenId,
-              quantity: parseNumber(i.cantidad),
-            })),
-            autoCompletar: !paso2,
+              quantity: qtyPreferida,
+            });
+            restante -= qtyPreferida;
+
+            // 2. Tomar de otras bodegas
+            if (restante > 0) {
+              const otrasBodegas = i.bodegasStock.filter((b) => b.bodegaId !== i.bodegaOrigenId && b.stock > 0);
+              for (const b of otrasBodegas) {
+                if (restante <= 0) break;
+                const aTomar = Math.min(restante, b.stock);
+                itemsDistribuidos.push({
+                  articleId: i.articuloId,
+                  warehouseId: b.bodegaId,
+                  quantity: aTomar,
+                });
+                restante -= aTomar;
+              }
+            }
+
+            // 3. Fallback
+            if (restante > 0) {
+              itemsDistribuidos[0].quantity += restante;
+            }
+
+            return itemsDistribuidos;
           }),
-        });
+          autoCompletar: isAutoCompletar,
+          autoAprobar: finalAutoApprove,
+        }),
+      });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error en retiro");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error en retiro");
 
-        toast.success("Retiro completado", {
-          description: `${data.folio ?? data.numero} — ${validItems.length} artículo(s)`,
-        });
+      // Invalida caché para refrescar listado y estadísticas
+      queryClient.invalidateQueries({ queryKey: ["bodega", "solicitudes-internas"] });
+      queryClient.invalidateQueries({ queryKey: ["bodega", "consulta-rapida"] });
 
-        if (paso2 && data.solicitudId) {
-          router.push(`/bodega/solicitudes-internas/${data.solicitudId}`);
-        } else {
-          router.push("/bodega");
-        }
-      }
+      toast.success(isAutoCompletar ? "Retiro inmediato completado" : "Solicitud de retiro creada", {
+        description: `Folio: ${data.folio} — ${validItems.length} artículo(s)`,
+      });
+
+      setSuccessData({ id: data.id, folio: data.folio });
     } catch (error: any) {
       toast.error("Error en retiro", { description: error.message });
     } finally {
-      setSubmitting(false);
-      setShowConfirm(false);
+      setCreando(false);
+      setConfirmOpen(false);
     }
   };
 
@@ -268,6 +396,41 @@ export default function MobileView() {
   const canSubmit = validItems.length > 0 && justificacion.trim().length >= 10 && (!evidenciaObligatoria || hasEvidence);
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
+
+  if (successData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center animate-in fade-in zoom-in-95 duration-500">
+        <div className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-6 shadow-sm">
+          <Check className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-tight mb-2 text-gray-900 dark:text-gray-100 italic">¡Retiro Procesado!</h2>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-10 uppercase font-medium tracking-widest leading-relaxed">
+          El folio <span className="text-gray-900 dark:text-white font-extrabold">{successData.folio}</span> ha sido generado con éxito.
+        </p>
+
+        <div className="flex flex-col gap-3 w-full">
+          <button
+            onClick={() => {
+              setItems([]);
+              setJustificacion("");
+              setFotosEvidencia([]);
+              setSuccessData(null);
+            }}
+            className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Nuevo Retiro
+          </button>
+          <button
+            onClick={() => router.push("/bodega")}
+            className="w-full h-14 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-400 rounded-2xl font-bold uppercase text-xs tracking-widest active:scale-95 transition-all"
+          >
+            Volver al Inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-28">
@@ -283,7 +446,7 @@ export default function MobileView() {
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Warehouse className="w-5 h-5 text-orange-500 dark:text-orange-400 shrink-0" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-tight">Retiro Bodega</h1>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-tight">{isEditMode ? "Editar Solicitud" : "Retiro Bodega"}</h1>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 shrink-0">
@@ -473,6 +636,13 @@ export default function MobileView() {
                         <Warehouse className="w-3 h-3" />
                         {item.bodegaOrigenNombre}
                       </span>
+                      {/* Nuevos Badges Móvil */}
+                      {item.stockGlobal > item.stockDisponible && item.cantidad < item.stockDisponible && (
+                        <span className="text-[8px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase animate-in fade-in">
+                          +{item.stockGlobal - item.stockDisponible} EN OTRAS
+                        </span>
+                      )}
+                      {item.cantidad > item.stockDisponible && <span className="text-[8px] font-black bg-[#283c7f] text-white px-1.5 py-0.5 rounded uppercase animate-pulse">MULTIBODEGA</span>}
                     </div>
                     <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">{item.nombre}</h4>
                   </div>
@@ -486,26 +656,45 @@ export default function MobileView() {
                 </div>
 
                 {/* Stock + Cantidad */}
-                <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-gray-100 dark:border-gray-800/30">
-                  <div className="space-y-0.5">
+                <div className="grid grid-cols-2 gap-2 pt-0 border-t border-gray-100 dark:border-gray-800/30">
+                  <div className="space-y-0">
                     <label className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">Stock</label>
-                    <div className="px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800/30 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-400 flex items-baseline gap-1">
-                      {item.stockDisponible}
-                      <span className="text-[9px] text-gray-400 font-medium lowercase italic">{item.unidad}</span>
+                    <div className="px-2 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-100 dark:border-gray-800/50 flex items-center h-[40px]">
+                      <div className="text-[9px] font-bold uppercase tracking-tighter flex items-center justify-between w-full">
+                        <span className="text-gray-500 flex-1 text-left">
+                          DISPONIBLE <span className="text-gray-900 dark:text-gray-100 font-black ml-1">{item.stockDisponible}</span>
+                        </span>
+                        <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                        <span className="text-blue-600 dark:text-blue-400 font-black flex-1 text-right">(GLOBAL {item.stockGlobal})</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">A Retirar</label>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-red-500 dark:text-red-400 uppercase tracking-widest pl-1">A Retirar</label>
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={item.cantidad === "0" ? "" : item.cantidad}
+                      value={item.cantidad === 0 ? "" : item.cantidad}
                       onChange={(e) => handleUpdateCantidad(item.articuloId, item.bodegaOrigenId, formatNumber(e.target.value))}
-                      className="w-full px-2.5 py-1.5 bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100 dark:border-orange-900/40 rounded-lg text-xs font-bold text-orange-600 dark:text-orange-400 text-center outline-none focus:border-orange-500 transition-all font-mono"
+                      className="w-full h-[40px] px-2.5 bg-orange-50/50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/40 rounded-lg text-xl font-black text-orange-600 dark:text-orange-400 text-center outline-none focus:border-orange-500 transition-all font-mono shadow-sm"
                       placeholder="0"
                     />
                   </div>
                 </div>
+                {item.cantidad > item.stockDisponible && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-100/50 dark:border-orange-900/30 animate-in slide-in-from-top-1">
+                    <Info className="w-3 h-3 text-orange-500 shrink-0" />
+                    <p className="text-[9px] font-bold text-orange-600 dark:text-orange-400 leading-tight">
+                      Stock insuficiente en esta bodega. Se completará el retiro usando unidades de otras bodegas.
+                    </p>
+                  </div>
+                )}
+                {item.stockGlobal < item.cantidad && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-100/50 dark:border-red-900/30 animate-pulse">
+                    <X className="w-3 h-3 text-red-500 shrink-0" />
+                    <p className="text-[9px] font-bold text-red-600 dark:text-red-400 leading-tight uppercase font-black">Supera el stock global disponible ({item.stockGlobal}).</p>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -513,6 +702,20 @@ export default function MobileView() {
 
         {/* ── PANEL BUSCADOR ── */}
         <BuscarArticulosPanel open={dialogOpen} onOpenChange={setDialogOpen} itemsAgregados={items} onAddItem={handleSeleccionarArticulo} mostrarBodegas={true} />
+
+        {/* ── MODAL CONFIRMACIÓN COMPARTIDO ── */}
+        <ConfirmacionRetiroModal
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          onConfirm={handleCrearSolicitud}
+          isPending={creando}
+          itemCount={validItems.length}
+          totalUnidades={totalUnidades}
+          aprobacionAuto={aprobacionAuto}
+          onAprobacionAutoChange={setAprobacionAuto}
+          isAutoAprobar={autoApproveGlobal}
+          isEntregaInmediata={entregaInmediata}
+        />
 
         {/* ── BARRA INFERIOR FIJA ── */}
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 p-3 z-30 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
@@ -527,65 +730,18 @@ export default function MobileView() {
             <button
               type="button"
               onClick={() => {
-                if (autoApproveGlobal || entregaInmediata) handleSubmit();
-                else setShowConfirm(true);
+                if (autoApproveGlobal || entregaInmediata) handleCrearSolicitud(true);
+                else setConfirmOpen(true);
               }}
-              disabled={!canSubmit || submitting}
+              disabled={!canSubmit || creando}
               className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:dark:bg-gray-800 disabled:dark:text-gray-600 text-white font-bold text-xs uppercase tracking-widest transition-all shadow-sm active:scale-95"
             >
               <PackageMinus className="w-4 h-4" />
-              Retirar {validItems.length} {validItems.length === 1 ? "Ítem" : "Ítems"}
+              {isEditMode ? "Actualizar Solicitud" : `Retirar ${validItems.length} ${validItems.length === 1 ? "Ítem" : "Ítems"}`}
             </button>
           </div>
         </div>
 
-        {/* ── MODAL CONFIRMACIÓN ── */}
-        {showConfirm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/60 backdrop-blur-[2px] animate-in fade-in duration-200">
-            <div className="w-full max-w-sm bg-white dark:bg-gray-950 rounded-t-2xl sm:rounded-xl p-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-              <div className="mb-4">
-                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">¿Confirmar Retiro?</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                  Vas a solicitar <strong>{validItems.length}</strong> artículo(s) para un total de <strong>{totalUnidades}</strong> unidades.
-                </p>
-              </div>
-
-              {/* Checkbox Paso 2 */}
-              <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800/50 mb-5 cursor-pointer hover:border-orange-200 transition-colors">
-                <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${paso2 ? "bg-orange-500 border-orange-500 shadow-sm" : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"}`}
-                >
-                  {paso2 && <Check className="w-3.5 h-3.5 text-white" />}
-                </div>
-                <input type="checkbox" checked={paso2} onChange={(e) => setPaso2(e.target.checked)} className="sr-only" />
-                <div className="flex-1">
-                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300 block uppercase tracking-tight">Paso 2</span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium leading-none">Activar retiro manual / preparación</span>
-                </div>
-              </label>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(false)}
-                  disabled={submitting}
-                  className="flex-1 h-11 rounded-lg border border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:bg-gray-50 active:scale-95 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-widest shadow-lg shadow-orange-500/10 active:scale-95 transition-all"
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

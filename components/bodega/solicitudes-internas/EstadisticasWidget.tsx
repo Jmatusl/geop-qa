@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Clock, AlertCircle, CheckCircle2, PackageOpen } from "lucide-react";
 import { useBodegaInternalRequestStats } from "@/lib/hooks/bodega/use-bodega-internal-requests";
 
@@ -95,15 +96,44 @@ export function EstadisticasWidget({ soloMias = false, setSoloMias }: { soloMias
       {/* Alertas Críticas */}
       <div className="flex flex-col gap-2">
         {stats.permisos?.puedeAprobar && stats.pendientesAprobacion > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg animate-pulse">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <span className="text-[11px] font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide">{stats.pendientesAprobacion} SOLICITUDES PENDIENTES DE APROBACIÓN</span>
+          <div className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-100 dark:bg-amber-900/60 p-2 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-[11px] font-black text-amber-900 dark:text-amber-100 uppercase tracking-widest italic">
+                {stats.pendientesAprobacion === 1 ? "1 SOLICITUD PENDIENTE DE APROBACIÓN" : `${stats.pendientesAprobacion} SOLICITUDES PENDIENTES DE APROBACIÓN`}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 italic"
+              onClick={() => (window.location.href = "?statusCode=PENDIENTE")}
+            >
+              Revisar →
+            </Button>
           </div>
         )}
+
         {stats.permisos?.puedePreparar && stats.pendientesPreparacion > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <PackageOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-[11px] font-bold text-blue-900 dark:text-blue-100 uppercase tracking-wide">{stats.pendientesPreparacion} SOLICITUDES LISTAS PARA PREPARAR / ENTREGAR</span>
+          <div className="flex items-center justify-between px-4 py-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 dark:bg-blue-900/60 p-2 rounded-lg">
+                <PackageOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <span className="text-[11px] font-black text-blue-900 dark:text-blue-100 uppercase tracking-widest italic">
+                {stats.pendientesPreparacion === 1 ? "1 SOLICITUD PARA PREPARAR" : `${stats.pendientesPreparacion} SOLICITUDES PARA PREPARAR`}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 italic"
+              onClick={() => (window.location.href = "?statusCode=APROBADA")}
+            >
+              Ver Lista →
+            </Button>
           </div>
         )}
       </div>

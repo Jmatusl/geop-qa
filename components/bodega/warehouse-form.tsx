@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { bodegaWarehouseSchema } from "@/lib/validations/bodega-master";
 
 const formSchema = bodegaWarehouseSchema;
-
 type FormValues = z.infer<typeof formSchema>;
 
 interface WarehouseFormProps {
@@ -34,9 +33,9 @@ export function WarehouseForm({ initialData, onSubmit, onCancel, isLoading = fal
   const {
     register,
     handleSubmit,
-    reset,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -49,26 +48,21 @@ export function WarehouseForm({ initialData, onSubmit, onCancel, isLoading = fal
     },
   });
 
+  // Poblar el formulario con los datos iniciales en cuanto estén disponibles.
+  // Se usa reset() para que react-hook-form actualice todos los campos correctamente.
   useEffect(() => {
     if (initialData) {
       reset({
-        code: initialData.code,
-        name: initialData.name,
-        description: initialData.description || "",
-        location: initialData.location || "",
-        isActive: initialData.isActive,
+        code: initialData.code ?? "",
+        name: initialData.name ?? "",
+        description: initialData.description ?? "",
+        location: initialData.location ?? "",
+        isActive: initialData.isActive ?? true,
       });
-      return;
     }
-
-    reset({
-      code: "",
-      name: "",
-      description: "",
-      location: "",
-      isActive: true,
-    });
-  }, [initialData, reset]);
+    // Solo ejecutar cuando cambia el id del ítem — no en cada re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id]);
 
   const isActive = watch("isActive");
 
@@ -110,7 +104,7 @@ export function WarehouseForm({ initialData, onSubmit, onCancel, isLoading = fal
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white p-4 shadow-lg dark:bg-slate-900 lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
         <div className="flex w-full items-center gap-2 lg:justify-end">
-          <Button type="button" variant="outline" onClick={onCancel} className="w-full lg:w-auto">
+          <Button type="button" variant="outline" onClick={onCancel} className="w-full lg:w-auto dark:text-white">
             <X className="mr-2 h-4 w-4" />
             Cancelar
           </Button>

@@ -70,17 +70,117 @@ Este documento define las reglas de oro para el desarrollo del sistema. Deben se
 
 Para cualquier módulo administrativo (Usuarios, Roles, Menús, etc.):
 
-- **Vista Única**: Implementar el patrón Tabla/Formulario en una sola página. La tabla se oculta para mostrar el formulario (`setMode('edit' | 'create' | 'table')`).
-- **Data Management**: Usar `TanStack Table` para listados y `TanStack Query` para caching y mutaciones.
+- **Data Management**: Usar `TanStack Table` para listados y `TanStack Query` para caching y mutaciones de lista/crear/eliminar. **No usar Server Actions** — toda comunicación con el servidor debe pasar por rutas de API REST (`app/api/v1/`).
 - **Interactividad**: Toda tabla debe incluir un botón de refresco (`RefreshCw`) que:
   - Esté deshabilitado mientras se cargan los datos (`isLoading` o `isFetching`).
   - Muestre una animación de rotación (`animate-spin`) durante la carga.
-- **Invalidación**: Al guardar un registro exitosamente, siempre invalidar la query de la tabla relacionada para refrescar los datos.
-- **Deep Linking (Edición por URL) y Prevención de Flickering**: Todo mantenedor debe soportar el acceso directo a la edición de un registro mediante el parámetro `edit` en el query string (ej: `?edit=UUID`).
-  - **Estado Inicial (Anti-Flicker)**: El estado de la vista (`externalMode`) debe inicializarse evaluando estáticamente la presencia del parámetro `edit` (ej: `useState(editId ? "edit" : "table")`). Esto evita el "flicker" o parpadeo visual donde la tabla se dibuja por unos milisegundos antes de montar el formulario.
-  - **Transición de Carga (Spinner)**: Mientras se obtiene el registro individual desde la API (ej: usando React Query), el callback `renderForm` del `BaseMaintainer` no debe intentar montar campos de formulario vacíos. En su lugar, si la vista está en modo `"edit"` y la `initialData` todavía es nula o indefinida, se debe retornar inmediatamente un spinner de carga centrado para dar fluidez.
-- **Navegación Intuitiva**: El campo identificador principal en las tablas (ej: Nombre, Código) debe ser un botón o link que dispare el modo edición, facilitando el acceso rápido sin depender exclusivamente del menú de acciones.
-- **Sincronización de URL**: Al abrir el formulario de edición, se debe actualizar la URL con el parámetro correspondiente (`?edit=X`). Al cerrar, cancelar o guardar éxito, se debe remover dicho parámetro limpiar la URL en la barra del navegador (sin recargar la página) para no afectar estados posteriores.
+- **Invalidación**: Al guardar un registro exitosamente, siempre invalidar o hacer `refetch()` de la query de la tabla relacionada para refrescar los datos.
+- **Navegación Intuitiva**: El campo identificador principal en las tablas (ej: Nombre, Código) debe ser un botón o link que actualice la URL con `?id=UUID`, disparando el panel de edición.
+- **Sincronización de URL**: Al abrir el formulario de edición actualizar la URL con `?id=UUID` via `router.replace`. Al cancelar o guardar con éxito, remover el parámetro de la URL (sin recargar la página).
+
+### Patrón de Vista Separada (Tabla vs. Edición)
+
+La vista de tabla y la vista de edición deben ser **renderizadas condicionalmente** en la misma página según el query param `?id=`. No usar `BaseMaintainer` con `externalItem`/`externalMode` para el flujo de edición — esto genera race conditions entre queries.
+
+```tsx
+// En page.tsx — división por query param
+const editId = searchParams.get("id") || searchParams.get("edit");
+
+if (editId) {
+  return <EditPanel editId={editId} onBack={goBack} onSaved={() => { refetch(); goBack(); }} />;
+}
+
+return <BaseMaintainer ... />; // Solo para tabla + crear
+```
+
+### EditPanel — Componente Autónomo de Edición
+
+Cada mantenedor debe tener un `EditPanel` (puede definirse en el mismo archivo de la página) que:
+
+1. **Siempre hace fetch individual por API** — nunca reutiliza datos de la lista paginada.
+2. **Usa `useState + useEffect + fetch` directamente** — NO usar `useQuery` para la carga inicial del ítem a editar (evita race conditions con `gcTime`/Strict Mode).
+3. **Muestra spinner** mientras carga (`loading = true`).
+4. **Monta el formulario cuando `!loading`**, independientemente de si `item` es null (el formulario maneja el estado vacío internamente).
+5. **Incluye flag de cancelación** para evitar actualizaciones de estado tras desmonte.
+
+```tsx
+function EditPanel({ editId, onBack, onSaved }) {
+  const [item, setItem] = useState<TipoItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const updateMutation = useUpdateMutation();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setFetchError(false);
+    setItem(null);
+
+    fetch(`/api/v1/recurso/${editId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Error al cargar");
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) { setItem(data); setLoading(false); }
+      })
+      .catch(() => {
+        if (!cancelled) { setFetchError(true); setLoading(false); }
+      });
+
+    return () => { cancelled = true; };
+  }, [editId]);
+
+  return (
+    <div className="space-y-6 w-full animate-in fade-in duration-300">
+      {/* Header con ChevronLeft + título */}
+      {loading && <div className="flex h-[300px] items-center justify-center"><Loader2 className="animate-spin" /></div>}
+      {fetchError && !loading && <p className="text-destructive">No se pudo cargar el registro.</p>}
+      {!fetchError && !loading && (
+        <MiFormulario
+          key={editId}           {/* Fuerza montaje limpio al cambiar de ítem */}
+          initialData={item ?? undefined}
+          onCancel={onBack}
+          onSubmit={async (data) => { await updateMutation.mutateAsync(...); onSaved(); }}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### Formularios con `react-hook-form` — Patrón de Poblado Asíncrono
+
+Los formularios que reciben `initialData` como prop deben seguir este patrón para garantizar que los campos se poblen correctamente, independientemente del timing de montaje:
+
+- **`defaultValues` siempre vacíos** en `useForm` — no depender de `initialData` en el `defaultValues` inicial.
+- **`useEffect` con `reset()`** dependiendo de `initialData?.id` para poblar los campos cuando los datos estén disponibles.
+
+```tsx
+export function MiFormulario({ initialData, onSubmit, onCancel, isLoading = false }) {
+  const { register, handleSubmit, setValue, watch, reset } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { campo1: "", campo2: "", isActive: true }, // Siempre vacíos
+  });
+
+  // Poblar cuando initialData esté disponible (después de la hidratación)
+  useEffect(() => {
+    if (initialData) {
+      reset({
+        campo1: initialData.campo1 ?? "",
+        campo2: initialData.campo2 ?? "",
+        isActive: initialData.isActive ?? true,
+      });
+    }
+    // Depende del ID — no del objeto completo (evita re-renders innecesarios)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id]);
+
+  // ... JSX del formulario
+}
+```
+
+> **¿Por qué este patrón?** En Next.js 15 con React 18 Strict Mode, los `defaultValues` de `useForm` se capturan solo en el primer render. Si el componente monta antes de que lleguen los datos (timing asíncrono), los campos quedan vacíos. El `useEffect + reset()` con dependencia `[initialData?.id]` garantiza que los campos se poblen tras la hidratación, sin dispararse en cada re-render por cambios de referencia del objeto.
 
 ## 4. Sistema de Reportes (Excel/PDF)
 
@@ -274,3 +374,16 @@ return (
   - Un único card grande (`bg-white rounded-xl border shadow-sm`) que engloba todo el contenido.
   - Divisores verticales (`1px bg-border`) para separar zonas dentro del card.
   - Tabs (`shadcn/ui Tabs`) al pie del card, en **ancho completo**, para secciones secundarias.
+
+## 15. Organización de Templates de Correo Electrónico
+
+Para mantener una estructura limpia y escalable en las notificaciones del sistema:
+
+- **Estructura Modular**: Todos los templates de correo deben residir en `lib/email/templates/[modulo]/`.
+- **Nomenclatura**: Usar nombres descriptivos según su función dentro del módulo (ej: `lib/email/templates/bodega/transferencia.ts`).
+- **Diseño "Airy"**: Las nuevas plantillas deben seguir el estándar visual premium:
+  - Header con color corporativo y título en mayúsculas.
+  - Uso de tablas para desgloses de items con bordes sutiles.
+  - Pie de página (Footer) con detalles técnicos del registro (Referencia, Responsable, Fecha, etc.).
+  - Tipografía sans-serif (Inter/Arial) y espaciados amplios (line-height 1.5).
+- **Placeholders**: Usar reemplazos de texto consistentes como `{NUMERO}`, `{MOTIVO}`, `{FECHA}` para inyectar datos dinámicos desde el backend.

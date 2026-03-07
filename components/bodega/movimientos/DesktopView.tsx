@@ -10,15 +10,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useBodegaMovements } from "@/lib/hooks/bodega/use-bodega-movements";
+import { useBodegaMovements, useApproveBodegaMovement, useRejectBodegaMovement, useApplyBodegaMovement } from "@/lib/hooks/bodega/use-bodega-movements";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { cn } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 const MOVEMENT_TYPES = ["INGRESO", "SALIDA", "AJUSTE", "RESERVA", "LIBERACION"];
-const MOVEMENT_STATUSES = ["PENDIENTE", "APROBADO", "RECHAZADO", "APLICADO"];
+const MOVEMENT_STATUSES = ["PENDIENTE", "APROBADO", "RECHAZADO", "EJECUTADO", "COMPLETADO", "CANCELADO", "BORRADOR"];
 
 function getStatusVariant(status: string) {
-  if (status === "APLICADO") return "secondary" as const;
+  if (status === "EJECUTADO") return "default" as const;
+  if (status === "COMPLETADO") return "secondary" as const;
   if (status === "APROBADO") return "default" as const;
   return "outline" as const;
 }
@@ -29,6 +34,17 @@ export default function DesktopView() {
   const [movementType, setMovementType] = useState("");
   const [status, setStatus] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+
+  // Estados para diálogos
+  const [approvingId, setApprovingId] = useState<any>(null);
+  const [rejectingId, setRejectingId] = useState<any>(null);
+  const [applyingId, setApplyingId] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [applyObs, setApplyObs] = useState("");
+
+  const approveMutation = useApproveBodegaMovement();
+  const rejectMutation = useRejectBodegaMovement();
+  const applyMutation = useApplyBodegaMovement();
 
   const { data, isLoading, isFetching, refetch } = useBodegaMovements({
     page,
@@ -272,10 +288,15 @@ export default function DesktopView() {
                       <Badge
                         className={cn(
                           "px-2.5 py-0.5 whitespace-nowrap uppercase tracking-wider text-[10px] font-bold border-0 text-white shadow-sm",
-                          movement.status === "APLICADO" ? "bg-emerald-500" : movement.status === "APROBADO" ? "bg-indigo-500" : movement.status === "RECHAZADO" ? "bg-red-500" : "bg-amber-500",
+                          movement.status === "APROBADO" && "bg-blue-500",
+                          (movement.status === "EJECUTADO" || movement.status === "APLICADO") && "bg-emerald-500",
+                          movement.status === "COMPLETADO" && "bg-purple-600",
+                          movement.status === "PENDIENTE" && "bg-amber-500",
+                          (movement.status === "RECHAZADO" || movement.status === "CANCELADO") && "bg-red-500",
+                          movement.status === "BORRADOR" && "bg-slate-400",
                         )}
                       >
-                        {movement.status === "APLICADO" ? "COMPLETADO" : movement.status}
+                        {movement.status === "APLICADO" ? "EJECUTADO" : movement.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -289,14 +310,56 @@ export default function DesktopView() {
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 cursor-not-allowed">
+
+                        {/* Aprobar */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setApprovingId(movement)}
+                          disabled={movement.status !== "PENDIENTE" || approveMutation.isPending}
+                          className={cn(
+                            "h-8 w-8 rounded-full transition-all",
+                            movement.status === "PENDIENTE"
+                              ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                              : "text-slate-300 dark:text-slate-800 opacity-40 cursor-not-allowed",
+                          )}
+                        >
                           <CheckCircle2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 cursor-not-allowed">
+
+                        {/* Rechazar */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setRejectingId(movement);
+                            setRejectReason("");
+                          }}
+                          disabled={movement.status !== "PENDIENTE" || rejectMutation.isPending}
+                          className={cn(
+                            "h-8 w-8 rounded-full transition-all",
+                            movement.status === "PENDIENTE"
+                              ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                              : "text-slate-300 dark:text-slate-800 opacity-40 cursor-not-allowed",
+                          )}
+                        >
                           <XCircle className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 cursor-not-allowed">
-                          <Play className="h-4 w-4" />
+
+                        {/* Aplicar (Play) */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setApplyingId(movement)}
+                          disabled={movement.status !== "APROBADO" || applyMutation.isPending}
+                          className={cn(
+                            "h-8 w-8 rounded-full transition-all",
+                            movement.status === "APROBADO"
+                              ? "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              : "text-slate-300 dark:text-slate-800 opacity-40 cursor-not-allowed",
+                          )}
+                        >
+                          {applyMutation.isPending && applyingId?.id === movement.id ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <Play className="h-4 w-4" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -331,6 +394,164 @@ export default function DesktopView() {
           </div>
         </div>
       </Card>
+
+      {/* Diálogo Aprobar */}
+      <AlertDialog open={!!approvingId} onOpenChange={(open) => !open && setApprovingId(null)}>
+        <AlertDialogContent className="max-w-md rounded-2xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-extrabold text-slate-900 dark:text-white uppercase tracking-tight">Aprobar Movimiento</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 dark:text-slate-400 pt-2 space-y-4" asChild>
+              <div>
+                <p>
+                  ¿Está seguro que desea aprobar el movimiento <span className="font-bold text-slate-900 dark:text-white">{approvingId?.folio}</span>?
+                </p>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
+                  <div className="text-sm">
+                    <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Tipo</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{approvingId?.movementType}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Descripción / Referencia</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{approvingId?.reason || "Sin descripción"}</span>
+                  </div>
+                </div>
+                <p className="text-sm border-l-4 border-blue-500 pl-3 italic">Esta acción permitirá que el movimiento pueda ser ejecutado para actualizar el stock.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3">
+            <AlertDialogCancel className="rounded-lg h-11 px-6 border-slate-200 font-bold uppercase tracking-wide">
+              <XCircle className="mr-2 h-4 w-4" /> Cancelar
+            </AlertDialogCancel>
+            <Button
+              disabled={approveMutation.isPending}
+              onClick={() => {
+                approveMutation.mutate(approvingId.id, {
+                  onSuccess: () => setApprovingId(null),
+                });
+              }}
+              className="bg-[#283c7f] hover:bg-[#1e2d60] text-white rounded-lg h-11 px-6 font-bold uppercase tracking-wide shadow-lg shadow-blue-900/10"
+            >
+              {approveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              Aprobar
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo Rechazar */}
+      <AlertDialog open={!!rejectingId} onOpenChange={(open) => !open && setRejectingId(null)}>
+        <AlertDialogContent className="max-w-md rounded-2xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-extrabold text-[#f07b32] dark:text-orange-400 uppercase tracking-tight flex items-center gap-2">
+              <XCircle className="h-6 w-6" />
+              Rechazar Movimiento
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 dark:text-slate-400 pt-2 space-y-4" asChild>
+              <div>
+                <p>
+                  Está a punto de rechazar el movimiento <span className="font-bold text-slate-900 dark:text-white">{rejectingId?.folio}</span>. Debe proporcionar un motivo de rechazo.
+                </p>
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
+                  <div className="text-sm">
+                    <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Tipo</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{rejectingId?.movementType}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Descripción / Referencia</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{rejectingId?.reason || "Sin descripción"}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Motivo de Rechazo *</label>
+                  <Textarea
+                    placeholder="Ingrese el motivo por el cual rechaza este movimiento..."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="min-h-[100px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3">
+            <AlertDialogCancel className="rounded-lg h-11 px-6 border-slate-200 font-bold uppercase tracking-wide">Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={rejectMutation.isPending || !rejectReason.trim()}
+              onClick={() => {
+                rejectMutation.mutate(
+                  { id: rejectingId.id, reason: rejectReason },
+                  {
+                    onSuccess: () => {
+                      setRejectingId(null);
+                      setRejectReason("");
+                    },
+                  },
+                );
+              }}
+              className="bg-[#f28e8e] hover:bg-red-500 text-white rounded-lg h-11 px-6 font-bold uppercase tracking-wide shadow-lg shadow-red-900/10"
+            >
+              {rejectMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <XCircle className="mr-2 h-4 w-4" />}
+              Rechazar Movimiento
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo Aplicar (Ejecutar) */}
+      <AlertDialog open={!!applyingId} onOpenChange={(open) => !open && setApplyingId(null)}>
+        <AlertDialogContent className="max-w-md rounded-2xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-tight flex items-center gap-2">
+              <Play className="h-6 w-6" />
+              Ejecutar Movimiento
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 dark:text-slate-400 pt-2 space-y-4" asChild>
+              <div>
+                <p>
+                  Se procederá a ejecutar el movimiento <span className="font-bold text-slate-900 dark:text-white">{applyingId?.folio}</span>.
+                </p>
+                <p className="font-bold text-blue-700 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800 text-xs">
+                  Esta acción es irreversible y actualizará físicamente los niveles de stock en la bodega de destino.
+                </p>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Observaciones de Ejecución (Opcional)</label>
+                  <Textarea
+                    placeholder="Añada cualquier observación relevante sobre la ejecución física..."
+                    value={applyObs}
+                    onChange={(e) => setApplyObs(e.target.value)}
+                    className="min-h-[80px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-3">
+            <AlertDialogCancel className="rounded-lg h-11 px-6 border-slate-200 font-bold uppercase tracking-wide">Cancelar</AlertDialogCancel>
+            <Button
+              disabled={applyMutation.isPending}
+              onClick={() => {
+                applyMutation.mutate(
+                  { id: applyingId.id, observations: applyObs },
+                  {
+                    onSuccess: () => {
+                      setApplyingId(null);
+                      setApplyObs("");
+                    },
+                  },
+                );
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-11 px-6 font-bold uppercase tracking-wide shadow-lg"
+            >
+              {applyMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+              Ejecutar Movimiento
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

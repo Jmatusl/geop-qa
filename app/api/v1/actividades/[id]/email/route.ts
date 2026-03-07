@@ -3,11 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/auth/session";
 import { ActivityRequirementPdf } from "@/lib/reports/modules/actividades/requirement-pdf";
 import { sendEmail } from "@/lib/email/client";
-import {
-  generateRequerimientoEmailHTML,
-  type RequerimientoActividadPdfData,
-  type RequerimientoEmailConfig,
-} from "@/lib/email/templates/activity-requirement";
+import { generateRequerimientoEmailHTML, type RequerimientoActividadPdfData, type RequerimientoEmailConfig } from "@/lib/email/templates/actividades/requirement";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await verifySession();
@@ -151,10 +147,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     );
 
     const results = await Promise.allSettled(emailPromises);
-    
+
     // Verificar si todos los correos se enviaron correctamente
     const failedEmails = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success));
-    
+
     // Guardar registro de correos enviados exitosamente
     const successfulEmails = recipients.filter((_, index) => {
       const result = results[index];
@@ -176,7 +172,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         data: emailRecords,
       });
     }
-    
+
     if (failedEmails.length > 0) {
       console.error("Algunos correos fallaron:", failedEmails);
       return NextResponse.json(

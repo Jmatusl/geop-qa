@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArticleForm } from "@/components/bodega/article-form";
@@ -44,21 +44,29 @@ export function CrearArticuloDialog({ onArticuloCreado, className, trigger, init
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="w-[80vw]! max-w-[80vw]! max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{initialValues ? "Clonar Artículo" : "Crear Nuevo Artículo"}</DialogTitle>
+      <DialogContent
+        className="p-0 border-none shadow-none w-full max-w-full h-full max-h-full sm:w-[90vw] sm:max-w-4xl sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col rounded-none sm:rounded-2xl"
+        onPointerDownOutside={(e) => e.preventDefault()} // Evita cierre por clic fuera
+        onEscapeKeyDown={(e) => e.preventDefault()} // Evita cierre por tecla Escape
+      >
+        <DialogHeader className="p-4 border-b bg-white dark:bg-slate-950 sticky top-0 z-10 flex flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-sm font-black uppercase tracking-widest text-[#283c7f] dark:text-blue-400">{initialValues ? "Clonar Artículo" : "Crear Nuevo Artículo"}</DialogTitle>
+          <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="h-8 w-8 rounded-full">
+            <X className="h-4 w-4" />
+          </Button>
         </DialogHeader>
 
-        {/* Modo Dialog: ArticleForm con onSuccess (mutaciones internas) + botones inline */}
-        <ArticleForm
-          initialData={initialValues}
-          inDialog
-          onSuccess={(articulo) => {
-            setOpen(false);
-            onArticuloCreado?.(articulo);
-          }}
-          onCancel={() => setOpen(false)}
-        />
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/30 dark:bg-slate-900/10">
+          <ArticleForm
+            initialData={initialValues}
+            inDialog
+            onSuccess={(articulo) => {
+              setOpen(false);
+              onArticuloCreado?.(articulo);
+            }}
+            onCancel={() => setOpen(false)}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

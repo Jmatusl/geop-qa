@@ -92,9 +92,6 @@ importers:
       '@types/leaflet':
         specifier: ^1.9.21
         version: 1.9.21
-      '@types/react-signature-canvas':
-        specifier: ^1.0.7
-        version: 1.0.7
       aws-sdk:
         specifier: ^2.1693.0
         version: 2.1693.0
@@ -219,6 +216,9 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.8)
+      '@types/react-signature-canvas':
+        specifier: ^1.0.7
+        version: 1.0.7
       '@types/ua-parser-js':
         specifier: ^0.7.39
         version: 0.7.39

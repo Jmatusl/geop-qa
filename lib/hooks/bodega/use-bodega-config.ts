@@ -39,6 +39,7 @@ export function useUpdateBodegaConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bodega", "config"] });
+      queryClient.invalidateQueries({ queryKey: ["bodega-warehouses"] });
       toast.success("Configuración guardada");
     },
     onError: (error: Error) => {

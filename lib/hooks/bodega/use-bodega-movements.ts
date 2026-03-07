@@ -13,6 +13,8 @@ export interface BodegaMovement {
   status: string;
   reason: string | null;
   observations: string | null;
+  responsable: string | null;
+  externalReference: string | null;
   approvedAt: string | null;
   approvedBy: string | null;
   createdBy: string;
@@ -63,14 +65,7 @@ interface UseBodegaMovementsParams {
 }
 
 export function useBodegaMovements(params: UseBodegaMovementsParams = {}) {
-  const {
-    page = 1,
-    pageSize = 20,
-    search = "",
-    movementType = "",
-    status = "",
-    warehouseId = "",
-  } = params;
+  const { page = 1, pageSize = 20, search = "", movementType = "", status = "", warehouseId = "" } = params;
 
   return useQuery<BodegaMovementsResponse>({
     queryKey: bodegaQueryKeys.movements.list({ page, pageSize, search, movementType, status, warehouseId }),
@@ -96,10 +91,16 @@ export function useBodegaMovements(params: UseBodegaMovementsParams = {}) {
 interface CreateBodegaMovementPayload {
   movementType: "INGRESO" | "SALIDA" | "AJUSTE" | "RESERVA" | "LIBERACION";
   warehouseId: string;
-  articleId: string;
-  quantity: number;
+  articleId?: string;
+  quantity?: number;
+  unitCost?: number;
+  items?: Array<{ articleId: string; quantity: number; unitCost?: number }>;
   reason?: string | null;
   observations?: string | null;
+  responsable?: string | null;
+  externalReference?: string | null;
+  evidence?: string[];
+  autoVerify?: boolean;
 }
 
 export function useCreateBodegaMovement() {
@@ -123,6 +124,88 @@ export function useCreateBodegaMovement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
       toast.success("Movimiento registrado correctamente");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useApproveBodegaMovement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/v1/bodega/movimientos/${id}/aprobar`, {
+        method: "POST",
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Error al aprobar movimiento");
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+      toast.success("Movimiento aprobado correctamente");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useRejectBodegaMovement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await fetch(`/api/v1/bodega/movimientos/${id}/rechazar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Error al rechazar movimiento");
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+      toast.success("Movimiento rechazado");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useApplyBodegaMovement() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, observations }: { id: string; observations?: string }) => {
+      const response = await fetch(`/api/v1/bodega/movimientos/${id}/aplicar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ observations }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Error al aplicar movimiento");
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+      toast.success("Movimiento aplicado y stock actualizado");
     },
     onError: (error: Error) => {
       toast.error(error.message);

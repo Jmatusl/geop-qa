@@ -5,6 +5,7 @@ import { modulePermissionService } from "@/lib/services/permissions/module-permi
 import { bodegaPrepareRequestSchema } from "@/lib/validations/bodega-workflow";
 import { BodegaBusinessError, bodegaInternalRequestService } from "@/lib/services/bodega/internal-request-service";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -17,11 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const canPrepare = await modulePermissionService.userHasPermission(
-      session.user.id,
-      "bodega",
-      "gestionar_stock",
-    );
+    const canPrepare = await modulePermissionService.userHasPermission(session.user.id, "bodega", "retira_items");
 
     if (!canPrepare) {
       return NextResponse.json({ error: "No autorizado para preparar solicitudes" }, { status: 403 });
@@ -42,6 +39,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         observations: data.observations,
       },
     });
+
+    revalidatePath("/bodega/solicitudes-internas");
 
     return NextResponse.json({ success: true });
   } catch (error) {

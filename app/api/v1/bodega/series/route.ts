@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const canManageStock = await modulePermissionService.userHasPermission(
       session.user.id,
       "bodega",
-      "gestionar_stock",
+      "administrador_bodega",
     );
 
     if (!canManageStock) {

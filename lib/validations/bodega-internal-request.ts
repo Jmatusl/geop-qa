@@ -7,6 +7,7 @@ import { z } from "zod";
 
 export const bodegaInternalRequestItemSchema = z.object({
   articleId: z.string().uuid("Debe seleccionar un artículo válido"),
+  warehouseId: z.string().uuid("Seleccione bodega").optional().nullable(),
   quantity: z.coerce.number({ required_error: "La cantidad es requerida", invalid_type_error: "Ingrese un número válido" }).positive("La cantidad debe ser mayor a 0"),
   observations: z.string().max(500, "Las observaciones no pueden superar 500 caracteres").trim().optional().nullable(),
 });
@@ -27,6 +28,10 @@ export const createBodegaInternalRequestSchema = z.object({
     .optional(),
   observations: z.string().max(1000, "Las observaciones no pueden superar 1000 caracteres").trim().optional().nullable(),
   items: z.array(bodegaInternalRequestItemSchema).min(1, "Debe ingresar al menos un artículo").max(200),
+  autoCompletar: z.boolean().optional(),
+  autoAprobar: z.boolean().optional(),
+  externalReference: z.string().max(100, "La referencia externa no puede superar 100 caracteres").trim().optional().nullable(),
+  metadatos: z.record(z.any()).optional().nullable(),
 });
 
 export const updateBodegaInternalRequestSchema = z.object({
@@ -45,6 +50,8 @@ export const updateBodegaInternalRequestSchema = z.object({
     .optional(),
   observations: z.string().max(1000, "Las observaciones no pueden superar 1000 caracteres").trim().optional().nullable(),
   items: z.array(bodegaInternalRequestItemSchema).min(1, "Debe ingresar al menos un artículo").max(200),
+  externalReference: z.string().max(100, "La referencia externa no puede superar 100 caracteres").trim().optional().nullable(),
+  metadatos: z.record(z.any()).optional().nullable(),
 });
 
 export const bodegaInternalRequestFiltersSchema = z.object({

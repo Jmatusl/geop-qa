@@ -13,6 +13,8 @@ export const bodegaArticleSchema = z.object({
   isCritical: z.boolean().default(false).optional(),
   unit: z.string().min(1, "La unidad es obligatoria").max(20, "Máximo 20 caracteres"),
   minimumStock: z.coerce.number().min(0, "El stock mínimo no puede ser negativo").default(0),
+  imagePath: z.string().max(512, "URL de imagen demasiado larga").optional().nullable(),
+  technicalFilePath: z.string().max(512, "URL de ficha técnica demasiado larga").optional().nullable(),
   isActive: z.boolean().default(true).optional(),
 });
 

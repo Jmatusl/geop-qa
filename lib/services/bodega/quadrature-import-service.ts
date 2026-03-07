@@ -43,20 +43,37 @@ function normalizeCode(value: string, fallbackPrefix: string) {
   return normalized.slice(0, 30);
 }
 
+function getRawValue(value: ExcelJS.CellValue): any {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") {
+    if ("result" in value) return value.result; // Resultado de fórmula
+    if ("text" in value) return value.text; // Hipervínculo
+    if ("richText" in (value as any)) {
+      return (value as any).richText.map((rt: any) => rt.text || "").join("");
+    }
+  }
+  return value;
+}
+
 function getCellText(value: ExcelJS.CellValue) {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object" && "text" in value && typeof value.text === "string") return value.text.trim();
-  return String(value).trim();
+  const raw = getRawValue(value);
+  if (raw === null || raw === undefined) return "";
+  return String(raw).trim();
 }
 
 function getCellNumber(value: ExcelJS.CellValue) {
-  if (typeof value === "number") return value;
-  const text = getCellText(value).replace(/,/g, ".");
-  const parsed = Number(text);
+  const raw = getRawValue(value);
+  if (typeof raw === "number") return raw;
+  if (!raw) return 0;
+
+  // Limpiar formatos de moneda ($, espacios, puntos de miles) y cambiar coma por punto decimal
+  const text = String(raw)
+    .replace(/\$/g, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "") // En Chile el punto suele ser separador de miles
+    .replace(/,/g, "."); // Y la coma separador decimal
+
+  const parsed = parseFloat(text);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -64,15 +81,24 @@ export class BodegaQuadratureImportService {
   private readonly prisma = prisma;
 
   private parseRows(workbook: ExcelJS.Workbook): ParsedRow[] {
-    // Buscar la hoja "Cuadratura" o usar la primera/segunda que parezca inventario
-    const targetNames = ["Cuadratura", "cuadratura", "CUADRATURA", "Stock", "stock", "STOCK"];
-    const worksheet = targetNames.reduce<ExcelJS.Worksheet | undefined>((found, name) => found ?? workbook.getWorksheet(name) ?? undefined, undefined) ?? workbook.worksheets[0];
+    // Buscar la hoja "Cuadratura" de forma robusta (insensible a mayúsculas y espacios)
+    let worksheet = workbook.getWorksheet("Cuadratura");
+    if (!worksheet) {
+      worksheet = workbook.worksheets.find((ws) => ws.name.trim().toLowerCase() === "cuadratura");
+    }
 
     if (!worksheet) {
-      throw new Error("El archivo no contiene hojas de datos");
+      const allNames = workbook.worksheets.map((ws) => ws.name).join(", ");
+      throw new Error(`No se encontró la hoja 'Cuadratura' en el archivo. Hojas disponibles: ${allNames}`);
     }
 
     const sheetNames = workbook.worksheets.map((ws) => ws.name).join(", ");
+
+    // Validación estricta solicitada: La celda D3 (fila 3, columna 4) DEBE decir "Ubicación"
+    const cellD3Val = getCellText(worksheet.getRow(3).getCell(4).value).toLowerCase();
+    if (!cellD3Val.includes("ubicación") && !cellD3Val.includes("ubicacion")) {
+      throw new Error("El archivo no tiene el formato correcto: La celda D3 debe contener la palabra 'Ubicación'.");
+    }
 
     // 1. Auto-detectar la fila de cabeceras y qué columna tiene cada tipo de dato.
     let headerRowIdx = -1;
@@ -82,42 +108,89 @@ export class BodegaQuadratureImportService {
       colPrice = -1,
       colCeco = -1;
 
-    for (let r = 1; r <= Math.min(worksheet.rowCount, 30); r++) {
+    let colBrand = -1,
+      colObs = -1,
+      colComment = -1;
+
+    for (let r = 1; r <= Math.min(worksheet.rowCount, 20); r++) {
       const row = worksheet.getRow(r);
-      for (let c = 1; c <= 20; c++) {
+      let foundInThisRow = false;
+      for (let c = 1; c <= 25; c++) {
         const val = getCellText(row.getCell(c).value).toLowerCase();
-        if (val.includes("descripción") || val.includes("descripcion") || val.includes("nombre") || val.includes("artículo") || val.includes("n° de parte") || val === "articulo") {
+        if (val.includes("descripción / n° de parte") || val.includes("descripción") || val.includes("descripcion") || (val.includes("artículo") && !val.includes("tipo")) || val === "articulo") {
           headerRowIdx = r;
           colName = c;
+          foundInThisRow = true;
           break;
         }
       }
 
-      if (headerRowIdx !== -1) {
-        // Encontramos el inicio de la tabla. Ahora detectar las otras columnas en esta misma fila.
+      if (foundInThisRow) {
+        // Encontramos la fila de cabeceras. Mapear el resto de columnas en ESTA MISMA fila.
+        const rowData = worksheet.getRow(headerRowIdx);
         for (let c = 1; c <= 25; c++) {
-          const val = getCellText(row.getCell(c).value).toLowerCase();
-          if (val.includes("cantidad") || val.includes("stock") || val.includes("saldo")) colQty = c;
-          if (val.includes("ubicación") || val.includes("ubicacion") || val.includes("bodega")) colWarehouse = c;
-          if (val.includes("valor") || val.includes("precio") || val.includes("unit")) colPrice = c;
-          if (val.includes("ceco") || val.includes("centro")) colCeco = c;
+          const val = getCellText(rowData.getCell(c).value).toLowerCase();
+
+          // Cantidad
+          if (val === "cantidad" || val === "cant" || val === "saldo" || val.includes("cant.")) {
+            colQty = c;
+          }
+
+          // Bodega / Ubicación (Prioridad absoluta a "Ubicación")
+          if (val === "ubicación" || val === "ubicacion") {
+            colWarehouse = c;
+          } else if (colWarehouse === -1 && (val === "bodega" || val.includes("destino"))) {
+            colWarehouse = c;
+          }
+
+          // Precio Unitario (Detectar y evitar falsos positivos con totales)
+          const isPriceTerm = val.includes("precio") || val.includes("valor") || val.includes("costo") || val === "unit";
+          const isUnitTerm = val.includes("unit") || val.includes("uni.");
+          const isTotalTerm = val.includes("total") || val.includes("sum");
+
+          if (isPriceTerm && !isTotalTerm) {
+            // Si es un término de unidad específico, sobreescribir cualquier match genérico previo
+            if (colPrice === -1 || isUnitTerm) {
+              colPrice = c;
+            }
+          }
+
+          // CeCo
+          if (val === "ceco" || val === "cc" || val.includes("centro de costo") || val.includes("c.costo")) {
+            colCeco = c;
+          }
+
+          // Otros
+          if (val === "marca") colBrand = c;
+          if (val.includes("observación") || val.includes("observacion")) colObs = c;
+          if (val.includes("comentario")) colComment = c;
         }
-        break; // Teniendo las columnas mapeadas, cortamos la búsqueda.
+        break;
       }
     }
 
     if (colName === -1) {
-      // Fallback estricto si no hay nada obvio (asumimos la estructura del archivo por defecto)
-      colName = 2; // Col B
-      colQty = 3; // Col C
-      colWarehouse = 4; // Col D
-      colPrice = 5; // Col E
-      colCeco = 7; // Col G
-      headerRowIdx = 3; // Empezamos a buscar desde la 4
+      // Mapeo estrictamente solicitado por el usuario para su archivo de Cuadratura
+      colName = 1; // Col A ("Descripción / N° de parte")
+      colQty = 3; // Col C ("Cantidad")
+      colWarehouse = 4; // Col D ("Ubicación")
+      colPrice = 5; // Col E ("Precio Uni")
+      colCeco = 7; // Col G ("CeCo")
+      colComment = 18; // Col R ("Comentario")
+      colBrand = 19; // Col S ("Marca")
+      colObs = 20; // Col T ("Observación")
+      headerRowIdx = 3; // El usuario menciona D3 como cabecera (fila 3)
     }
 
-    // Fallback asegurando mínimo colQty
-    if (colQty === -1) colQty = colName + 1;
+    // Asegurar los índices mínimos según el requerimiento exacto si la autodetección falla
+    if (colQty === -1) colQty = 3;
+    if (colWarehouse === -1) colWarehouse = 4;
+    if (colCeco === -1) colCeco = 7;
+    if (colName === -1) colName = 1;
+    if (colPrice === -1) colPrice = 5;
+    if (colComment === -1) colComment = 18;
+    if (colBrand === -1) colBrand = 19;
+    if (colObs === -1) colObs = 20;
 
     const rows: ParsedRow[] = [];
     let skippedHeaders = 0;
@@ -129,6 +202,12 @@ export class BodegaQuadratureImportService {
       const articleName = getCellText(row.getCell(colName).value);
       const quantity = getCellNumber(row.getCell(colQty).value);
 
+      // Extraer datos adicionales basados en legacy (colBrand, colObs, colComment)
+      let brand = colBrand !== -1 ? getCellText(row.getCell(colBrand).value) : undefined;
+      let observations = colObs !== -1 ? getCellText(row.getCell(colObs).value) : "";
+      let comments = colComment !== -1 ? getCellText(row.getCell(colComment).value) : "";
+      let fullDescription = [observations, comments].filter(Boolean).join(" - ");
+
       // Saltar filas vacías, totales (ej. TOTAL) o sub-headers adicionales
       if (!articleName) continue;
       if (articleName.toUpperCase().includes("TOTAL")) continue;
@@ -139,7 +218,7 @@ export class BodegaQuadratureImportService {
       if (quantity <= 0) continue;
 
       const warehouseName = colWarehouse !== -1 ? getCellText(row.getCell(colWarehouse).value) || "BODEGA GENERAL" : "BODEGA GENERAL";
-      const unitPrice = colPrice !== -1 ? getCellNumber(row.getCell(colPrice).value) : 0;
+      const unitPrice = colPrice !== -1 ? getCellNumber(row.getCell(colPrice).value) : undefined;
       const centerCode = colCeco !== -1 ? getCellText(row.getCell(colCeco).value) : undefined;
 
       rows.push({
@@ -147,7 +226,9 @@ export class BodegaQuadratureImportService {
         quantity,
         warehouseName,
         centerCode: centerCode || undefined,
-        unitPrice: unitPrice > 0 ? unitPrice : undefined,
+        unitPrice: unitPrice !== undefined ? unitPrice : 0,
+        brand: brand || "Genérica",
+        observations: fullDescription || "Ingreso por Cuadratura",
       });
     }
 
@@ -181,22 +262,10 @@ export class BodegaQuadratureImportService {
     const seenCostCenterByName = new Map<string, { id: string }>();
 
     await this.prisma.$transaction(async (tx) => {
-      // 0. LIMPIEZA INICIAL: Eliminar todos los registros previos de Bodega para empezar de cero
-      await tx.bodegaReservation.deleteMany();
-      await tx.bodegaSerialNumber.deleteMany();
-      await tx.bodegaLot.deleteMany();
-      await tx.bodegaStockMovementItem.deleteMany();
-      await tx.bodegaStockMovement.deleteMany();
-      await tx.bodegaInternalRequestLog.deleteMany();
-      await tx.bodegaInternalRequestItem.deleteMany();
-      await tx.bodegaInternalRequest.deleteMany();
-      await tx.bodegaStock.deleteMany();
-      await tx.bodegaArticle.deleteMany();
-      await tx.bodegaWarehouse.deleteMany();
-      await tx.bodegaCostCenter.deleteMany();
-      await tx.appSetting.deleteMany({ where: { key: "BODEGA_MAESTROS_CENTROS_COSTO" } });
-
       // 1. Procesar Centros de Costo (BodegaCostCenter)
+      // *NOTA: En el nuevo sistema ya NO se hace deleteMany() inicial aquí para ser fiel a legacy.
+      // (Para borrar todo se usa la pantalla "Maestros -> Limpiar Tablas" - cleanAllBodegaData)
+
       const centersRaw = parsedRows
         .map((r) => r.centerCode)
         .filter((v): v is string => !!v)
@@ -301,33 +370,64 @@ export class BodegaQuadratureImportService {
           seenWarehouseByName.set(warehouseKey, warehouse);
         }
 
-        // Stock (Físico)
+        // Stock (Físico) - Asegurar que el stock se marque como VERIFICADO al ser una cuadratura/carga inicial
         await tx.bodegaStock.upsert({
           where: { warehouseId_articleId: { warehouseId: warehouse.id, articleId: article.id } },
-          create: { warehouseId: warehouse.id, articleId: article.id, quantity: row.quantity, reservedQuantity: 0 },
-          update: { quantity: { increment: row.quantity } },
+          create: {
+            warehouseId: warehouse.id,
+            articleId: article.id,
+            quantity: row.quantity,
+            reservedQuantity: 0,
+            stockVerificado: row.quantity,
+            stockNoVerificado: 0,
+          },
+          update: {
+            quantity: { increment: row.quantity },
+            stockVerificado: { increment: row.quantity },
+          },
         });
         updatedStockRows += 1;
 
-        // 3. Agrupación para Movimientos (Lotes para evitar que un mismo movimiento tenga 2 veces el mismo artículo)
-        if (!warehouseSkuOccurrence.has(warehouse.id)) {
-          warehouseSkuOccurrence.set(warehouse.id, new Map());
-        }
-
+        // 3. Agrupación para Movimientos y Lotes
+        // ... (resto del código igual)
+        let targetRank = -1;
         let rank = 0;
-        while (movementBuckets.has(`${warehouse.id}|${rank}`) && movementBuckets.get(`${warehouse.id}|${rank}`)?.some((i) => i.articleId === article!.id)) {
-          rank++;
+
+        while (true) {
+          const bucketKeyCheck = `${warehouse.id}|${rank}`;
+          const currentBucket = movementBuckets.get(bucketKeyCheck) || [];
+
+          const existingItem = currentBucket.find((i) => i.articleId === article!.id);
+
+          if (existingItem) {
+            if (existingItem.unitCost === (row.unitPrice || 0)) {
+              targetRank = rank;
+              break;
+            } else {
+              rank++;
+            }
+          } else {
+            targetRank = rank;
+            break;
+          }
         }
 
-        const bucketKey = `${warehouse.id}|${rank}`;
+        const bucketKey = `${warehouse.id}|${targetRank}`;
         if (!movementBuckets.has(bucketKey)) movementBuckets.set(bucketKey, []);
 
-        movementBuckets.get(bucketKey)!.push({
-          articleId: article.id,
-          quantity: row.quantity,
-          unitCost: row.unitPrice || 0,
-          observations: row.observations || "Ingreso por Cuadratura",
-        });
+        const bucket = movementBuckets.get(bucketKey)!;
+        const existingInBucket = bucket.find((i) => i.articleId === article!.id);
+
+        if (existingInBucket) {
+          existingInBucket.quantity += row.quantity;
+        } else {
+          bucket.push({
+            articleId: article.id,
+            quantity: row.quantity,
+            unitCost: row.unitPrice || 0,
+            observations: row.observations || "Ingreso por Cuadratura",
+          });
+        }
       }
 
       // 4. Crear los movimientos en base a los buckets
@@ -338,17 +438,21 @@ export class BodegaQuadratureImportService {
         const refWarehouse = await tx.bodegaWarehouse.findUnique({ where: { id: warehouseId } });
 
         const numeroDocumento = `ING-INVENTARIO-${String(correlativoMovimiento).padStart(4, "0")}`;
+        // El folio mantiene el prefijo INV para distinguir que es una carga de cuadratura
         const folioMovimiento = `INV-${refWarehouse?.code || "BOD"}-${String(rank + 1).padStart(2, "0")}-${String(correlativoMovimiento).padStart(3, "0")}`;
 
         const movement = await tx.bodegaStockMovement.create({
           data: {
             folio: folioMovimiento,
             movementType: "INGRESO",
-            status: "APLICADO", // Se registra como ya aplicado en el inventario
+            status: "COMPLETADO", // Marcamos como COMPLETADO porque es una carga de inventario real (ya verificado)
             warehouseId,
             reason: "CARGA MASIVA CUADRATURA",
+            externalReference: numeroDocumento,
             observations: `Carga Cuadratura - ${refWarehouse?.name} (Lote ${rank + 1}) - Doc Ref: ${numeroDocumento}`,
             createdBy: userId,
+            appliedBy: userId,
+            appliedAt: new Date(),
             approvedBy: userId,
             approvedAt: new Date(),
             items: {
@@ -356,13 +460,20 @@ export class BodegaQuadratureImportService {
                 articleId: it.articleId,
                 quantity: it.quantity,
                 unitCost: it.unitCost,
+                initialBalance: it.quantity,
+                currentBalance: it.quantity,
+                observations: it.observations,
+                // Campos de verificación para que se comporte como un ingreso activo
+                cantidadVerificada: it.quantity,
+                verificadoPorId: userId,
+                fechaVerificacion: new Date(),
               })),
             },
           },
           include: { items: true },
         });
 
-        // Crear Lotes explícitos para que el inventario por lotes y reportes (StockGlobalTable) se cargue
+        // Crear Lotes explícitos
         let subIndex = 1;
         for (const mItem of movement.items) {
           await tx.bodegaLot.create({
@@ -371,8 +482,8 @@ export class BodegaQuadratureImportService {
               warehouseId: warehouseId,
               articleId: mItem.articleId,
               sourceMovementItemId: mItem.id,
-              initialQuantity: mItem.quantity,
-              currentQuantity: mItem.quantity,
+              initialQuantity: Number(mItem.quantity),
+              currentQuantity: Number(mItem.quantity),
               unitCost: mItem.unitCost,
               status: "ACTIVO",
               createdBy: userId,

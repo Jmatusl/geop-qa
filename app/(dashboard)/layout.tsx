@@ -21,7 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const currentPath = headersList.get("x-current-path") || "";
 
   // Solo validamos si hay un path y no es la raíz del dashboard ni rutas de API
-  // Las rutas /validar/* son públicas y no deberían llegar aquí por el proxy, pero si llegaran, el layout no aplica
+  // Las rutas públicas (login, recover, etc.) no deberían llegar aquí por el proxy
   if (currentPath && currentPath !== "/dashboard" && !currentPath.startsWith("/api/")) {
     const hasAccess = await validateMenuAccess(session.userId, currentPath);
     if (!hasAccess) {

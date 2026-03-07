@@ -18,15 +18,7 @@ export class BodegaReportingService {
 
     const warehouseWhere = filters.warehouseId ? { warehouseId: filters.warehouseId } : {};
 
-    const [
-      totalArticles,
-      activeReservations,
-      recentMovements,
-      lotsExpiringSoon,
-      stockRows,
-      movementByTypeRows,
-      activeWarehouses,
-    ] = await Promise.all([
+    const [totalArticles, activeReservations, recentMovements, lotsExpiringSoon, stockRows, movementByTypeRows, activeWarehouses] = await Promise.all([
       this.prisma.bodegaArticle.count({ where: { isActive: true } }),
       this.prisma.bodegaReservation.count({
         where: {
@@ -138,6 +130,60 @@ export class BodegaReportingService {
         })
         .filter((row): row is NonNullable<typeof row> => row !== null),
     };
+  }
+
+  async getLowStockArticles(filters: BodegaReportsDashboardFilters = {}) {
+    const warehouseWhere = filters.warehouseId ? { warehouseId: filters.warehouseId } : {};
+
+    const stockRows = await this.prisma.bodegaStock.findMany({
+      where: warehouseWhere,
+      include: {
+        article: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            minimumStock: true,
+            unit: true,
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        article: { name: "asc" },
+      },
+    });
+
+    const lowStock = stockRows
+      .map((row) => {
+        const quantity = Number(row.quantity);
+        const reserved = Number(row.reservedQuantity);
+        const minimum = Number(row.article.minimumStock);
+        const available = quantity - reserved;
+
+        if (available < minimum) {
+          return {
+            id: row.id,
+            articleId: row.article.id,
+            articleCode: row.article.code,
+            articleName: row.article.name,
+            minimumStock: minimum,
+            availableStock: available,
+            unit: row.article.unit,
+            warehouseId: row.warehouse.id,
+            warehouseName: row.warehouse.name,
+          };
+        }
+        return null;
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    return lowStock;
   }
 }
 

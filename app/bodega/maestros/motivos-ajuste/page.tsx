@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
   BodegaAdjustmentReason,
   useBodegaAdjustmentReasons,
+  useBodegaAdjustmentReason,
   useCreateBodegaAdjustmentReason,
   useUpdateBodegaAdjustmentReason,
   useDeleteBodegaAdjustmentReason,
@@ -14,6 +15,7 @@ import { BaseMaintainer } from "@/components/maintainer/base-maintainer";
 import { getSimpleMasterColumns, SortDirection } from "@/components/bodega/simple-master-columns";
 import { SimpleMasterForm } from "@/components/bodega/simple-master-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 
 function DeleteAlertDialog({ open, onOpenChange, onConfirm, title, description }: { open: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => void; title: string; description: string }) {
   return (
@@ -35,9 +37,10 @@ function DeleteAlertDialog({ open, onOpenChange, onConfirm, title, description }
 }
 
 export default function BodegaMotivosAjustePage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const editId = searchParams.get("edit");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id") || searchParams.get("edit");
 
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<BodegaAdjustmentReason | null>(null);
@@ -46,16 +49,34 @@ export default function BodegaMotivosAjustePage() {
     direction: null,
   });
 
-  const [externalMode, setExternalMode] = useState<"table" | "edit" | undefined>(editId ? "edit" : "table");
-  const [externalItem, setExternalItem] = useState<BodegaAdjustmentReason | null | undefined>(undefined);
-
   const { data: queryData, isLoading, isFetching, refetch } = useBodegaAdjustmentReasons(search);
+  const { data: singleData, isLoading: isLoadingSingle } = useBodegaAdjustmentReason(editId);
   const createMutation = useCreateBodegaAdjustmentReason();
   const updateMutation = useUpdateBodegaAdjustmentReason();
   const deleteMutation = useDeleteBodegaAdjustmentReason();
 
   const items = queryData?.data || [];
   const meta = { total: items.length, page: 1, limit: 100, totalPages: 1 };
+
+  const externalMode = editId ? ("edit" as const) : ("table" as const);
+  const externalItem = useMemo(() => {
+    if (!editId) return null;
+    const foundLocal = items.find((i: BodegaAdjustmentReason) => i.id === editId);
+    if (foundLocal) return foundLocal;
+    if (singleData && singleData.id === editId) return singleData;
+    return undefined; // Loading
+  }, [editId, items, singleData]);
+
+  const handleModeChange = (mode: "table" | "create" | "edit", item: BodegaAdjustmentReason | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (mode === "edit" && item) {
+      params.set("id", item.id);
+    } else {
+      params.delete("id");
+      params.delete("edit");
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const sortedItems = useMemo(() => {
     if (!sortConfig.key || !sortConfig.direction) return items;
@@ -99,22 +120,6 @@ export default function BodegaMotivosAjustePage() {
     });
   };
 
-  const openEdit = (item: BodegaAdjustmentReason) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("edit", item.id);
-    router.replace(`?${params.toString()}`);
-    setExternalItem(item);
-    setExternalMode("edit");
-  };
-
-  const closeEdit = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("edit");
-    router.replace(`?${params.toString()}`);
-    setExternalItem(null);
-    setExternalMode("table");
-  };
-
   const handleDeleteConfirm = () => {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget.id, {
@@ -135,6 +140,9 @@ export default function BodegaMotivosAjustePage() {
         description="Administra los motivos válidos para registrar ajustes de stock en bodega."
         addNewLabel="Motivo de Ajuste"
         searchPlaceholder="Buscar por código o nombre..."
+        externalMode={externalMode}
+        externalItem={externalItem}
+        onModeChange={handleModeChange}
         getColumns={(handlers) =>
           getSimpleMasterColumns({
             ...handlers,
@@ -151,26 +159,19 @@ export default function BodegaMotivosAjustePage() {
         onSearchChange={(value) => setSearch(value)}
         onRefresh={() => refetch()}
         isRefreshing={isLoading || isFetching}
-        externalMode={externalMode}
-        externalItem={externalItem}
-        onPreEdit={openEdit}
         renderForm={(mode, initialData, onCancel, onSuccess) => {
           if (mode === "edit" && !initialData) {
             return (
-              <div className="flex h-64 w-full items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+              <div className="flex h-[300px] w-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             );
           }
-
           return (
             <SimpleMasterForm
               initialData={initialData ?? undefined}
               isLoading={createMutation.isPending || updateMutation.isPending}
-              onCancel={() => {
-                closeEdit();
-                onCancel();
-              }}
+              onCancel={onCancel}
               onSubmit={async (data) => {
                 try {
                   if (mode === "create") {
@@ -178,7 +179,6 @@ export default function BodegaMotivosAjustePage() {
                   } else if (initialData) {
                     await updateMutation.mutateAsync({ id: initialData.id, data });
                   }
-                  closeEdit();
                   onSuccess();
                   refetch();
                 } catch (error) {

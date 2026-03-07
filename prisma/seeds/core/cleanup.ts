@@ -10,6 +10,31 @@ export async function cleanup(prisma: PrismaClient) {
   await prisma.supplyRequestTimeline.deleteMany();
   await prisma.supplyQuotationEmailSent.deleteMany();
 
+  // ============================================
+  // LIMPIAR MÓDULO DE BODEGA
+  // ============================================
+  // Trazabilidad y registros hijos
+  await prisma.bodegaSerialNumber.deleteMany();
+  await prisma.bodegaLot.deleteMany();
+  await prisma.bodegaReservation.deleteMany();
+
+  // Movimientos e items
+  await prisma.bodegaStockMovementItem.deleteMany();
+  await prisma.bodegaStockMovement.deleteMany();
+
+  // Solicitudes internas y registros dependientes
+  await prisma.bodegaInternalRequestLog.deleteMany();
+  await prisma.bodegaInternalRequestItem.deleteMany();
+  await prisma.bodegaInternalRequest.deleteMany();
+
+  // Stock y Maestros
+  await prisma.bodegaStock.deleteMany();
+  await prisma.bodegaArticle.deleteMany();
+  await prisma.bodegaWarehouse.deleteMany();
+  await prisma.bodegaCostCenter.deleteMany();
+  await prisma.bodegaAdjustmentReason.deleteMany();
+  await prisma.bodegaInternalRequestStatusMaster.deleteMany();
+
   // Archivos adjuntos
   await prisma.supplyRequestAttachment.deleteMany();
   await prisma.supplyQuotationAttachment.deleteMany();
@@ -23,7 +48,7 @@ export async function cleanup(prisma: PrismaClient) {
   // Items de solicitud (hijo de solicitudes)
   await prisma.supplyRequestItem.deleteMany();
 
-  // Solicitudes (tabla principal)  
+  // Solicitudes (tabla principal)
   await prisma.supplyRequest.deleteMany();
 
   // Maestros de estados

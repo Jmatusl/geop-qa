@@ -49,7 +49,7 @@ export async function seedSettings(prisma: PrismaClient, adminUserId: string) {
       description: "Configuración de correo electrónico y Resend",
       hasCustomUi: true,
       value: {
-        enabled: true,
+        enabled: false,
         provider: "resend",
         from_name: "GEOP - Sotex",
         templates: {
@@ -59,7 +59,7 @@ export async function seedSettings(prisma: PrismaClient, adminUserId: string) {
         },
         from_email: "no-reply@geop.sotex.app",
         resend_api_key: "re_XnZbTdX8_88gEVQUNuPofPUzTbUBvqBBg",
-        send_notifications: true,
+        send_notifications: false,
         show_client_logo: true,
       },
     },
@@ -186,7 +186,101 @@ export async function seedSettings(prisma: PrismaClient, adminUserId: string) {
       showIcon: true,
       roles: ["ADMIN"],
       children: [],
-    },    
+    },
+    {
+      key: "bodega",
+      title: "Bodega",
+      icon: "Warehouse",
+      path: "/bodega",
+      enabled: true,
+      order: 15,
+      showIcon: true,
+      roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+      children: [
+        {
+          key: "bodega-resumen",
+          title: "Resumen Bodega",
+          icon: "LayoutDashboard",
+          path: "/bodega",
+          enabled: true,
+          order: 5,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+        },
+        {
+          key: "bodega-ingreso",
+          title: "Ingreso Bodega",
+          icon: "PlusCircle",
+          path: "/bodega/ingreso-bodega",
+          enabled: true,
+          order: 10,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+        },
+        {
+          key: "bodega-retiro",
+          title: "Retiro Bodega",
+          icon: "MinusCircle",
+          path: "/bodega/retiro-bodega",
+          enabled: true,
+          order: 20,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+        },
+        {
+          key: "bodega-movimiento-articulo",
+          title: "Movimientos Árticulos",
+          icon: "ArrowRightLeft",
+          path: "/bodega/movimiento-articulo",
+          enabled: true,
+          order: 25,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR"],
+        },
+        {
+          key: "solicitudes-internas",
+          title: "Solicitudes",
+          icon: "FileText",
+          path: "/bodega/solicitudes-internas",
+          enabled: true,
+          order: 30,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
+        },
+        {
+          key: "bodega-stock",
+          title: "Consulta Stock",
+          icon: "Search",
+          path: "/bodega/consulta-rapida",
+          enabled: true,
+          order: 40,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR", "OPERADOR", "USUARIO"],
+        },
+        {
+          key: "bodega-movimientos",
+          title: "Movimientos",
+          icon: "ArrowRightLeft",
+          path: "/bodega/movimientos",
+          enabled: true,
+          order: 50,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR"],
+        },
+        {
+          key: "bodega-verificacion",
+          title: "Verificación",
+          icon: "PackageCheck",
+          path: "/bodega/verificacion",
+          enabled: true,
+          order: 55,
+          showIcon: true,
+          roles: ["ADMIN", "SUPERVISOR"],
+        },
+        { key: "bodega-lotes", title: "Lotes / Series", icon: "Hash", path: "/bodega/lotes", enabled: false, order: 60, showIcon: true, roles: ["ADMIN", "SUPERVISOR"] },
+        { key: "bodega-configuracion", title: "Configuración", icon: "Settings", path: "/bodega/configuracion", enabled: true, order: 70, showIcon: true, roles: ["ADMIN", "SUPERVISOR"] },
+      ],
+    },
   ];
 
   for (const menu of recoveredMenus) {
@@ -205,7 +299,7 @@ export async function seedSettings(prisma: PrismaClient, adminUserId: string) {
 
     if (menu.children && menu.children.length > 0) {
       for (const child of menu.children) {
-        await prisma.menuItem.create({
+        const createdChild = await prisma.menuItem.create({
           data: {
             key: child.key,
             title: child.title,
@@ -218,6 +312,24 @@ export async function seedSettings(prisma: PrismaClient, adminUserId: string) {
             parentId: parent.id,
           },
         });
+
+        if ("children" in child && Array.isArray(child.children) && child.children.length > 0) {
+          for (const grandChild of child.children) {
+            await prisma.menuItem.create({
+              data: {
+                key: grandChild.key,
+                title: grandChild.title,
+                icon: grandChild.icon,
+                path: grandChild.path,
+                enabled: grandChild.enabled,
+                order: grandChild.order,
+                showIcon: grandChild.showIcon,
+                roles: grandChild.roles,
+                parentId: createdChild.id,
+              },
+            });
+          }
+        }
       }
     }
   }

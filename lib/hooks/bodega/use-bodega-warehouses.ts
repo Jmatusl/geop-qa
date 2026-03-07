@@ -40,6 +40,18 @@ export function useBodegaWarehouses(page = 1, limit = 10, search = "") {
   });
 }
 
+export function useBodegaWarehouse(id: string | null) {
+  return useQuery<BodegaWarehouse>({
+    queryKey: ["bodega-warehouse", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/v1/bodega/bodegas/${id}`);
+      if (!response.ok) throw new Error("Error al cargar la bodega");
+      return response.json();
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateBodegaWarehouse() {
   const queryClient = useQueryClient();
 

@@ -21,13 +21,34 @@ interface BuscarArticulosPanelProps {
 export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAddItem, mostrarBodegas = true }: BuscarArticulosPanelProps) {
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
-  const { data: resultadosBusquedaData, isLoading: buscando } = useBodegaQuickSearch(terminoBusqueda);
+  // 1. Carga inicial del catálogo (vacío trae los primeros ~250 según take del servicio)
+  const { data: catalogoData, isLoading: cargandoCatalogo } = useBodegaQuickSearch("");
+  const articulosCatalogo = catalogoData?.resultados || [];
 
-  const resultadosBusqueda = resultadosBusquedaData?.resultados || [];
+  // 2. Filtrado local inteligente sopesando nombre, código, descripción, partNumber e internalCode
+  const resultadosLocales = articulosCatalogo.filter((articulo) => {
+    if (!terminoBusqueda.trim()) return true;
+    const search = terminoBusqueda.toLowerCase();
+    return (
+      articulo.nombre.toLowerCase().includes(search) ||
+      articulo.codigo.toLowerCase().includes(search) ||
+      articulo.descripcion?.toLowerCase().includes(search) ||
+      articulo.partNumber?.toLowerCase().includes(search) ||
+      articulo.internalCode?.toLowerCase().includes(search)
+    );
+  });
+
+  // 3. Determinar si necesitamos disparar búsqueda al servidor (si local falló y hay término suficiente)
+  const debeBuscarServidor = terminoBusqueda.trim().length >= 2 && resultadosLocales.length === 0;
+
+  const { data: buscadorServidorData, isLoading: buscandoEnServidor } = useBodegaQuickSearch(terminoBusqueda, undefined, { enabled: debeBuscarServidor });
+
+  const resultadosBusqueda = debeBuscarServidor ? buscadorServidorData?.resultados || [] : resultadosLocales;
+  const buscando = cargandoCatalogo || (debeBuscarServidor && buscandoEnServidor);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[98vw] md:w-full max-h-[92vh] md:max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 border-none rounded-md shadow-2xl bg-white dark:bg-gray-950">
+      <DialogContent className="w-[95vw]! max-w-[95vw]! md:w-[60vw]! md:max-w-[60vw]! max-h-[92vh] md:max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 border-none rounded-md shadow-2xl bg-white dark:bg-gray-950">
         <DialogHeader className="p-4 md:p-5 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -58,8 +79,8 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                 disabled={buscando}
                 className="h-10 px-6 rounded-md bg-orange-500 hover:bg-orange-600 text-white font-black shadow-sm active:scale-95 transition-all text-[10px] uppercase tracking-widest"
               >
-                {buscando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 stroke-3" />}
-                <span className="ml-2">Buscar</span>
+                {buscandoEnServidor ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 stroke-3" />}
+                <span className="ml-2">{buscandoEnServidor ? "Buscando..." : "Buscar"}</span>
               </Button>
             </div>
           </div>
@@ -103,6 +124,18 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                           <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">ARTÍCULO</span>
                         </div>
                         <h4 className="font-bold text-xs md:text-sm text-gray-800 dark:text-gray-100 leading-tight mb-1 italic uppercase">{articulo.nombre}</h4>
+                        <div className="flex flex-wrap gap-2 mb-1">
+                          {articulo.partNumber && (
+                            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-800/50">
+                              P/N: {articulo.partNumber}
+                            </span>
+                          )}
+                          {articulo.internalCode && (
+                            <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-tighter bg-purple-50 dark:bg-purple-900/20 px-1.5 py-0.5 rounded border border-purple-100 dark:border-purple-800/50">
+                              SKU/INT: {articulo.internalCode}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium line-clamp-1 italic">{articulo.descripcion || "Sin descripción"}</p>
                       </div>
 
@@ -113,10 +146,11 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                       </div>
                     </div>
 
-                    {mostrarBodegas && (
+                    {mostrarBodegas ? (
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2.5">
                         {articulo.bodegas?.map((bodega) => {
-                          const yaAgregado = itemsAgregados.some((i) => i.articuloId === articulo.id && i.bodegaOrigenId === bodega.bodegaId);
+                          const yaAgregado = itemsAgregados.some((i) => i.articuloId === articulo.id);
+                          const esBodegaActual = itemsAgregados.some((i) => i.articuloId === articulo.id && i.bodegaOrigenId === bodega.bodegaId);
 
                           return (
                             <button
@@ -126,7 +160,9 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                               className={cn(
                                 "flex items-center justify-between p-2 rounded border transition-all text-left h-12",
                                 yaAgregado
-                                  ? "bg-emerald-50/50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/10 dark:border-emerald-900/50"
+                                  ? esBodegaActual
+                                    ? "bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-500"
+                                    : "bg-emerald-50/30 border-emerald-200/50 text-emerald-600/80 dark:bg-emerald-950/10 dark:border-emerald-900/30 font-medium"
                                   : "bg-gray-50 dark:bg-gray-900/50 border-transparent hover:border-orange-300 dark:hover:border-orange-900/50 active:scale-[0.98]",
                               )}
                             >
@@ -151,7 +187,11 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                               <div
                                 className={cn(
                                   "h-7 w-7 rounded flex items-center justify-center transition-all shadow-sm border",
-                                  yaAgregado ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white dark:bg-gray-800 text-orange-500 border-gray-200 dark:border-gray-700",
+                                  yaAgregado
+                                    ? esBodegaActual
+                                      ? "bg-emerald-500 border-emerald-500 text-white"
+                                      : "bg-emerald-100 border-emerald-200 text-emerald-500"
+                                    : "bg-white dark:bg-gray-800 text-orange-500 border-gray-200 dark:border-gray-700",
                                 )}
                               >
                                 {yaAgregado ? <Check className="h-3.5 w-3.5 stroke-3" /> : <Plus className="h-3.5 w-3.5 stroke-3" />}
@@ -159,6 +199,16 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
                             </button>
                           );
                         })}
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          size="sm"
+                          onClick={() => onAddItem(articulo)}
+                          className="h-8 rounded-md bg-orange-600 hover:bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest px-6"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-2" /> Agregar Artículo
+                        </Button>
                       </div>
                     )}
                   </div>

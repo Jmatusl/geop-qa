@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { PackagePlus, PackageMinus, ArrowLeftRight, Search, History, Warehouse, Boxes, RotateCcw, type LucideIcon } from "lucide-react";
+import { PackagePlus, PackageMinus, ArrowLeftRight, Search, History, Warehouse, Boxes, RotateCcw, TrendingDown, type LucideIcon } from "lucide-react";
 import { useBodegaDashboardMetrics, useBodegasDashboard } from "@/lib/hooks/bodega/use-bodega-dashboard";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
 import { ConsultarStockModalV2 } from "./ConsultarStockModalV2";
+import { LowStockArticlesModal } from "./LowStockArticlesModal";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -67,6 +68,8 @@ function CardItem({ card }: { card: DashboardCard }) {
 
 export default function MobileView() {
   const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [lowStockOpen, setLowStockOpen] = useState(false);
+  const { data: metrics } = useBodegaDashboardMetrics();
 
   const cards: DashboardCard[] = [
     {
@@ -123,6 +126,15 @@ export default function MobileView() {
       bgColor: "bg-blue-100/50 dark:bg-blue-900/30",
       borderColor: "border-blue-200 dark:border-blue-700/50",
     },
+    {
+      title: "Stock Bajo",
+      description: `${metrics?.articulosBajoMinimo || 0} críticas`,
+      icon: TrendingDown,
+      color: "text-red-600 dark:text-red-400",
+      bgColor: "bg-red-50 dark:bg-red-950/40",
+      borderColor: "border-red-100 dark:border-red-800/50",
+      onClick: () => setLowStockOpen(true),
+    },
   ];
 
   return (
@@ -162,6 +174,7 @@ export default function MobileView() {
       </div>
 
       <ConsultarStockModalV2 open={stockModalOpen} onOpenChange={setStockModalOpen} />
+      <LowStockArticlesModal open={lowStockOpen} onOpenChange={setLowStockOpen} />
     </div>
   );
 }

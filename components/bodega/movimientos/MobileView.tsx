@@ -10,7 +10,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Search, Filter, ArrowUpDown, Package, Warehouse, FileText, Tag, CornerDownRight, Loader2, Info } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, Search, Filter, ArrowUpDown, Package, Warehouse, FileText, Tag, CornerDownRight, Loader2, Info, Eye } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
@@ -55,28 +56,24 @@ export default function MobileView() {
   const { data, isLoading } = useQuery({
     queryKey: ["inventario-trazabilidad-mobile"],
     queryFn: async () => {
-      // Endpoint propio de trazabilidad si existe
-      const res = await fetch("/api/v1/bodega/stock/trazabilidad");
-      if (res.ok) return res.json();
-
-      // Fallback: usar endpoint de movimientos APLICADOS y normalizar
-      const res2 = await fetch("/api/v1/bodega/movimientos?pageSize=200&status=APLICADO&movementType=INGRESO");
-      if (!res2.ok) throw new Error("Error al cargar inventario");
-      const d2 = await res2.json();
-      const items = (d2.data ?? []).map((m: any, idx: number) => ({
+      // Usar endpoint de movimientos normalizado
+      const res = await fetch("/api/v1/bodega/movimientos?pageSize=200&status=EJECUTADO");
+      if (!res.ok) throw new Error("Error al cargar movimientos");
+      const data = await res.json();
+      const items = (data.data ?? []).map((m: any, idx: number) => ({
         itemId: `${m.id}-${idx}`,
-        articuloId: m.articleId ?? m.article?.id ?? "",
-        articuloNombre: m.article?.name ?? "—",
-        articuloSku: m.article?.code ?? "—",
+        articuloId: m.id,
+        articuloNombre: m.reason || m.folio || "Sin descripción",
+        articuloSku: m.folio,
         movimientoId: m.id,
-        movimientoNumero: m.folio ?? `MOV-${m.id}`,
+        movimientoNumero: m.folio,
         movimientoFecha: m.createdAt ?? "",
-        cantidad: m.quantity ?? 0,
-        precioUnitario: null,
+        cantidad: Number(m.totalItems || 0),
+        precioUnitario: m.totalItems > 0 ? Number(m.totalPrice || 0) / Number(m.totalItems) : 0,
         bodegaNombre: m.warehouse?.name ?? "—",
-        centroCosto: "",
-        docReferencia: m.reason ?? "",
-        observaciones: m.observations ?? "",
+        centroCosto: m.request?.ceco || "N/A",
+        docReferencia: m.request?.folio || m.reason || m.folio,
+        observaciones: m.observations || "",
       }));
       return { items };
     },
@@ -145,8 +142,8 @@ export default function MobileView() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">Inventario</h1>
-              <p className="text-[10px] text-gray-500">Trazabilidad FIFO</p>
+              <h1 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">Movimientos de Inventario</h1>
+              <p className="text-[10px] text-gray-500">Historial de entradas y salidas</p>
             </div>
             <div className="text-right shrink-0">
               <div className="text-[9px] font-bold text-gray-400 uppercase">Total</div>
@@ -225,9 +222,10 @@ export default function MobileView() {
         ) : (
           <div className="grid gap-3">
             {filteredAndSortedItems.map((item) => (
-              <div
+              <Link
                 key={`${item.itemId}-${item.movimientoId}`}
-                className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden relative"
+                href={`/bodega/movimientos/${item.movimientoId}`}
+                className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden relative block active:scale-[0.98]"
               >
                 {/* Bodega tag (esquina superior derecha) */}
                 <div className="absolute top-0 right-0 px-3 py-1 bg-gray-100 dark:bg-gray-800 text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest rounded-bl-xl border-l border-b border-gray-200 dark:border-gray-700">
@@ -298,7 +296,10 @@ export default function MobileView() {
                     )}
                   </div>
                 )}
-              </div>
+                <div className="absolute bottom-4 right-4 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="w-5 h-5" />
+                </div>
+              </Link>
             ))}
           </div>
         )}

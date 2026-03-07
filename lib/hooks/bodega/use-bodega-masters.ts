@@ -59,6 +59,19 @@ export function useBodegaCostCenters(search = "", activeOnly?: boolean) {
   });
 }
 
+export function useBodegaCostCenter(id: string | null) {
+  return useQuery<BodegaCostCenter>({
+    queryKey: ["bodega-centro-costo", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/bodega/maestros/centros-costo/${id}`);
+      if (!res.ok) throw new Error("No se pudo cargar el centro de costo");
+      const json = await res.json();
+      return json.data;
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateBodegaCostCenter() {
   const queryClient = useQueryClient();
 
@@ -156,6 +169,19 @@ export function useBodegaAdjustmentReasons(search = "", activeOnly?: boolean) {
       return res.json();
     },
     staleTime: 60 * 1000,
+  });
+}
+
+export function useBodegaAdjustmentReason(id: string | null) {
+  return useQuery<BodegaAdjustmentReason>({
+    queryKey: ["bodega-motivo-ajuste", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/bodega/maestros/motivos-ajuste/${id}`);
+      if (!res.ok) throw new Error("No se pudo cargar el motivo de ajuste");
+      const json = await res.json();
+      return json.data;
+    },
+    enabled: !!id,
   });
 }
 

@@ -195,9 +195,9 @@
     },
     "STORAGE_CONFIG": {
         "provider": "r2",
-        "bucket_name": "certificaciones-etecma-qa",
-        "public_url": "https://pub-c7d36032b6b6480a9370dcdecd00059d.r2.dev",
-        "endpoint": "https://4cabe9406de0ce18fa3a28f33042ac5d.r2.cloudflarestorage.com/certificaciones-etecma-qa",
+        "bucket_name": "geop-riodulce-qa",
+        "public_url": "https://pub-79622f185a384d5985778eac68d18f5a.r2.dev",
+        "endpoint": "https://4cabe9406de0ce18fa3a28f33042ac5d.r2.cloudflarestorage.com/geop-riodulce-qa",
         "access_key_id": "33e9a4533f393771855d0ec14fec6fda",
         "secret_access_key": "43affc89ac41ba39696321a9ae015df6ef98036d8ec6f2b82d2ffebe8eb9f92a",
         "token_value": "9ZywWu7mDRTyVBp8NMTbmmefqOi_tq4Vsi5MFC0V",

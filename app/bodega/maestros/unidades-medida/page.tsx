@@ -1,28 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { UnitMaster } from "@prisma/client";
 import { toast } from "sonner";
 
 import { BaseMaintainer } from "@/components/maintainer/base-maintainer";
 import { UnitForm } from "@/components/units/unit-form";
 import { getColumns } from "@/components/units/columns";
-import { useCreateUnit, useDeleteUnit, useUnits, useUpdateUnit } from "@/lib/hooks/units/use-units";
+import { useCreateUnit, useDeleteUnit, useUnits, useUpdateUnit, useUnit } from "@/lib/hooks/units/use-units";
 import type { CreateUnitInput } from "@/lib/validations/units";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 
 type SortDirection = "asc" | "desc" | null;
 
 export default function BodegaUnidadesMedidaPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id") || searchParams.get("edit");
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState("");
@@ -33,15 +31,41 @@ export default function BodegaUnidadesMedidaPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<UnitMaster | null>(null);
 
-  const { data: queryData, isLoading, isFetching, refetch } = useUnits({
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useUnits({
     page,
     pageSize,
     search,
   });
+  const { data: singleData, isLoading: isLoadingSingle } = useUnit(editId);
   const { mutate: deleteUnit } = useDeleteUnit();
 
   const units = queryData?.data || [];
-  const meta = queryData?.meta || { total: 0, page: 1, limit: 20, totalPages: 1 };
+  const meta = { total: units.length, page: 1, limit: 100, totalPages: 1 };
+
+  const externalMode = editId ? ("edit" as const) : ("table" as const);
+  const externalItem = useMemo(() => {
+    if (!editId) return null;
+    const foundLocal = units.find((i: UnitMaster) => i.id === editId);
+    if (foundLocal) return foundLocal;
+    if (singleData && singleData.id === editId) return singleData;
+    return undefined; // Loading
+  }, [editId, units, singleData]);
+
+  const handleModeChange = (mode: "table" | "create" | "edit", item: UnitMaster | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (mode === "edit" && item) {
+      params.set("id", item.id);
+    } else {
+      params.delete("id");
+      params.delete("edit");
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const sortedUnits = useMemo(() => {
     if (!sortConfig.key || !sortConfig.direction) return units;
@@ -107,6 +131,9 @@ export default function BodegaUnidadesMedidaPage() {
         title="Maestro de Unidades de Medida"
         description="Administra unidades utilizadas por artículos y movimientos de bodega"
         addNewLabel="Nueva Unidad"
+        externalMode={externalMode}
+        externalItem={externalItem}
+        onModeChange={handleModeChange}
         getColumns={(handlers) =>
           getColumns({
             ...handlers,
@@ -129,17 +156,26 @@ export default function BodegaUnidadesMedidaPage() {
         onRefresh={() => refetch()}
         isRefreshing={isLoading || isFetching}
         searchPlaceholder="Buscar por código, nombre o símbolo"
-        renderForm={(mode, initialData, onCancel, onSuccess) => (
-          <UnitFormWrapper
-            mode={mode}
-            initialData={initialData}
-            onCancel={onCancel}
-            onSuccess={() => {
-              refetch();
-              onSuccess();
-            }}
-          />
-        )}
+        renderForm={(mode, initialData, onCancel, onSuccess) => {
+          if (mode === "edit" && !initialData) {
+            return (
+              <div className="flex h-[300px] w-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            );
+          }
+          return (
+            <UnitFormWrapper
+              mode={mode}
+              initialData={initialData}
+              onCancel={onCancel}
+              onSuccess={() => {
+                refetch();
+                onSuccess();
+              }}
+            />
+          );
+        }}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -152,10 +188,7 @@ export default function BodegaUnidadesMedidaPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setUnitToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -192,7 +225,7 @@ function UnitFormWrapper({ mode, initialData, onCancel, onSuccess }: UnitFormWra
           onSuccess: () => {
             onSuccess();
           },
-        }
+        },
       );
     }
   };

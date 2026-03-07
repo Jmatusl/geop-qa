@@ -30,6 +30,7 @@ export default async function BodegaSolicitudInternaDetallePage({ params }: Page
       items: {
         include: {
           article: true,
+          warehouse: { select: { name: true } },
         },
         orderBy: { displayOrder: "asc" },
       },
@@ -58,15 +59,24 @@ export default async function BodegaSolicitudInternaDetallePage({ params }: Page
     description: request.description,
     statusCode: request.statusCode,
     statusName: request.status.name,
+    priority: (request as any).priority ?? "NORMAL",
     warehouseName: request.warehouse.name,
     requesterName: `${request.requester.firstName} ${request.requester.lastName}`,
+    externalReference: (request as any).externalReference ?? null,
+    requiredDate: (request as any).requiredDate ? new Date((request as any).requiredDate).toISOString() : null,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
     items: request.items.map((item) => ({
       id: item.id,
+      articleId: item.articleId,
       articleCode: item.article.code,
       articleName: item.article.name,
       quantity: item.quantity.toString(),
       deliveredQuantity: item.deliveredQuantity.toString(),
       observations: item.observations,
+      warehouseId: item.warehouseId ?? request.warehouseId,
+      warehouseName: (item as any).warehouse?.name ?? null,
+      unit: item.article.unit ?? "und",
     })),
     logs: request.logs.map((log) => ({
       id: log.id,

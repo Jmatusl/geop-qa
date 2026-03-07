@@ -41,6 +41,7 @@ import { GlobalStockSearchModal } from "@/components/bodega/dashboard/GlobalStoc
 import { GlobalInventarioV2Table } from "@/components/bodega/GlobalInventarioV2Table";
 import { StockGlobalTable } from "@/components/bodega/StockGlobalTable";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
+import { LowStockArticlesModal } from "@/components/bodega/dashboard/LowStockArticlesModal";
 
 // ============================================================================
 // Componentes Auxiliares
@@ -84,6 +85,7 @@ function BodegaDashboardContent() {
   const { isStaff, isAdmin } = useBodegaAuth();
 
   const [stockSearchOpen, setStockSearchOpen] = useState(false);
+  const [lowStockOpen, setLowStockOpen] = useState(false);
   const [soloActivas, setSoloActivas] = useState(true);
   const [bodegaSearch, setBodegaSearch] = useState("");
 
@@ -172,7 +174,15 @@ function BodegaDashboardContent() {
 
       {/* KPIs Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Stock Bajo Mínimo" value={metrics?.articulosBajoMinimo || 0} icon={TrendingDown} color="bg-red-500" description="artículos" isLoading={loadingMetrics} />
+        <MetricCard
+          title="Stock Bajo Mínimo"
+          value={metrics?.articulosBajoMinimo || 0}
+          icon={TrendingDown}
+          color="bg-red-500"
+          description="artículos"
+          isLoading={loadingMetrics}
+          onClick={() => setLowStockOpen(true)}
+        />
         <MetricCard title="Solicitudes Pendientes" value={metrics?.solicitudesPendientes || 0} icon={ClipboardList} color="bg-amber-500" description="registros" isLoading={loadingMetrics} />
         <MetricCard
           title="Total Catálogo"
@@ -339,12 +349,12 @@ function BodegaDashboardContent() {
                             <TableCell className="py-4 pr-6">
                               <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950">
-                                  <Link href={`/bodega/bodegas/${bodega.id}`}>
+                                  <Link href={`/bodega/${bodega.id}/detalles`}>
                                     <Eye className="h-4 w-4" />
                                   </Link>
                                 </Button>
                                 <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950">
-                                  <Link href={`/bodega/maestros/bodegas?edit=${bodega.id}`}>
+                                  <Link href={`/bodega/maestros/bodegas?id=${bodega.id}`}>
                                     <Edit className="h-4 w-4" />
                                   </Link>
                                 </Button>
@@ -401,6 +411,7 @@ function BodegaDashboardContent() {
       )}
 
       <GlobalStockSearchModal open={stockSearchOpen} onOpenChange={setStockSearchOpen} />
+      <LowStockArticlesModal open={lowStockOpen} onOpenChange={setLowStockOpen} />
     </div>
   );
 }

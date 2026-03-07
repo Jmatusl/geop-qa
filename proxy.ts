@@ -9,7 +9,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rutas públicas
-  const publicRoutes = ["/login", "/recover", "/reset", "/activate", "/validar", "/api/v1/storage/signed-url", "/api/v1/public/validar"];
+  const publicRoutes = ["/login", "/recover", "/reset", "/activate", "/api/v1/storage/signed-url"];
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }

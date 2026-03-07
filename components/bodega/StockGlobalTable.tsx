@@ -6,11 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, ArrowUpDown, Search, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, Package, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { HistorialMovimientosSheet } from "@/components/bodega/historial/HistorialMovimientosSheet";
 
 interface GlobalInventarioItem {
   id: string;
@@ -97,10 +98,22 @@ export function StockGlobalTable() {
           );
         },
         cell: ({ row }) => (
-          <div className="space-y-1">
-            <div className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-[11px]">{row.original.articuloNombre}</div>
-            <div className="text-[10px] text-gray-400 font-medium">{row.original.articuloSku}</div>
-          </div>
+          <HistorialMovimientosSheet
+            repuestoId={row.original.articuloId}
+            nombreArticulo={row.original.articuloNombre}
+            codigoArticulo={row.original.articuloSku}
+            bodegaId={row.original.bodegaId}
+            trigger={
+              <div className="space-y-1 cursor-pointer group/item">
+                <div className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight text-[11px] group-hover/item:text-blue-600 transition-colors">
+                  {row.original.articuloNombre}
+                </div>
+                <div className="text-[10px] text-gray-400 font-medium group-hover/item:text-blue-400 transition-colors">
+                  {row.original.articuloSku}
+                </div>
+              </div>
+            }
+          />
         ),
       },
       {
@@ -131,6 +144,25 @@ export function StockGlobalTable() {
           const total = (row.original.cantidad || 0) * (row.original.precioUnitario || 0);
           return <div className="text-right font-black text-blue-600 dark:text-blue-400 tracking-tight">${total.toLocaleString("es-CL")}</div>;
         },
+      },
+      {
+        id: "acciones",
+        header: () => <div className="text-right">Historial</div>,
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <HistorialMovimientosSheet
+              repuestoId={row.original.articuloId}
+              nombreArticulo={row.original.articuloNombre}
+              codigoArticulo={row.original.articuloSku}
+              bodegaId={row.original.bodegaId}
+              trigger={
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950">
+                  <Eye className="h-4 w-4" />
+                </Button>
+              }
+            />
+          </div>
+        ),
       },
     ],
     [],
@@ -180,7 +212,7 @@ export function StockGlobalTable() {
           </div>
 
           <Select value={bodegaFilter} onValueChange={setBodegaFilter}>
-            <SelectTrigger className="w-[200px] h-10 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-xs font-bold uppercase">
+            <SelectTrigger className="w-50 h-10 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-xs font-bold uppercase">
               <SelectValue placeholder="Todas las bodegas" />
             </SelectTrigger>
             <SelectContent>
@@ -230,7 +262,7 @@ export function StockGlobalTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-48 text-center text-gray-400">
+                <TableCell colSpan={6} className="h-48 text-center text-gray-400">
                   No se encontraron registros
                 </TableCell>
               </TableRow>
@@ -245,7 +277,7 @@ export function StockGlobalTable() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={`${table.getState().pagination.pageSize}`} onValueChange={(val) => table.setPageSize(Number(val))}>
-            <SelectTrigger className="w-[100px] h-8 text-[11px] font-bold rounded-lg border-gray-200 dark:border-gray-700">
+            <SelectTrigger className="w-25 h-8 text-[11px] font-bold rounded-lg border-gray-200 dark:border-gray-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

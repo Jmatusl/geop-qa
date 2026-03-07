@@ -24,11 +24,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const session = await verifySession();
     if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-    const hasPermission = await modulePermissionService.userHasPermission(
-      session.user.id,
-      "bodega",
-      "administrar_maestros"
-    );
+    const hasPermission = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para administrar maestros" }, { status: 403 });
     }
@@ -46,8 +42,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         code: parsed.data.code.trim(),
         name: parsed.data.name.trim(),
         description: parsed.data.description?.trim() || null,
+        partNumber: parsed.data.partNumber?.trim() || null,
+        brand: parsed.data.brand?.trim() || null,
+        model: parsed.data.model?.trim() || null,
+        internalCode: parsed.data.internalCode?.trim() || null,
+        articleType: parsed.data.articleType?.trim() || null,
+        quality: parsed.data.quality?.trim() || null,
+        isCritical: parsed.data.isCritical ?? false,
         unit: parsed.data.unit.trim(),
         minimumStock: parsed.data.minimumStock,
+        imagePath: parsed.data.imagePath?.trim() || null,
+        technicalFilePath: parsed.data.technicalFilePath?.trim() || null,
         isActive: parsed.data.isActive ?? true,
       },
     });
@@ -63,11 +68,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     const session = await verifySession();
     if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-    const hasPermission = await modulePermissionService.userHasPermission(
-      session.user.id,
-      "bodega",
-      "administrar_maestros"
-    );
+    const hasPermission = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para administrar maestros" }, { status: 403 });
     }

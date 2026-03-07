@@ -17,9 +17,26 @@ export interface BodegaArticle {
   articleType?: string | null;
   quality?: string | null;
   isCritical?: boolean;
+  imagePath?: string | null;
+  technicalFilePath?: string | null;
   isActive: boolean;
+  stock?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BodegaArticleMovement {
+  id: string;
+  movementId: string;
+  folio: string;
+  tipo: string;
+  cantidad: number;
+  fecha: string;
+  bodega: string;
+  bodegaCodigo: string;
+  usuario: string;
+  motivo: string | null;
+  observaciones: string | null;
 }
 
 interface BodegaArticlesResponse {
@@ -30,6 +47,18 @@ interface BodegaArticlesResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+export function useBodegaArticleMovements(articleId: string, open = false) {
+  return useQuery<BodegaArticleMovement[]>({
+    queryKey: ["bodega-article-movements", articleId],
+    queryFn: async () => {
+      const response = await fetch(`/api/v1/bodega/articulos/${articleId}/movimientos`);
+      if (!response.ok) throw new Error("Error al cargar historial de movimientos");
+      return response.json();
+    },
+    enabled: open && !!articleId,
+  });
 }
 
 export function useBodegaArticles(page = 1, limit = 10, search = "") {
@@ -45,6 +74,18 @@ export function useBodegaArticles(page = 1, limit = 10, search = "") {
       if (!response.ok) throw new Error("Error al cargar artículos");
       return response.json();
     },
+  });
+}
+
+export function useBodegaArticle(id: string | null) {
+  return useQuery<BodegaArticle>({
+    queryKey: ["bodega-article", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/v1/bodega/articulos/${id}`);
+      if (!response.ok) throw new Error("Error al cargar el artículo");
+      return response.json();
+    },
+    enabled: !!id,
   });
 }
 

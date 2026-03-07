@@ -182,6 +182,7 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
           articleId: row.articleId,
           quantity,
           reason: "INGRESO_BODEGA",
+          externalReference: documentRef || null,
           observations: [
             `Referencia: ${documentRef || "N/A"}`,
             quoteNumber ? `N° Cotización: ${quoteNumber}` : null,

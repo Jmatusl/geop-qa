@@ -16,51 +16,47 @@ import Link from "next/link";
 
 interface GlobalInventarioItem {
   id: string;
-  articuloId: string;
-  articuloNombre: string;
-  articuloSku: string;
-  loteCode: string;
-  fechaCreacion: string;
-  cantidad: number; // Saldo actual
-  cantidadOriginal: number; // Cantidad inicial
-  precioUnitario: number | null;
-  bodegaNombre: string;
-  status: string;
+  folio: string;
+  fecha: string;
+  totalItems: number;
+  totalPrice: number;
+  warehouseName: string;
+  movementType: string;
+  reason: string | null;
+  observations: string | null;
+  countArticulos: number;
 }
 
 export function GlobalInventarioV2Table() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [bodegaFilter, setBodegaFilter] = useState("all");
-  const [showExhausted, setShowExhausted] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([{ id: "fechaCreacion", desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: "fecha", desc: true }]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["global-inventario-v2", bodegaFilter, showExhausted],
+    queryKey: ["global-inventario-movimientos", bodegaFilter, globalFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: "1",
-        pageSize: "1000", // Carga masiva para filtrado en cliente
+        pageSize: "1000",
+        search: globalFilter,
       });
       if (bodegaFilter !== "all") params.append("warehouseId", bodegaFilter);
-      if (!showExhausted) params.append("status", "ACTIVO");
 
-      const res = await fetch(`/api/v1/bodega/lotes?${params.toString()}`);
-      if (!res.ok) throw new Error("Error al cargar inventario");
+      const res = await fetch(`/api/v1/bodega/movimientos?${params.toString()}`);
+      if (!res.ok) throw new Error("Error al cargar movimientos");
       const json = await res.json();
 
-      // Mapear data del nuevo API al formato de la tabla
       return json.data.map((item: any) => ({
         id: item.id,
-        articuloId: item.article.id,
-        articuloNombre: item.article.name,
-        articuloSku: item.article.code,
-        loteCode: item.loteCode,
-        fechaCreacion: item.createdAt,
-        cantidad: Number(item.quantity),
-        cantidadOriginal: Number(item.initialQuantity),
-        precioUnitario: item.unitCost ? Number(item.unitCost) : null,
-        bodegaNombre: item.warehouse.name,
-        status: item.status,
+        folio: item.folio,
+        fecha: item.createdAt,
+        totalItems: item.totalItems,
+        totalPrice: item.totalPrice,
+        warehouseName: item.warehouse?.name || "Sin Bodega",
+        movementType: item.movementType,
+        reason: item.reason,
+        observations: item.observations,
+        countArticulos: item._count?.items || 0,
       })) as GlobalInventarioItem[];
     },
   });
@@ -80,7 +76,7 @@ export function GlobalInventarioV2Table() {
   const columns = useMemo<ColumnDef<GlobalInventarioItem>[]>(
     () => [
       {
-        accessorKey: "articuloNombre",
+        id: "movimiento",
         header: ({ column }) => {
           const isSorted = column.getIsSorted();
           return (
@@ -93,7 +89,7 @@ export function GlobalInventarioV2Table() {
               }}
               className="-ml-4 hover:bg-transparent"
             >
-              Artículo
+              Movimiento
               {isSorted === "asc" ? (
                 <ArrowUp className="ml-2 h-4 w-4 text-blue-500" />
               ) : isSorted === "desc" ? (
@@ -105,123 +101,84 @@ export function GlobalInventarioV2Table() {
           );
         },
         cell: ({ row }) => (
-          <div className="space-y-1">
-            <div className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight leading-tight text-[11px]">{row.original.articuloNombre}</div>
-            <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold">
-              <Tag className="w-3 h-3 text-blue-500" />
-              {row.original.articuloSku}
+          <div className="flex flex-col gap-1">
+            <Link href={`/bodega/movimientos/${row.original.id}`} className="font-black text-[#283c7f] dark:text-blue-400 uppercase tracking-tighter text-sm hover:underline flex items-center gap-1.5">
+              {row.original.folio}
+              <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="h-4 px-1 text-[11px] font-black uppercase bg-slate-50 text-slate-500 border-slate-200">
+                {row.original.countArticulos} ARTÍCULOS
+              </Badge>
             </div>
           </div>
         ),
       },
       {
-        accessorKey: "bodegaNombre",
+        accessorKey: "warehouseName",
         header: "Bodega",
         cell: ({ row }) => (
-          <Badge variant="outline" className="bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 text-[10px] font-black uppercase border-sky-200 dark:border-sky-800 whitespace-nowrap">
-            {row.original.bodegaNombre}
+          <Badge variant="outline" className="bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 text-[10px] font-black uppercase border-sky-200 dark:border-sky-800">
+            {row.original.warehouseName}
           </Badge>
         ),
       },
       {
-        accessorKey: "fechaCreacion",
-        header: ({ column }) => {
-          const isSorted = column.getIsSorted();
-          return (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (isSorted === "asc") column.toggleSorting(true);
-                else if (isSorted === "desc") column.clearSorting();
-                else column.toggleSorting(false);
-              }}
-              className="-ml-4 hover:bg-transparent text-left justify-start"
-            >
-              Ingreso
-              {isSorted === "asc" ? (
-                <ArrowUp className="ml-2 h-4 w-4 text-blue-500" />
-              ) : isSorted === "desc" ? (
-                <ArrowDown className="ml-2 h-4 w-4 text-blue-500" />
-              ) : (
-                <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
-              )}
-            </Button>
-          );
-        },
+        id: "fecha",
+        accessorKey: "fecha",
+        header: "Fecha / Tipo",
         cell: ({ row }) => {
-          const date = new Date(row.original.fechaCreacion);
-          const formattedDate = date.toLocaleDateString("es-CL");
+          const date = new Date(row.original.fecha);
+          const type = row.original.movementType;
+
+          const getBadgeStyle = (folio: string, type: string) => {
+            if (folio.includes("TRANSFERENCIA") || type.includes("TRANSFERENCIA")) return { label: "TRANSFERENCIA", className: "bg-blue-50 text-blue-600 border-blue-200" };
+            if (folio.includes("_OC") || type === "INGRESO") return { label: "INGRESO OC", className: "bg-emerald-50 text-emerald-600 border-emerald-200" };
+            if (folio.includes("EGRESO") || type.includes("SALIDA")) return { label: "EGRESO", className: "bg-red-50 text-red-600 border-red-200" };
+            return { label: type, className: "bg-slate-50 text-slate-600 border-slate-200" };
+          };
+
+          const style = getBadgeStyle(row.original.folio, type);
 
           return (
             <div className="space-y-1">
-              <div className="text-[11px] font-medium text-gray-700 dark:text-gray-300">{formattedDate}</div>
-              <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                <Badge
-                  variant="outline"
-                  className={`h-4 px-1 text-[8px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800`}
-                >
-                  LOTE
-                </Badge>
-                <Link href={`/bodega/lotes?id=${row.original.id}`} className="hover:text-blue-600 hover:underline transition-colors flex items-center gap-1">
-                  {row.original.loteCode}
-                  <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                </Link>
+              <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                {date.toLocaleDateString("es-CL")} {date.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
               </div>
+              <Badge variant="outline" className={`h-4 px-1.5 text-[8px] font-black uppercase ${style.className}`}>
+                {style.label}
+              </Badge>
             </div>
           );
         },
       },
       {
-        accessorKey: "cantidad",
-        header: ({ column }) => {
-          const isSorted = column.getIsSorted();
-          return (
-            <div className="text-right">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  if (isSorted === "asc") column.toggleSorting(true);
-                  else if (isSorted === "desc") column.clearSorting();
-                  else column.toggleSorting(false);
-                }}
-                className="hover:bg-transparent"
-              >
-                Stock
-                {isSorted === "asc" ? (
-                  <ArrowUp className="ml-2 h-4 w-4 text-blue-500" />
-                ) : isSorted === "desc" ? (
-                  <ArrowDown className="ml-2 h-4 w-4 text-blue-500" />
-                ) : (
-                  <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
-                )}
-              </Button>
-            </div>
-          );
-        },
+        id: "referencia",
+        header: "Nota / Referencia",
         cell: ({ row }) => {
-          const saldo = row.original.cantidad;
-          const original = row.original.cantidadOriginal || saldo;
-          const porcentaje = Math.min(Math.round((saldo / original) * 100), 100);
+          const label = row.original.reason || row.original.observations || "—";
+          return <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight max-w-[250px] line-clamp-2 leading-tight">{label}</div>;
+        },
+      },
+      {
+        id: "cantidad_valor",
+        header: () => <div className="text-right">Cantidad / Valor Total</div>,
+        cell: ({ row }) => {
+          const isEgress = row.original.movementType?.includes("SALIDA") || row.original.folio?.includes("EGRESO");
 
           return (
-            <div className="text-right space-y-1.5 min-w-[100px]">
-              <div>
-                <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-sm font-black text-gray-900 dark:text-gray-100">{saldo}</span>
-                  <span className="text-[10px] text-gray-400 font-bold">/ {original}</span>
-                  <span className="text-[9px] text-gray-400 font-black uppercase ml-1">UDS</span>
-                </div>
-
-                <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${porcentaje > 50 ? "bg-emerald-500" : porcentaje > 20 ? "bg-amber-500" : "bg-red-500"}`}
-                    style={{ width: `${porcentaje}%` }}
-                  />
-                </div>
+            <div className="text-right space-y-1 min-w-[120px]">
+              <div className="flex items-baseline justify-end gap-1">
+                <span className={`text-sm font-black ${isEgress ? "text-red-600" : "text-emerald-700 dark:text-emerald-400"}`}>
+                  {isEgress ? "-" : "+"}
+                  {(row.original.totalItems ?? 0).toLocaleString("es-CL")}
+                </span>
+                <span className="text-[9px] text-gray-400 font-bold uppercase ml-0.5">UDS TOTALES</span>
               </div>
 
-              <div className="flex flex-col items-end gap-0.5">
-                {row.original.precioUnitario && <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">${row.original.precioUnitario.toLocaleString("es-CL")} c/u</div>}
+              <div className="flex flex-col items-end leading-none">
+                <div className="text-[11px] font-black text-blue-700 dark:text-blue-400 tracking-tight">${(row.original.totalPrice ?? 0).toLocaleString("es-CL")}</div>
+                <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">VALORIZACIÓN TOTAL</div>
               </div>
             </div>
           );
@@ -250,9 +207,7 @@ export function GlobalInventarioV2Table() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="flex gap-4">
-          <Skeleton className="h-10 w-full max-w-sm rounded-xl" />
-        </div>
+        <Skeleton className="h-10 w-full max-w-sm rounded-xl" />
         <div className="rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
           {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-16 w-full border-b border-gray-100 dark:border-gray-800 last:border-0" />
@@ -269,7 +224,7 @@ export function GlobalInventarioV2Table() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Buscar por artículo, SKU..."
+              placeholder="Buscar por folio, referencia..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               className="pl-10 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 h-10"
@@ -294,16 +249,9 @@ export function GlobalInventarioV2Table() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
-            <Switch id="show-exhausted" checked={showExhausted} onCheckedChange={setShowExhausted} />
-            <Label htmlFor="show-exhausted" className="text-[10px] font-black uppercase text-gray-400 cursor-pointer">
-              Ver Agotados
-            </Label>
-          </div>
-
           <div className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 flex items-center gap-2">
             <Package className="w-4 h-4 text-blue-500" />
-            <span className="text-xs font-black text-blue-700 dark:text-blue-400 uppercase tracking-tighter">{allItems.length} REGISTROS</span>
+            <span className="text-xs font-black text-blue-700 dark:text-blue-400 uppercase tracking-tighter">{allItems.length} MOVIMIENTOS</span>
           </div>
         </div>
       </div>
@@ -334,8 +282,8 @@ export function GlobalInventarioV2Table() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-48 text-center text-gray-400">
-                  No se encontraron registros de inventario
+                <TableCell colSpan={5} className="h-48 text-center text-gray-400">
+                  No se encontraron movimientos registrados
                 </TableCell>
               </TableRow>
             )}

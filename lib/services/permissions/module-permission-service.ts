@@ -1,9 +1,9 @@
 /**
  * Service Layer - Permisos por Módulo
- * 
+ *
  * Centraliza la lógica de negocio para gestión de permisos operativos
  * en los diferentes módulos del sistema (actividades, mantención, etc.)
- * 
+ *
  * @module ModulePermissionService
  */
 
@@ -34,37 +34,44 @@ export class ModulePermissionService {
 
   /**
    * Verificar si un usuario tiene un permiso específico en un módulo
-   * 
+   *
    * @param userId - ID del usuario
    * @param moduleCode - Código del módulo (ej: 'actividades', 'mantencion')
    * @param permissionCode - Código del permiso (ej: 'autoriza', 'chequea')
    * @returns true si el usuario tiene el permiso activo
    */
-  async userHasPermission(
-    userId: string,
-    moduleCode: string,
-    permissionCode: string
-  ): Promise<boolean> {
+  async userHasPermission(userId: string, moduleCode: string, permissionCode: string): Promise<boolean> {
     try {
       const permission = await this.prisma.userModulePermission.findFirst({
         where: {
           userId,
-          module: { 
+          module: {
             code: moduleCode,
-            isActive: true 
+            isActive: true,
           },
-          permission: { 
+          permission: {
             code: permissionCode,
-            isActive: true
+            isActive: true,
           },
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } }
-          ]
-        }
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        },
       });
-      
-      return !!permission;
+
+      if (permission) return true;
+
+      if (moduleCode === "bodega" && permissionCode !== "administrador_bodega") {
+        const adminPerm = await this.prisma.userModulePermission.findFirst({
+          where: {
+            userId,
+            module: { code: moduleCode, isActive: true },
+            permission: { code: "administrador_bodega", isActive: true },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+        });
+        if (adminPerm) return true;
+      }
+
+      return false;
     } catch (error) {
       console.error(`[ModulePermissionService] Error verificando permiso:`, error);
       return false;
@@ -73,42 +80,36 @@ export class ModulePermissionService {
 
   /**
    * Obtener todos los permisos activos de un usuario en un módulo
-   * 
+   *
    * @param userId - ID del usuario
    * @param moduleCode - Código del módulo
    * @returns Array de códigos de permisos
    */
-  async getUserPermissions(
-    userId: string,
-    moduleCode: string
-  ): Promise<string[]> {
+  async getUserPermissions(userId: string, moduleCode: string): Promise<string[]> {
     try {
       const permissions = await this.prisma.userModulePermission.findMany({
         where: {
           userId,
-          module: { 
+          module: {
             code: moduleCode,
-            isActive: true
+            isActive: true,
           },
           permission: { isActive: true },
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } }
-          ]
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
-        include: { 
+        include: {
           permission: {
-            select: { code: true }
-          }
+            select: { code: true },
+          },
         },
         orderBy: {
           permission: {
-            displayOrder: 'asc'
-          }
-        }
+            displayOrder: "asc",
+          },
+        },
       });
-      
-      return permissions.map(p => p.permission.code);
+
+      return permissions.map((p) => p.permission.code);
     } catch (error) {
       console.error(`[ModulePermissionService] Error obteniendo permisos:`, error);
       return [];
@@ -117,7 +118,7 @@ export class ModulePermissionService {
 
   /**
    * Obtener todos los permisos de un usuario en todos los módulos
-   * 
+   *
    * @param userId - ID del usuario
    * @returns Map de moduleCode → permissionCodes[]
    */
@@ -128,23 +129,20 @@ export class ModulePermissionService {
           userId,
           module: { isActive: true },
           permission: { isActive: true },
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } }
-          ]
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
         include: {
           module: {
-            select: { code: true }
+            select: { code: true },
           },
           permission: {
-            select: { code: true }
-          }
-        }
+            select: { code: true },
+          },
+        },
       });
 
       const permissionMap: Record<string, string[]> = {};
-      
+
       for (const perm of permissions) {
         const moduleCode = perm.module.code;
         if (!permissionMap[moduleCode]) {
@@ -162,34 +160,28 @@ export class ModulePermissionService {
 
   /**
    * Otorgar permisos a un usuario
-   * 
+   *
    * @param userId - ID del usuario que recibirá los permisos
    * @param moduleCode - Código del módulo
    * @param permissionCodes - Array de códigos de permisos a otorgar
    * @param grantedBy - ID del usuario que otorga los permisos
    * @param expiresAt - Fecha de expiración opcional
    */
-  async grantPermissions(
-    userId: string,
-    moduleCode: string,
-    permissionCodes: string[],
-    grantedBy: string,
-    expiresAt?: Date
-  ): Promise<void> {
+  async grantPermissions(userId: string, moduleCode: string, permissionCodes: string[], grantedBy: string, expiresAt?: Date): Promise<void> {
     // 1. Obtener módulo y permisos
     const module = await this.prisma.module.findUnique({
-      where: { 
+      where: {
         code: moduleCode,
-        isActive: true
+        isActive: true,
       },
-      include: { 
+      include: {
         permissions: {
           where: {
             code: { in: permissionCodes },
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!module) {
@@ -197,101 +189,89 @@ export class ModulePermissionService {
     }
 
     if (module.permissions.length === 0) {
-      throw new PermissionError('No se encontraron permisos válidos para otorgar');
+      throw new PermissionError("No se encontraron permisos válidos para otorgar");
     }
 
     // 2. Transacción para otorgar permisos
     await this.prisma.$transaction(
-      module.permissions.map(perm =>
+      module.permissions.map((perm) =>
         this.prisma.userModulePermission.upsert({
           where: {
             userId_permissionId: {
               userId,
-              permissionId: perm.id
-            }
+              permissionId: perm.id,
+            },
           },
           create: {
             userId,
             moduleId: module.id,
             permissionId: perm.id,
             grantedBy,
-            expiresAt
+            expiresAt,
           },
           update: {
             grantedBy,
             grantedAt: new Date(),
-            expiresAt
-          }
-        })
-      )
+            expiresAt,
+          },
+        }),
+      ),
     );
   }
 
   /**
    * Revocar permisos específicos de un usuario
-   * 
+   *
    * @param userId - ID del usuario
    * @param moduleCode - Código del módulo
    * @param permissionCodes - Array de códigos de permisos a revocar
    */
-  async revokePermissions(
-    userId: string,
-    moduleCode: string,
-    permissionCodes: string[]
-  ): Promise<void> {
+  async revokePermissions(userId: string, moduleCode: string, permissionCodes: string[]): Promise<void> {
     await this.prisma.userModulePermission.deleteMany({
       where: {
         userId,
         module: { code: moduleCode },
-        permission:  { code: { in: permissionCodes } }
-      }
+        permission: { code: { in: permissionCodes } },
+      },
     });
   }
 
   /**
    * Revocar todos los permisos de un usuario en un módulo
-   * 
+   *
    * @param userId - ID del usuario
    * @param moduleCode - Código del módulo
    */
-  async revokeAllPermissions(
-    userId: string,
-    moduleCode: string
-  ): Promise<void> {
+  async revokeAllPermissions(userId: string, moduleCode: string): Promise<void> {
     await this.prisma.userModulePermission.deleteMany({
       where: {
         userId,
-        module: { code: moduleCode }
-      }
+        module: { code: moduleCode },
+      },
     });
   }
 
   /**
    * Sincronizar permisos de un usuario en un módulo
    * (Otorgar los especificados, revocar el resto)
-   * 
+   *
    * @param userId - ID del usuario
    * @param moduleCode - Código del módulo
    * @param permissionCodes - Array de códigos de permisos que debe tener
    * @param grantedBy - ID del usuario que realiza la acción
    */
-  async syncPermissions(
-    userId: string,
-    moduleCode: string,
-    permissionCodes: string[],
-    grantedBy: string
-  ): Promise<void> {
+  async syncPermissions(userId: string, moduleCode: string, permissionCodes: string[], grantedBy: string): Promise<void> {
     // 1. Obtener módulo y permisos
     const module = await this.prisma.module.findUnique({
-      where: { 
+      where: {
         code: moduleCode,
-        isActive: true
+        isActive: true,
       },
-      include: { 
+      include: {
         permissions: {
-          where: { isActive: true }
-        }
-      }
+          where: { isActive: true },
+        },
+      },
     });
 
     if (!module) {
@@ -299,8 +279,8 @@ export class ModulePermissionService {
     }
 
     // 2. Determinar permisos a otorgar y revocar
-    const allPermissionCodes = module.permissions.map(p => p.code);
-    const toRevoke = allPermissionCodes.filter(code => !permissionCodes.includes(code));
+    const allPermissionCodes = module.permissions.map((p) => p.code);
+    const toRevoke = allPermissionCodes.filter((code) => !permissionCodes.includes(code));
 
     // 3. Transacción
     await this.prisma.$transaction(async (tx) => {
@@ -310,34 +290,32 @@ export class ModulePermissionService {
           where: {
             userId,
             module: { code: moduleCode },
-            permission: { code: { in: toRevoke } }
-          }
+            permission: { code: { in: toRevoke } },
+          },
         });
       }
 
       // Otorgar permisos seleccionados
-      const permissionsToGrant = module.permissions.filter(p => 
-        permissionCodes.includes(p.code)
-      );
+      const permissionsToGrant = module.permissions.filter((p) => permissionCodes.includes(p.code));
 
       for (const perm of permissionsToGrant) {
         await tx.userModulePermission.upsert({
           where: {
             userId_permissionId: {
               userId,
-              permissionId: perm.id
-            }
+              permissionId: perm.id,
+            },
           },
           create: {
             userId,
             moduleId: module.id,
             permissionId: perm.id,
-            grantedBy
+            grantedBy,
           },
           update: {
             grantedBy,
-            grantedAt: new Date()
-          }
+            grantedAt: new Date(),
+          },
         });
       }
     });
@@ -345,7 +323,7 @@ export class ModulePermissionService {
 
   /**
    * Obtener todos los módulos activos con sus permisos
-   * 
+   *
    * @returns Array de módulos con permisos
    */
   async getModulesWithPermissions() {
@@ -354,37 +332,31 @@ export class ModulePermissionService {
       include: {
         permissions: {
           where: { isActive: true },
-          orderBy: [
-            { category: 'asc' },
-            { displayOrder: 'asc' }
-          ]
-        }
+          orderBy: [{ category: "asc" }, { displayOrder: "asc" }],
+        },
       },
-      orderBy: { displayOrder: 'asc' }
+      orderBy: { displayOrder: "asc" },
     });
   }
 
   /**
    * Obtener un módulo específico con sus permisos
-   * 
+   *
    * @param moduleCode - Código del módulo
    * @returns Módulo con permisos o null
    */
   async getModuleWithPermissions(moduleCode: string) {
     return await this.prisma.module.findUnique({
-      where: { 
+      where: {
         code: moduleCode,
-        isActive: true
+        isActive: true,
       },
       include: {
         permissions: {
           where: { isActive: true },
-          orderBy: [
-            { category: 'asc' },
-            { displayOrder: 'asc' }
-          ]
-        }
-      }
+          orderBy: [{ category: "asc" }, { displayOrder: "asc" }],
+        },
+      },
     });
   }
 
@@ -395,9 +367,9 @@ export class ModulePermissionService {
     const result = await this.prisma.userModulePermission.deleteMany({
       where: {
         expiresAt: {
-          lte: new Date()
-        }
-      }
+          lte: new Date(),
+        },
+      },
     });
 
     return result.count;

@@ -32,6 +32,7 @@ export interface BodegaInternalRequestListItem {
     id: string;
     firstName: string;
     lastName: string;
+    email: string;
   };
   _count: {
     items: number;

@@ -18,6 +18,8 @@ export interface QuickSearchArticle {
   descripcion: string | null;
   unidad: string;
   stockTotal: number;
+  partNumber?: string | null;
+  internalCode?: string | null;
   bodegas: QuickSearchWarehouseStock[];
 }
 
@@ -26,7 +28,7 @@ interface QuickSearchResponse {
   resultados: QuickSearchArticle[];
 }
 
-export function useBodegaQuickSearch(search: string, warehouseId?: string) {
+export function useBodegaQuickSearch(search: string, warehouseId?: string, options: { enabled?: boolean } = {}) {
   return useQuery<QuickSearchResponse>({
     queryKey: ["bodega", "consulta-rapida", search, warehouseId || "ALL"],
     queryFn: async () => {
@@ -44,7 +46,7 @@ export function useBodegaQuickSearch(search: string, warehouseId?: string) {
 
       return response.json();
     },
-    enabled: search.trim().length >= 2,
-    staleTime: 15_000,
+    enabled: options.enabled ?? true,
+    staleTime: 60_000, // Aumentamos staleTime para la carga inicial
   });
 }

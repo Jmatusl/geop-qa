@@ -133,30 +133,7 @@ export async function seedActividades(prisma: PrismaClient) {
     },
   });
 
-  // Permisos operativos (asignar permisos completos al usuario admin)
-  const initialPermissions = adminUser
-    ? [
-        {
-          userId: adminUser.id,
-          permissions: ["autoriza", "chequea", "revisa", "recepciona"],
-        },
-      ]
-    : [];
-
-  await prisma.appSetting.upsert({
-    where: { key: "act_user_permissions" },
-    update: {
-      value: initialPermissions,
-    },
-    create: {
-      key: "act_user_permissions",
-      description: "Permisos operativos de usuarios para el módulo de actividades",
-      value: initialPermissions,
-      isActive: true,
-    },
-  });
-
-  console.log("    ✓ Configuración del módulo (reglas, notificaciones, permisos)");
+  console.log("    ✓ Configuración del módulo (reglas, notificaciones)");
 
   // --- Menú del Módulo ---
   // El menú padre "actividades" con sus hijos se registra mediante upsert

@@ -7,8 +7,9 @@
  * Siguiendo estrictamente los estilos de borde (rounded-md) y disposición de elementos.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { format } from "date-fns";
 import {
@@ -40,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ import { BuscarArticulosPanel } from "./BuscarArticulosPanel";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
+import { ConfirmacionRetiroModal } from "./ConfirmacionRetiroModal";
 
 // Tipos para el estado local
 interface ItemCarrito {
@@ -58,19 +60,36 @@ interface ItemCarrito {
   bodegaOrigenId: string;
   bodegaOrigenNombre: string;
   cantidad: number;
-  stockDisponible: number;
+  stockDisponible: number; // Stock de la bodega seleccionada
+  stockGlobal: number; // Stock total de todas las bodegas
   unidad: string;
+  bodegasStock?: { bodegaId: string; bodegaNombre: string; stock: number }[];
 }
 
-export default function DesktopView() {
+interface DesktopViewProps {
+  initialData?: {
+    requestId: string;
+    folio: string;
+    warehouseId: string;
+    justificacion: string;
+    referencia: string;
+    fechaRequerida: string;
+    items: ItemCarrito[];
+    fotosEvidencia?: string[];
+  };
+  isEditMode?: boolean;
+}
+
+export default function DesktopView({ initialData, isEditMode }: DesktopViewProps = {}) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: config } = useBodegaConfig();
   const { isBodegaAdmin, isSupervisor } = useBodegaAuth();
 
   // Catálogos
   const { data: bodegasData } = useBodegaWarehouses(1, 100);
-  const bodegas = bodegasData?.data.filter((b) => b.isActive) || [];
+  const bodegas = useMemo(() => bodegasData?.data.filter((b) => b.isActive) || [], [bodegasData?.data]);
 
   // Estado del formulario
   const [warehouseId, setWarehouseId] = useState<string>("");
@@ -103,12 +122,81 @@ export default function DesktopView() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [aprobacionAuto, setAprobacionAuto] = useState(true);
 
-  // Seleccionar la primera bodega por defecto
+  // Cargar datos iniciales si estamos en modo edición
   useEffect(() => {
-    if (bodegas.length > 0 && !warehouseId) {
+    if (isEditMode && initialData) {
+      setWarehouseId(initialData.warehouseId);
+      setJustificacion(initialData.justificacion);
+      setReferencia(initialData.referencia);
+      setFechaRequerida(initialData.fechaRequerida);
+      setItemsAgregados(initialData.items);
+      if (initialData.fotosEvidencia) {
+        setFotosEvidencia(initialData.fotosEvidencia);
+      }
+    }
+  }, [initialData?.requestId, isEditMode]);
+
+  // Fallback para seleccionar la primera bodega si no hay una y no estamos en edición
+  useEffect(() => {
+    if (!isEditMode && !warehouseId && bodegas.length > 0) {
       setWarehouseId(bodegas[0].id);
     }
-  }, [bodegas, warehouseId]);
+  }, [bodegas, warehouseId, isEditMode]);
+
+  // Sincronizar stock de cada artículo en su respectiva bodega
+  useEffect(() => {
+    let active = true;
+    if (bodegas.length > 0 && itemsAgregados.length > 0) {
+      // Agrupar IDs de artículos por su bodega de origen
+      const byWarehouse: Record<string, string[]> = {};
+      itemsAgregados.forEach((item) => {
+        if (!byWarehouse[item.bodegaOrigenId]) byWarehouse[item.bodegaOrigenId] = [];
+        byWarehouse[item.bodegaOrigenId].push(item.articuloId);
+      });
+
+      // Crear promesas de fetch para cada bodega
+      const fetchPromises = Object.entries(byWarehouse).map(([bId, articleIds]) =>
+        fetch("/api/v1/bodega/stock/batch-query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ warehouseId: bId, articleIds }),
+        })
+          .then((res) => res.json())
+          .then((data) => ({ bId, stockMap: data as Record<string, number> })),
+      );
+
+      Promise.all(fetchPromises)
+        .then((results) => {
+          if (!active) return;
+          const masterStockMap: Record<string, Record<string, number>> = {};
+          results.forEach(({ bId, stockMap }) => {
+            masterStockMap[bId] = stockMap;
+          });
+
+          setItemsAgregados((prev) => {
+            const needsUpdate = prev.some((item) => {
+              const currentStockInDB = masterStockMap[item.bodegaOrigenId]?.[item.articuloId] ?? 0;
+              return item.stockDisponible !== currentStockInDB;
+            });
+
+            if (!needsUpdate) return prev;
+
+            return prev.map((item) => {
+              const currentStockInDB = masterStockMap[item.bodegaOrigenId]?.[item.articuloId] ?? 0;
+              return {
+                ...item,
+                stockDisponible: currentStockInDB,
+              };
+            });
+          });
+        })
+        .catch((err) => console.error("Error al refrescar stock:", err));
+    }
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodegas, itemsAgregados.length]);
 
   const handleSeleccionarArticulo = (articulo: any, selectedBodegaId?: string | null) => {
     const targetBodegaId = selectedBodegaId || warehouseId;
@@ -123,9 +211,32 @@ export default function DesktopView() {
       return;
     }
 
-    const existe = itemsAgregados.find((i) => i.articuloId === articulo.id && i.bodegaOrigenId === targetBodegaId);
+    setItemsAgregados((prev) => {
+      const existeIndex = prev.findIndex((i) => i.articuloId === articulo.id);
 
-    if (!existe) {
+      const stockGlobal = articulo.stockTotal ?? articulo.bodegas.reduce((sum: number, b: any) => sum + (b.cantidadDisponible || 0), 0);
+      const bodegasStock = articulo.bodegas.map((b: any) => ({
+        bodegaId: b.bodegaId,
+        bodegaNombre: b.bodegaNombre,
+        stock: b.cantidadDisponible || 0,
+      }));
+
+      if (existeIndex !== -1) {
+        // Si ya existe, actualizamos la información de stock pero mantenemos la cantidad
+        // y opcionalmente actualizamos la bodega origen si el usuario eligió otra
+        const newItems = [...prev];
+        newItems[existeIndex] = {
+          ...newItems[existeIndex],
+          bodegaOrigenId: targetBodegaId,
+          bodegaOrigenNombre: bodegaStock.bodegaNombre,
+          stockDisponible: bodegaStock.cantidadDisponible,
+          stockGlobal,
+          bodegasStock,
+        };
+        toast.info(`${articulo.nombre} actualizado (Stock Global: ${stockGlobal})`);
+        return newItems;
+      }
+
       const nuevoItem: ItemCarrito = {
         articuloId: articulo.id,
         codigo: articulo.codigo,
@@ -134,13 +245,13 @@ export default function DesktopView() {
         bodegaOrigenNombre: bodegaStock.bodegaNombre,
         cantidad: 0,
         stockDisponible: bodegaStock.cantidadDisponible,
+        stockGlobal,
         unidad: articulo.unidad,
+        bodegasStock,
       };
-      setItemsAgregados([...itemsAgregados, nuevoItem]);
-      toast.success(`${articulo.nombre} agregado`);
-    } else {
-      toast.info("El artículo ya está en la lista");
-    }
+      toast.success(`${articulo.nombre} agregado (Stock Global: ${stockGlobal})`);
+      return [...prev, nuevoItem];
+    });
   };
 
   const handleRemoverItem = (articuloId: string, bId: string) => {
@@ -148,7 +259,7 @@ export default function DesktopView() {
   };
 
   const handleCantidadChange = (articuloId: string, bId: string, val: number) => {
-    setItemsAgregados((prev) => prev.map((item) => (item.articuloId === articuloId && item.bodegaOrigenId === bId ? { ...item, cantidad: Math.min(Math.max(0, val), item.stockDisponible) } : item)));
+    setItemsAgregados((prev) => prev.map((item) => (item.articuloId === articuloId ? { ...item, cantidad: Math.min(Math.max(0, val), item.stockGlobal) } : item)));
   };
 
   const handlePreSubmit = () => {
@@ -169,60 +280,80 @@ export default function DesktopView() {
     setShowConfirmModal(false);
 
     try {
-      if (isEntregaInmediata && (canApprove || isAutoAprobar)) {
-        // FLUJO DE PARIDAD: Si la entrega inmediata está activa, creamos el Egreso/Salida real directamente.
-        // Hacemos múltiples llamadas a /movimientos porque la versión V1 del backend no acepta bulk movements.
-        const validItems = itemsAgregados.filter((i) => i.cantidad > 0);
-        const externalFolio = `DIR-${Date.now()}`;
+      const validItems = itemsAgregados.filter((i) => i.cantidad > 0);
 
-        for (const item of validItems) {
-          const response = await fetch("/api/v1/bodega/movimientos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              movementType: "SALIDA",
-              warehouseId: item.bodegaOrigenId,
+      const url = isEditMode && initialData?.requestId ? `/api/v1/bodega/solicitudes-internas/${initialData.requestId}` : "/api/v1/bodega/solicitudes-internas";
+      const response = await fetch(url, {
+        method: isEditMode ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          warehouseId: itemsAgregados[0]?.bodegaOrigenId ?? warehouseId,
+          title: `RETIRO WEB: ${justificacion.substring(0, 30)}`,
+          description: justificacion + (isAutoApproved ? " | [auto_approved:true]" : ""),
+          externalReference: referencia,
+          requiredDate: new Date(fechaRequerida).toISOString(),
+          items: validItems.flatMap((item) => {
+            // Lógica de Distribución Automática (Opción 1)
+            if (item.cantidad <= item.stockDisponible || !item.bodegasStock) {
+              return [
+                {
+                  articleId: item.articuloId,
+                  warehouseId: item.bodegaOrigenId,
+                  quantity: item.cantidad,
+                },
+              ];
+            }
+
+            // Excede stock de la bodega preferida, repartimos el resto
+            let restante = item.cantidad;
+            const itemsDistribuidos = [];
+
+            // 1. Tomar de la bodega preferida primero
+            const qtyPreferida = Math.min(restante, item.stockDisponible);
+            itemsDistribuidos.push({
               articleId: item.articuloId,
-              quantity: item.cantidad,
-              reason: `Entrega Inmediata (Ref: ${referencia || "S/R"})`,
-              observations: justificacion + (isAutoApproved ? " | [auto_approved:true]" : ""),
-            }),
-          });
+              warehouseId: item.bodegaOrigenId,
+              quantity: qtyPreferida,
+            });
+            restante -= qtyPreferida;
 
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || "Error al contabilizar entrega inmediata");
-          }
-        }
+            // 2. Tomar de otras bodegas
+            if (restante > 0) {
+              const otrasBodegas = item.bodegasStock.filter((b) => b.bodegaId !== item.bodegaOrigenId && b.stock > 0);
+              for (const b of otrasBodegas) {
+                if (restante <= 0) break;
+                const aTomar = Math.min(restante, b.stock);
+                itemsDistribuidos.push({
+                  articleId: item.articuloId,
+                  warehouseId: b.bodegaId,
+                  quantity: aTomar,
+                });
+                restante -= aTomar;
+              }
+            }
 
-        setSuccessData({ id: externalFolio, folio: `EGRESO DIRECTO (${validItems.length} items)` });
-        toast.success("Retiro inmediato procesado exitosamente");
-      } else {
-        // FLUJO NORMAL: Se crea una Solicitud Interna
-        const response = await fetch("/api/v1/bodega/solicitudes-internas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            warehouseId,
-            title: `RETIRO: ${justificacion.substring(0, 30)}`,
-            description: justificacion + (isAutoApproved ? " | [auto_approved:true]" : ""),
-            externalReference: referencia,
-            requiredDate: new Date(fechaRequerida).toISOString(),
-            items: itemsAgregados
-              .filter((i) => i.cantidad > 0)
-              .map((item) => ({
-                articleId: item.articuloId,
-                quantity: item.cantidad,
-              })),
+            // 3. Si aún queda (caso de stock negativo permitido), lo dejamos en la preferida
+            if (restante > 0) {
+              itemsDistribuidos[0].quantity += restante;
+            }
+
+            return itemsDistribuidos;
           }),
-        });
+          autoCompletar: isAutoApproved && (isEntregaInmediata || isAutoAprobar),
+          autoAprobar: isAutoApproved,
+        }),
+      });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Error al crear");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Error al procesar retiro");
 
-        setSuccessData({ id: data.id, folio: data.folio });
-        toast.success("Retiro procesado exitosamente");
-      }
+      // Invalida caché para refrescar listado y estadísticas
+      queryClient.invalidateQueries({ queryKey: ["bodega", "solicitudes-internas"] });
+      queryClient.invalidateQueries({ queryKey: ["bodega", "consulta-rapida"] });
+
+      setSuccessData({ id: data.id, folio: data.folio });
+      const completed = data.status === "ENTREGADA";
+      toast.success(isEditMode ? "Solicitud actualizada correctamente" : completed ? "Retiro inmediato procesado correctamente" : "Solicitud de retiro creada exitosamente");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -279,7 +410,8 @@ export default function DesktopView() {
       <BodegaBreadcrumb
         items={[
           { label: "Bodega", href: "/bodega" },
-          { label: "Retiros", href: "/bodega/retiro-bodega" },
+          { label: "Solicitudes", href: "/bodega/solicitudes-internas" },
+          { label: isEditMode ? "Editar Solicitud" : "Nuevo Retiro", href: "#" },
         ]}
       />
 
@@ -292,8 +424,10 @@ export default function DesktopView() {
                 <Zap className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold uppercase tracking-tight text-gray-900 dark:text-gray-100 italic">Retiro Bodega</h2>
-                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">Configuración general del registro</p>
+                <h2 className="text-lg font-bold uppercase tracking-tight text-gray-900 dark:text-gray-100 italic">{isEditMode ? `Editar Solicitud #${initialData?.folio}` : "Retiro Bodega"}</h2>
+                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tighter">
+                  {isEditMode ? "Ajuste de artículos y detalles del requerimiento" : "Configuración general del registro"}
+                </p>
               </div>
               <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-orange-200 dark:bg-gray-900 dark:border-orange-900/50">
                 <AlertCircle className="w-3 h-3 text-orange-500" />
@@ -398,7 +532,7 @@ export default function DesktopView() {
                 placeholder="Ingrese descripción detallada..."
                 value={justificacion}
                 onChange={(e) => setJustificacion(e.target.value)}
-                className="bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 h-10 text-xs font-medium rounded-md"
+                className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 h-10 text-xs font-medium rounded-md"
                 autoComplete="off"
                 maxLength={300}
               />
@@ -438,10 +572,10 @@ export default function DesktopView() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto bg-transparent">
           <Table>
-            <TableHeader className="bg-gray-50/50 dark:bg-gray-900/50 text-[#283c7f]">
-              <TableRow className="h-12">
+            <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+              <TableRow className="h-12 border-b">
                 <TableHead className="w-10 text-center font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">#</TableHead>
                 <TableHead className="min-w-[300px] font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Artículo *</TableHead>
                 <TableHead className="min-w-[150px] font-bold text-[10px] uppercase tracking-widest text-center text-[#283c7f]">Bodega Origen</TableHead>
@@ -461,7 +595,7 @@ export default function DesktopView() {
                 </TableRow>
               ) : (
                 itemsAgregados.map((item, index) => (
-                  <TableRow key={`${item.articuloId}-${item.bodegaOrigenId}`} className="hover:bg-slate-50 border-border h-20 transition-all">
+                  <TableRow key={`${item.articuloId}-${item.bodegaOrigenId}`} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50 border-border h-20 transition-all">
                     <TableCell className="text-center text-[10px] font-bold text-gray-400 italic">{(index + 1).toString().padStart(2, "0")}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
@@ -473,49 +607,93 @@ export default function DesktopView() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className="h-8 border-slate-100 dark:border-slate-800 text-[9px] font-bold uppercase px-4 rounded-xl text-slate-500">
-                        {item.bodegaOrigenNombre}
-                      </Badge>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="h-7 border-slate-200 dark:border-slate-800 text-[10px] font-bold uppercase px-3 rounded-md text-slate-500 shrink-0 bg-white dark:bg-slate-950"
+                          >
+                            {item.bodegaOrigenNombre}
+                          </Badge>
+                          {/* Nuevo Badge de Stock Extra */}
+                          {item.stockGlobal > item.stockDisponible && item.cantidad < item.stockDisponible && (
+                            <Badge
+                              variant="outline"
+                              className="h-6 border-emerald-100 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/30 text-[8px] font-black uppercase rounded-md animate-in fade-in zoom-in-95"
+                            >
+                              +{item.stockGlobal - item.stockDisponible} EN OTRAS
+                            </Badge>
+                          )}
+                          {item.cantidad > item.stockDisponible && (
+                            <Badge className="h-6 bg-[#283c7f] hover:bg-[#283c7f] text-white text-[8px] font-black uppercase rounded-md border-none shadow-sm animate-pulse">MULTIBODEGA</Badge>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-0.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner min-w-[120px] relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-full h-0.5 bg-orange-500/20" />
+                          <div className="flex justify-between w-full gap-4">
+                            <div className="flex flex-col items-start px-1">
+                              <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">BOD. STOCK</span>
+                              <span className="text-[11px] font-black text-[#283c7f] dark:text-blue-400 leading-none">{item.stockDisponible}</span>
+                            </div>
+                            <div className="flex flex-col items-end px-1">
+                              <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">STOCK GLOBAL</span>
+                              <span className="text-[11px] font-black text-orange-600 dark:text-orange-400 leading-none">{item.stockGlobal}</span>
+                            </div>
+                          </div>
+                          <Badge className="mt-1 h-3.5 bg-blue-100 text-blue-700 hover:bg-blue-100 border-none text-[8px] font-black p-1 px-1.5 leading-none rounded-sm w-full flex justify-center">
+                            MAX PERMITIDO: {item.stockGlobal}
+                          </Badge>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="flex items-center bg-slate-50 dark:bg-slate-900 rounded-md p-0.5 border border-slate-100 dark:border-slate-800 w-32 shadow-inner">
-                          <button
-                            onClick={() => handleCantidadChange(item.articuloId, item.bodegaOrigenId, item.cantidad - 1)}
-                            className="h-8 w-8 flex items-center justify-center rounded bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all"
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="flex items-center bg-slate-50 dark:bg-slate-900 rounded-md p-0.5 border border-slate-100 dark:border-slate-800 w-32 shadow-inner">
+                            <button
+                              onClick={() => handleCantidadChange(item.articuloId, item.bodegaOrigenId, item.cantidad - 1)}
+                              className="h-8 w-8 flex items-center justify-center rounded bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all font-bold"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="text"
+                              value={item.cantidad}
+                              onChange={(e) => {
+                                const numeric = parseInt(e.target.value.replace(/\D/g, "") || "0");
+                                handleCantidadChange(item.articuloId, item.bodegaOrigenId, numeric);
+                              }}
+                              className="w-full bg-transparent text-center font-black text-xs uppercase focus:ring-0 border-none"
+                            />
+                            <button
+                              onClick={() => handleCantidadChange(item.articuloId, item.bodegaOrigenId, item.cantidad + 1)}
+                              className="h-8 w-8 flex items-center justify-center rounded bg-white dark:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-all font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoverItem(item.articuloId, item.bodegaOrigenId)}
+                            className="h-8 w-8 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all rounded-md"
                           >
-                            -
-                          </button>
-                          <input
-                            type="text"
-                            value={item.cantidad}
-                            onChange={(e) => {
-                              const numeric = parseInt(e.target.value.replace(/\D/g, "") || "0");
-                              handleCantidadChange(item.articuloId, item.bodegaOrigenId, numeric);
-                            }}
-                            className="w-full bg-transparent text-center font-bold text-xs uppercase focus:ring-0 border-none"
-                          />
-                          <button
-                            onClick={() => handleCantidadChange(item.articuloId, item.bodegaOrigenId, item.cantidad + 1)}
-                            className="h-8 w-8 flex items-center justify-center rounded bg-white dark:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-all"
-                          >
-                            +
-                          </button>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoverItem(item.articuloId, item.bodegaOrigenId)}
-                          className="h-8 w-8 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all rounded-md"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {item.cantidad > item.stockDisponible && (
+                          <span className="text-[8px] font-black text-orange-500 uppercase tracking-tighter text-center max-w-[140px] leading-tight flex items-center gap-1 italic">
+                            <Info className="w-2.5 h-2.5" />
+                            Se retirará de múltiples bodegas
+                          </span>
+                        )}
+                        {item.stockGlobal < item.cantidad && (
+                          <div className="text-center">
+                            <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter animate-pulse">STOCK GLOBAL INSUFICIENTE ({item.stockGlobal})</span>
+                          </div>
+                        )}
                       </div>
-                      {item.stockDisponible < item.cantidad && (
-                        <div className="text-center mt-1">
-                          <span className="text-[8px] font-bold text-red-500 uppercase tracking-tighter animate-pulse">STOCK INSUFICIENTE ({item.stockDisponible})</span>
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell></TableCell>
                   </TableRow>
@@ -573,7 +751,7 @@ export default function DesktopView() {
             ) : (
               <>
                 <Check className="h-4 w-4 stroke-3" />
-                Finalizar Registro
+                {isEditMode ? "Actualizar Solicitud" : "Finalizar Registro"}
               </>
             )}
           </Button>
@@ -605,76 +783,18 @@ export default function DesktopView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de confirmación para aprobación automática (Legacy Parity) */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-950 rounded-2xl p-6 shadow-2xl scale-in-center overflow-hidden border border-orange-200 dark:border-orange-900/50">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
-                <ShieldAlert className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-gray-100 italic uppercase tracking-tighter">¿CONFIRMAR RETIRO?</h3>
-            </div>
-
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-              Está por procesar un retiro de <strong>{itemsAgregados.length}</strong> artículo(s). La configuración actual permite la aprobación y entrega inmediata.
-            </p>
-
-            {/* Switch de Verificación */}
-            <div
-              className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer mb-6 ${
-                aprobacionAuto
-                  ? "bg-orange-50/50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800"
-                  : "bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 hover:border-slate-300"
-              }`}
-              onClick={() => setAprobacionAuto(!aprobacionAuto)}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-slate-900 dark:text-gray-100 uppercase tracking-tight">AUTO-APROBAR / ENTREGAR</span>
-                  {aprobacionAuto && <Badge className="bg-orange-600 hover:bg-orange-700 text-[9px] h-4 px-1 leading-none text-white border-none italic">OPCIONAL</Badge>}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                  {aprobacionAuto ? "La solicitud será aprobada y el stock será descontado inmediatamente." : "La solicitud quedará pendiente de aprobación manual por un Supervisor."}
-                </p>
-              </div>
-              <div
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center border-2 transition-all ${
-                  aprobacionAuto ? "bg-orange-600 border-orange-600 shadow-sm shadow-orange-500/20" : "border-slate-300 dark:border-slate-600"
-                }`}
-              >
-                {aprobacionAuto && <Check className="w-4 h-4 text-white" />}
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="flex-1 h-12 rounded-xl border-slate-200 dark:border-slate-800 text-sm font-black uppercase text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => handleCrearSolicitud(aprobacionAuto)}
-                disabled={creando}
-                className="flex-1 h-12 rounded-xl bg-orange-600 hover:bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-orange-900/20 active:scale-95 transition-transform"
-              >
-                {creando ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    PROCESAR
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmacionRetiroModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        onConfirm={handleCrearSolicitud}
+        isPending={creando}
+        itemCount={itemsAgregados.length}
+        totalUnidades={totalUnidades}
+        aprobacionAuto={aprobacionAuto}
+        onAprobacionAutoChange={setAprobacionAuto}
+        isAutoAprobar={isAutoAprobar}
+        isEntregaInmediata={isEntregaInmediata}
+      />
     </div>
   );
 }

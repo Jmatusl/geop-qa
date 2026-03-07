@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/session";
 import { bodegaStockMovementService } from "@/lib/services/bodega/stock-movement-service";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await verifySession();
     if (!session) {
@@ -10,13 +10,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const warehouseId = searchParams.get("bodegaId") || undefined;
+    const history = await bodegaStockMovementService.getArticleMovements(id);
 
-    const result = await bodegaStockMovementService.getArticleMovements(id, warehouseId);
-    return NextResponse.json(result);
+    return NextResponse.json(history);
   } catch (error) {
-    console.error("Error en historial de movimientos:", error);
-    return NextResponse.json({ error: "Error al obtener historial" }, { status: 500 });
+    console.error("Error al obtener historial de movimientos de artículo:", error);
+    return NextResponse.json({ error: "Error al obtener historial de movimientos" }, { status: 500 });
   }
 }

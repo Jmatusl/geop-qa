@@ -17,15 +17,31 @@ export async function GET(request: NextRequest) {
         }
       : {};
 
-    const [data, total] = await Promise.all([
+    const [articles, total] = await Promise.all([
       prisma.bodegaArticle.findMany({
-        where,
+        where: {
+          ...where,
+          isActive: true,
+        },
+        include: {
+          stocks: {
+            select: {
+              quantity: true,
+              warehouseId: true,
+            },
+          },
+        },
         orderBy: [{ name: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.bodegaArticle.count({ where }),
+      prisma.bodegaArticle.count({ where: { ...where, isActive: true } }),
     ]);
+
+    const data = articles.map((a) => ({
+      ...a,
+      stock: a.stocks.reduce((acc, s) => acc + Number(s.quantity), 0),
+    }));
 
     return NextResponse.json({
       data,
@@ -46,7 +62,7 @@ export async function POST(request: NextRequest) {
     const session = await verifySession();
     if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-    const hasPermission = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrar_maestros");
+    const hasPermission = await modulePermissionService.userHasPermission(session.user.id, "bodega", "administrador_bodega");
     if (!hasPermission) {
       return NextResponse.json({ error: "Sin permisos para administrar maestros" }, { status: 403 });
     }
@@ -71,6 +87,8 @@ export async function POST(request: NextRequest) {
         isCritical: parsed.data.isCritical ?? false,
         unit: parsed.data.unit.trim(),
         minimumStock: parsed.data.minimumStock,
+        imagePath: parsed.data.imagePath?.trim() || null,
+        technicalFilePath: parsed.data.technicalFilePath?.trim() || null,
         isActive: parsed.data.isActive ?? true,
       },
     });

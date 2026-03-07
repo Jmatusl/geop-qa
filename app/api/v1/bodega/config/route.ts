@@ -77,6 +77,29 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    // Lógica especial para "Ocultar TRANSITO"
+    // Si se activa, nos aseguramos que la bodega virtual exista
+    if (key === "BODEGA_GENERAL_CONFIG") {
+      const config = value as any;
+      if (config.ocultar_transito === true) {
+        const transitoExist = await prisma.bodegaWarehouse.findUnique({
+          where: { code: "TRANSITO" },
+        });
+
+        if (!transitoExist) {
+          await prisma.bodegaWarehouse.create({
+            data: {
+              code: "TRANSITO",
+              name: "EN TRÁNSITO",
+              description: "Bodega virtual para movimientos inter-bodegas (Trazabilidad)",
+              location: "VIRTUAL",
+              isActive: true,
+            },
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, setting });
   } catch (error) {
     console.error("Error actualizando configuración de bodega:", error);

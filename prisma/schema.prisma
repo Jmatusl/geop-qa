@@ -54,20 +54,30 @@ model User {
   actActivitiesChecked               ActActivity[]                  @relation("ActAct_CheckedBy")
   actActivitiesAsResponsible         ActActivity[]                  @relation("ActAct_Responsible")
   actActivities                      ActActivity[]
-  actAttachmentsUploaded             ActAttachment[]
   actActivityAttachmentsUploaded     ActActivityAttachment[]
+  actReceptions                      ActActivityReception[]         @relation("ActReception_ReceivedBy")
+  actAttachmentsUploaded             ActAttachment[]
   actComments                        ActComment[]
+  actEmailsSent                      ActEmailSent[]                 @relation("ActEmailSent_SentBy")
+  actMasterDefaultApplicant          ActMasterActivityName[]        @relation("ActMaster_DefaultApplicant")
   actRequirementsAsApplicant         ActRequirement[]               @relation("ActReq_Applicant")
+  actRequirementsApproved            ActRequirement[]               @relation("ActReq_ApprovedBy")
   actRequirementsCreated             ActRequirement[]               @relation("ActReq_CreatedBy")
   actRequirementsAsResponsible       ActRequirement[]               @relation("ActReq_Responsible")
-  actRequirementsApproved            ActRequirement[]               @relation("ActReq_ApprovedBy")
   actRequirementsChecked             ActRequirement[]               @relation("ActReq_CheckedBy")
-  actEmailsSent                      ActEmailSent[]                 @relation("ActEmailSent_SentBy")
-  actReceptions                      ActActivityReception[]         @relation("ActReception_ReceivedBy")
   actTimelineEntries                 ActTimeline[]
   activationTokens                   ActivationToken[]
   settingsUpdates                    AppSetting[]
   settingsAuditChanges               AppSettingAudit[]
+  bodegaInternalRequestLogsCreated   BodegaInternalRequestLog[]     @relation("BodegaInternalRequestLog_CreatedBy")
+  bodegaInternalRequestsCreated      BodegaInternalRequest[]        @relation("BodegaInternalRequest_CreatedBy")
+  bodegaInternalRequestsRequested    BodegaInternalRequest[]        @relation("BodegaInternalRequest_RequestedBy")
+  bodegaLotsCreated                  BodegaLot[]                    @relation("BodegaLot_CreatedBy")
+  bodegaReservationsCreated          BodegaReservation[]            @relation("BodegaReservation_CreatedBy")
+  bodegaSerialNumbersCreated         BodegaSerialNumber[]           @relation("BodegaSerialNumber_CreatedBy")
+  bodegaStockMovementsApplied        BodegaStockMovement[]          @relation("BodegaStockMovement_AppliedBy")
+  bodegaStockMovementsApproved       BodegaStockMovement[]          @relation("BodegaStockMovement_ApprovedBy")
+  bodegaStockMovementsCreated        BodegaStockMovement[]          @relation("BodegaStockMovement_CreatedBy")
   emailTemplates                     EmailTemplate[]
   menuAuditChanges                   MenuAudit[]
   mntApplicants                      MntApplicant?
@@ -78,14 +88,25 @@ model User {
   mntTechnicalResponsibles           MntTechnicalResponsible?
   mntNotificationPreference          MntUserNotificationPreference?
   mntWorkRequirements                MntWorkRequirement[]           @relation("WR_CreatedBy")
+  approvalRulesUpdated               ModuleApprovalRule[]           @relation("ApprovalRuleUpdatedBy")
   passwordResetTokens                PasswordResetToken[]
   sessions                           Session[]
   signatures                         Signature[]
+  supplyQuotationAttachmentsUploaded SupplyQuotationAttachment[]    @relation("SupplyQuotationAttachment_UploadedBy")
+  supplyQuotationEmailsSent          SupplyQuotationEmailSent[]     @relation("SupplyQuotationEmailSent_SentBy")
+  supplyQuotationsApproved           SupplyQuotation[]              @relation("SupplyQuotation_ApprovedBy")
+  supplyQuotationsCreated            SupplyQuotation[]              @relation("SupplyQuotation_CreatedBy")
+  supplyQuotationsReceived           SupplyQuotation[]              @relation("SupplyQuotation_ReceivedBy")
+  supplyQuotationsRejected           SupplyQuotation[]              @relation("SupplyQuotation_RejectedBy")
+  supplyQuotationsSent               SupplyQuotation[]              @relation("SupplyQuotation_SentBy")
+  supplyRequestAttachmentsUploaded   SupplyRequestAttachment[]      @relation("SupplyRequestAttachment_UploadedBy")
+  supplyRequestTimelinesCreated      SupplyRequestTimeline[]        @relation("SupplyRequestTimeline_CreatedBy")
+  supplyRequestsCreated              SupplyRequest[]                @relation("SupplyRequest_CreatedBy")
   userIdentities                     UserIdentity[]
-  userRoles                          UserRole[]
-  modulePermissions                  UserModulePermission[]
   permissionsGranted                 UserModulePermission[]         @relation("PermissionGrantedBy")
-  approvalRulesUpdated               ModuleApprovalRule[]           @relation("ApprovalRuleUpdatedBy")
+  modulePermissions                  UserModulePermission[]
+  notificationPreferences            UserNotificationPreference[]   @relation("UserNotificationPreferences")
+  userRoles                          UserRole[]
   createdBy                          User?                          @relation("UserCreatedBy", fields: [createdById], references: [id])
   createdUsers                       User[]                         @relation("UserCreatedBy")
   deactivatedBy                      User?                          @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
@@ -94,26 +115,6 @@ model User {
   person                             Person?                        @relation(fields: [personId], references: [id])
   updatedBy                          User?                          @relation("UserUpdatedBy", fields: [updatedById], references: [id])
   updatedUsers                       User[]                         @relation("UserUpdatedBy")
-  actMasterDefaultApplicant          ActMasterActivityName[]        @relation("ActMaster_DefaultApplicant")
-  notificationPreferences            UserNotificationPreference[]   @relation("UserNotificationPreferences")
-  supplyRequestsCreated              SupplyRequest[]                @relation("SupplyRequest_CreatedBy")
-  supplyQuotationsCreated            SupplyQuotation[]              @relation("SupplyQuotation_CreatedBy")
-  supplyQuotationsSent               SupplyQuotation[]              @relation("SupplyQuotation_SentBy")
-  supplyQuotationsReceived           SupplyQuotation[]              @relation("SupplyQuotation_ReceivedBy")
-  supplyQuotationsApproved           SupplyQuotation[]              @relation("SupplyQuotation_ApprovedBy")
-  supplyQuotationsRejected           SupplyQuotation[]              @relation("SupplyQuotation_RejectedBy")
-  supplyRequestAttachmentsUploaded   SupplyRequestAttachment[]      @relation("SupplyRequestAttachment_UploadedBy")
-  supplyQuotationAttachmentsUploaded SupplyQuotationAttachment[]    @relation("SupplyQuotationAttachment_UploadedBy")
-  supplyRequestTimelinesCreated      SupplyRequestTimeline[]        @relation("SupplyRequestTimeline_CreatedBy")
-  supplyQuotationEmailsSent          SupplyQuotationEmailSent[]     @relation("SupplyQuotationEmailSent_SentBy")
-  bodegaInternalRequestsCreated      BodegaInternalRequest[]        @relation("BodegaInternalRequest_CreatedBy")
-  bodegaInternalRequestsRequested    BodegaInternalRequest[]        @relation("BodegaInternalRequest_RequestedBy")
-  bodegaInternalRequestLogsCreated   BodegaInternalRequestLog[]     @relation("BodegaInternalRequestLog_CreatedBy")
-  bodegaStockMovementsCreated        BodegaStockMovement[]          @relation("BodegaStockMovement_CreatedBy")
-  bodegaStockMovementsApproved       BodegaStockMovement[]          @relation("BodegaStockMovement_ApprovedBy")
-  bodegaReservationsCreated          BodegaReservation[]            @relation("BodegaReservation_CreatedBy")
-  bodegaLotsCreated                  BodegaLot[]                    @relation("BodegaLot_CreatedBy")
-  bodegaSerialNumbersCreated         BodegaSerialNumber[]           @relation("BodegaSerialNumber_CreatedBy")
 
   @@index([email])
   @@index([rut])
@@ -498,12 +499,12 @@ model MntInstallation {
   isActive         Boolean           @default(true) @map("is_active")
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  actRequirements  ActRequirement[]
   equipments       MntEquipment[]
   farmingCenter    MntFarmingCenter? @relation(fields: [farmingCenterId], references: [id])
   requests         MntRequest[]
-  applicants       MntApplicant[]    @relation("ApplicantInstallations")
-  actRequirements  ActRequirement[]
   supplyRequests   SupplyRequest[]   @relation("SupplyRequest_Installation")
+  applicants       MntApplicant[]    @relation("ApplicantInstallations")
 
   @@map("mnt_installations")
 }
@@ -516,10 +517,10 @@ model MntArea {
   isActive               Boolean                   @default(true) @map("is_active")
   createdAt              DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  actMasterActivityNames ActMasterActivityName[]
+  actRequirements        ActRequirement[]
   systems                MntSystem[]
   responsibles           MntTechnicalResponsible[]
-  actRequirements        ActRequirement[]
-  actMasterActivityNames ActMasterActivityName[]
 
   @@map("mnt_areas")
 }
@@ -658,8 +659,8 @@ model MntActivityLocation {
   isEnabled       Boolean          @default(true) @map("is_enabled")
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  actRequirements ActRequirement[]
   actActivities   ActActivity[]
+  actRequirements ActRequirement[]
 
   @@map("mnt_activity_locations")
 }
@@ -982,7 +983,7 @@ model ActRequirement {
   createdAt                  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
   userCheckRequerido         Boolean                @default(false) @map("user_check_requerido")
-  userCheckObservaciones     String?                @map("user_check_observaciones") @db.Text
+  userCheckObservaciones     String?                @map("user_check_observaciones")
   userCheckRequeridoAprobado Boolean                @default(false) @map("user_check_requerido_aprobado")
   userCheckedById            String?                @map("user_checked_by") @db.Uuid
   userCheckedAt              DateTime?              @map("user_checked_at") @db.Timestamptz(6)
@@ -993,16 +994,16 @@ model ActRequirement {
   emailsSent                 ActEmailSent[]
   activityType               ActActivityType        @relation(fields: [activityTypeId], references: [id])
   applicant                  User?                  @relation("ActReq_Applicant", fields: [applicantUserId], references: [id])
+  approvedBy                 User?                  @relation("ActReq_ApprovedBy", fields: [approvedById], references: [id])
+  area                       MntArea?               @relation(fields: [areaId], references: [id])
   createdBy                  User                   @relation("ActReq_CreatedBy", fields: [createdById], references: [id])
   location                   MntActivityLocation?   @relation(fields: [locationId], references: [id])
-  area                       MntArea?               @relation(fields: [areaId], references: [id])
+  masterActivityName         ActMasterActivityName? @relation(fields: [masterActivityNameId], references: [id])
   priority                   ActPriority            @relation(fields: [priorityId], references: [id])
   responsible                User?                  @relation("ActReq_Responsible", fields: [responsibleUserId], references: [id])
-  approvedBy                 User?                  @relation("ActReq_ApprovedBy", fields: [approvedById], references: [id])
-  userCheckedBy              User?                  @relation("ActReq_CheckedBy", fields: [userCheckedById], references: [id])
   ship                       MntInstallation?       @relation(fields: [shipId], references: [id])
   status                     ActStatusReq           @relation(fields: [statusId], references: [id])
-  masterActivityName         ActMasterActivityName? @relation(fields: [masterActivityNameId], references: [id])
+  userCheckedBy              User?                  @relation("ActReq_CheckedBy", fields: [userCheckedById], references: [id])
   timeline                   ActTimeline[]
 
   @@index([statusId])
@@ -1015,17 +1016,16 @@ model ActRequirement {
 }
 
 model ActEmailSent {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requirementId    String   @map("requirement_id") @db.Uuid
-  requirementFolio String?  @map("requirement_folio") @db.VarChar(50)
-  providerName     String?  @map("provider_name") @db.VarChar(255)
-  recipient        String   @db.VarChar(255)
-  subject          String?  @db.VarChar(500)
-  sentById         String   @map("sent_by_id") @db.Uuid
-  sentAt           DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
-
-  requirement ActRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
-  sentBy      User           @relation("ActEmailSent_SentBy", fields: [sentById], references: [id])
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requirementId    String         @map("requirement_id") @db.Uuid
+  requirementFolio String?        @map("requirement_folio") @db.VarChar(50)
+  providerName     String?        @map("provider_name") @db.VarChar(255)
+  recipient        String         @db.VarChar(255)
+  subject          String?        @db.VarChar(500)
+  sentById         String         @map("sent_by_id") @db.Uuid
+  sentAt           DateTime       @default(now()) @map("sent_at") @db.Timestamptz(6)
+  requirement      ActRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  sentBy           User           @relation("ActEmailSent_SentBy", fields: [sentById], references: [id])
 
   @@index([requirementId])
   @@index([sentById])
@@ -1033,20 +1033,19 @@ model ActEmailSent {
 }
 
 model ActMasterActivityName {
-  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                   String   @unique @db.VarChar(200)
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String           @unique @db.VarChar(200)
   description            String?
-  defaultLocationId      String?  @map("default_location_id") @db.Uuid
-  defaultAreaId          String?  @map("default_area_id") @db.Uuid
-  defaultApplicantUserId String?  @map("default_applicant_user_id") @db.Uuid
-  defaultDescription     String?  @map("default_description") @db.Text
-  isActive               Boolean  @default(true) @map("is_active")
-  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  requirements     ActRequirement[]
-  defaultArea      MntArea?         @relation(fields: [defaultAreaId], references: [id])
-  defaultApplicant User?            @relation("ActMaster_DefaultApplicant", fields: [defaultApplicantUserId], references: [id])
+  defaultLocationId      String?          @map("default_location_id") @db.Uuid
+  defaultAreaId          String?          @map("default_area_id") @db.Uuid
+  defaultApplicantUserId String?          @map("default_applicant_user_id") @db.Uuid
+  defaultDescription     String?          @map("default_description")
+  isActive               Boolean          @default(true) @map("is_active")
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  defaultApplicant       User?            @relation("ActMaster_DefaultApplicant", fields: [defaultApplicantUserId], references: [id])
+  defaultArea            MntArea?         @relation(fields: [defaultAreaId], references: [id])
+  requirements           ActRequirement[]
 
   @@map("act_master_activity_names")
 }
@@ -1075,14 +1074,14 @@ model ActActivity {
   userId            String?                 @db.Uuid
   activityType      ActActivityType?        @relation(fields: [activityTypeId], references: [id])
   checkedBy         User?                   @relation("ActAct_CheckedBy", fields: [checkedById], references: [id])
+  activityLocation  MntActivityLocation?    @relation(fields: [locationId], references: [id])
   requirement       ActRequirement          @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   responsible       User?                   @relation("ActAct_Responsible", fields: [responsibleUserId], references: [id])
+  status            ActStatusAct?           @relation(fields: [statusId], references: [id])
   supplier          MntSupplier?            @relation(fields: [supplierId], references: [id])
   user              User?                   @relation(fields: [userId], references: [id])
-  activityLocation  MntActivityLocation?    @relation(fields: [locationId], references: [id])
-  status            ActStatusAct?           @relation(fields: [statusId], references: [id])
-  receptions        ActActivityReception[]
   attachments       ActActivityAttachment[]
+  receptions        ActActivityReception[]
 
   @@index([requirementId])
   @@index([locationId])
@@ -1200,26 +1199,21 @@ model ActTimeline {
   @@map("act_timeline")
 }
 
-// ============================================
-// SISTEMA CENTRALIZADO DE PERMISOS POR MÓDULO
-// ============================================
-
 model Module {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code         String   @unique @db.VarChar(50)
-  name         String   @db.VarChar(100)
-  description  String?
-  icon         String?  @db.VarChar(50)
-  isActive     Boolean  @default(true) @map("is_active")
-  emailEnabled Boolean  @default(true) @map("email_enabled")
-  displayOrder Int      @default(0) @map("display_order")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
+  id                   String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String                      @unique @db.VarChar(50)
+  name                 String                      @db.VarChar(100)
+  description          String?
+  icon                 String?                     @db.VarChar(50)
+  isActive             Boolean                     @default(true) @map("is_active")
+  emailEnabled         Boolean                     @default(true) @map("email_enabled")
+  displayOrder         Int                         @default(0) @map("display_order")
+  createdAt            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  approvalRules        ModuleApprovalRule[]
+  notificationSettings ModuleNotificationSetting[]
   permissions          ModulePermission[]
   userPermissions      UserModulePermission[]
-  notificationSettings ModuleNotificationSetting[]
-  approvalRules        ModuleApprovalRule[]
 
   @@index([code])
   @@index([isActive])
@@ -1227,16 +1221,15 @@ model Module {
 }
 
 model ModulePermission {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  moduleId     String   @map("module_id") @db.Uuid
-  code         String   @db.VarChar(50)
-  name         String   @db.VarChar(100)
-  description  String?
-  category     String?  @db.VarChar(50)
-  isActive     Boolean  @default(true) @map("is_active")
-  displayOrder Int      @default(0) @map("display_order")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId        String                 @map("module_id") @db.Uuid
+  code            String                 @db.VarChar(50)
+  name            String                 @db.VarChar(100)
+  description     String?
+  category        String?                @db.VarChar(50)
+  isActive        Boolean                @default(true) @map("is_active")
+  displayOrder    Int                    @default(0) @map("display_order")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   module          Module                 @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   userPermissions UserModulePermission[]
 
@@ -1247,18 +1240,17 @@ model ModulePermission {
 }
 
 model UserModulePermission {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  moduleId     String    @map("module_id") @db.Uuid
-  permissionId String    @map("permission_id") @db.Uuid
-  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
-  grantedBy    String?   @map("granted_by") @db.Uuid
-  expiresAt    DateTime? @map("expires_at") @db.Timestamptz(6)
-
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  moduleId      String           @map("module_id") @db.Uuid
+  permissionId  String           @map("permission_id") @db.Uuid
+  grantedAt     DateTime         @default(now()) @map("granted_at") @db.Timestamptz(6)
+  grantedBy     String?          @map("granted_by") @db.Uuid
+  expiresAt     DateTime?        @map("expires_at") @db.Timestamptz(6)
+  grantedByUser User?            @relation("PermissionGrantedBy", fields: [grantedBy], references: [id])
   module        Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   permission    ModulePermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  grantedByUser User?            @relation("PermissionGrantedBy", fields: [grantedBy], references: [id])
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, permissionId])
   @@index([userId])
@@ -1279,8 +1271,7 @@ model ModuleNotificationSetting {
   template            String?  @db.VarChar(100)
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module              Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([moduleId, eventKey])
   @@index([moduleId])
@@ -1295,13 +1286,12 @@ model ModuleApprovalRule {
   ruleName      String   @map("rule_name") @db.VarChar(200)
   description   String?
   isEnabled     Boolean  @default(false) @map("is_enabled")
-  configuration Json?    @db.JsonB
+  configuration Json?
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   updatedBy     String?  @map("updated_by") @db.Uuid
-
-  module        Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  updatedByUser User?  @relation("ApprovalRuleUpdatedBy", fields: [updatedBy], references: [id])
+  module        Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  updatedByUser User?    @relation("ApprovalRuleUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([moduleId, ruleKey])
   @@index([moduleId])
@@ -1317,21 +1307,12 @@ model UserNotificationPreference {
   isOptedOut Boolean  @default(false) @map("is_opted_out")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user User @relation("UserNotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation("UserNotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, moduleCode, eventKey])
   @@index([userId])
   @@map("user_notification_preferences")
 }
-
-// ============================================================================
-// MÓDULO: SOLICITUD DE INSUMOS
-// ============================================================================
-
-// ---------------------------
-// Maestros de Configuración
-// ---------------------------
 
 /// Maestro de Unidades de Medida (Kg, Litros, Unidades, Metros, etc.)
 model UnitMaster {
@@ -1339,10 +1320,10 @@ model UnitMaster {
   code             String   @unique @db.VarChar(10)
   name             String   @db.VarChar(100)
   symbol           String   @db.VarChar(10)
-  category         String   @db.VarChar(50) // mass, volume, length, quantity, time
+  category         String   @db.VarChar(50)
   description      String?
-  conversionFactor Float?   @map("conversion_factor") // Factor de conversión a unidad base
-  baseUnit         String?  @map("base_unit") @db.VarChar(10) // Unidad base de la categoría (ej: kg para masa)
+  conversionFactor Float?   @map("conversion_factor")
+  baseUnit         String?  @map("base_unit") @db.VarChar(10)
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1356,8 +1337,8 @@ model SupplyRequestStatusMaster {
   code         String          @unique @db.VarChar(50)
   name         String          @db.VarChar(100)
   description  String?
-  color        String?         @db.VarChar(20) // Color para badges (slate, blue, emerald, red, amber)
-  icon         String?         @db.VarChar(50) // Icono Lucide
+  color        String?         @db.VarChar(20)
+  icon         String?         @db.VarChar(50)
   displayOrder Int             @default(0) @map("display_order")
   isActive     Boolean         @default(true) @map("is_active")
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1401,34 +1382,29 @@ model QuotationStatusMaster {
   @@map("quotation_status_master")
 }
 
-// ---------------------
-// Entidades Operativas
-// ---------------------
-
 /// Solicitud de Insumos
 model SupplyRequest {
   id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  folio          String                    @unique @db.VarChar(50) // SR-0001, SR-0002...
+  folio          String                    @unique @db.VarChar(50)
   title          String                    @db.VarChar(255)
   description    String?
   statusCode     String                    @map("status_code") @db.VarChar(50)
   installationId String                    @map("installation_id") @db.Uuid
-  requestedDate  DateTime                  @map("requested_date") @db.Date // Fecha solicitada de entrega
-  priority       String                    @default("NORMAL") @db.VarChar(20) // BAJA, NORMAL, ALTA, URGENTE
-  justification  String? // Justificación de la solicitud
-  estimatedValue Decimal                   @default(0) @map("estimated_value") @db.Decimal(12, 2) // Valor estimado total
+  requestedDate  DateTime                  @map("requested_date") @db.Date
+  priority       String                    @default("NORMAL") @db.VarChar(20)
+  justification  String?
   observations   String?
+  estimatedValue Decimal                   @default(0) @map("estimated_value") @db.Decimal(12, 2)
   createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdBy      String                    @map("created_by") @db.Uuid
-  // Relaciones
-  status         SupplyRequestStatusMaster @relation(fields: [statusCode], references: [code])
-  installation   MntInstallation           @relation("SupplyRequest_Installation", fields: [installationId], references: [id])
-  creator        User                      @relation("SupplyRequest_CreatedBy", fields: [createdBy], references: [id])
-  items          SupplyRequestItem[]
   quotations     SupplyQuotation[]
   attachments    SupplyRequestAttachment[]
+  items          SupplyRequestItem[]
   timeline       SupplyRequestTimeline[]
+  creator        User                      @relation("SupplyRequest_CreatedBy", fields: [createdBy], references: [id])
+  installation   MntInstallation           @relation("SupplyRequest_Installation", fields: [installationId], references: [id])
+  status         SupplyRequestStatusMaster @relation(fields: [statusCode], references: [code])
 
   @@index([folio])
   @@index([statusCode])
@@ -1448,17 +1424,16 @@ model SupplyRequestItem {
   quantity       Float
   unit           String                 @default("UNI") @db.VarChar(50)
   statusCode     String                 @map("status_code") @db.VarChar(50)
-  specifications String? // Especificaciones técnicas
-  estimatedPrice Float?                 @map("estimated_price") // Precio estimado (opcional)
+  specifications String?
+  estimatedPrice Float?                 @map("estimated_price")
   observations   String?
   displayOrder   Int                    @default(0) @map("display_order")
   createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
-  // Relaciones
-  request        SupplyRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  category       MntSupplyCategory      @relation("SupplyRequestItem_Category", fields: [categoryId], references: [id])
-  status         SupplyItemStatusMaster @relation(fields: [statusCode], references: [code])
   quotationItems SupplyQuotationItem[]
+  category       MntSupplyCategory      @relation("SupplyRequestItem_Category", fields: [categoryId], references: [id])
+  request        SupplyRequest          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  status         SupplyItemStatusMaster @relation(fields: [statusCode], references: [code])
 
   @@index([requestId])
   @@index([categoryId])
@@ -1469,20 +1444,20 @@ model SupplyRequestItem {
 /// Cotización (puede contener múltiples items)
 model SupplyQuotation {
   id                      String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  folio                   String                      @unique @db.VarChar(50) // COT-0001, COT-0002...
+  folio                   String                      @unique @db.VarChar(50)
   requestId               String                      @map("request_id") @db.Uuid
   supplierId              String                      @map("supplier_id") @db.Uuid
   statusCode              String                      @map("status_code") @db.VarChar(50)
-  quotationNumber         String?                     @map("quotation_number") @db.VarChar(100) // Número de cotización del proveedor
-  purchaseOrderNumber     String?                     @map("purchase_order_number") @db.VarChar(100) // Número de OC (solo cuando se aprueba)
-  quotationDate           DateTime?                   @map("quotation_date") @db.Date // Fecha de la cotización del proveedor
-  expirationDate          DateTime?                   @map("expiration_date") @db.Date // Fecha de vencimiento
-  totalAmount             Float?                      @map("total_amount") // Monto total de la cotización
-  observations            String? // Observaciones internas
-  observationsForSupplier String?                     @map("observations_for_supplier") // Observaciones para el proveedor
-  sentAt                  DateTime?                   @map("sent_at") @db.Timestamptz(6) // Fecha de envío al proveedor
+  quotationDate           DateTime?                   @map("quotation_date") @db.Date
+  expirationDate          DateTime?                   @map("expiration_date") @db.Date
+  totalAmount             Float?                      @map("total_amount")
+  observations            String?
+  observationsForSupplier String?                     @map("observations_for_supplier")
+  purchaseOrderNumber     String?                     @map("purchase_order_number") @db.VarChar(100)
+  quotationNumber         String?                     @map("quotation_number") @db.VarChar(100)
+  sentAt                  DateTime?                   @map("sent_at") @db.Timestamptz(6)
   sentBy                  String?                     @map("sent_by") @db.Uuid
-  receivedAt              DateTime?                   @map("received_at") @db.Timestamptz(6) // Fecha de recepción
+  receivedAt              DateTime?                   @map("received_at") @db.Timestamptz(6)
   receivedBy              String?                     @map("received_by") @db.Uuid
   approvedAt              DateTime?                   @map("approved_at") @db.Timestamptz(6)
   approvedBy              String?                     @map("approved_by") @db.Uuid
@@ -1492,18 +1467,17 @@ model SupplyQuotation {
   createdAt               DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt               DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdBy               String                      @map("created_by") @db.Uuid
-  // Relaciones
-  request                 SupplyRequest               @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  supplier                MntSupplier                 @relation("SupplyQuotation_Supplier", fields: [supplierId], references: [id])
-  status                  QuotationStatusMaster       @relation(fields: [statusCode], references: [code])
-  creator                 User                        @relation("SupplyQuotation_CreatedBy", fields: [createdBy], references: [id])
-  sender                  User?                       @relation("SupplyQuotation_SentBy", fields: [sentBy], references: [id])
-  receiver                User?                       @relation("SupplyQuotation_ReceivedBy", fields: [receivedBy], references: [id])
-  approver                User?                       @relation("SupplyQuotation_ApprovedBy", fields: [approvedBy], references: [id])
-  rejecter                User?                       @relation("SupplyQuotation_RejectedBy", fields: [rejectedBy], references: [id])
-  items                   SupplyQuotationItem[]
   attachments             SupplyQuotationAttachment[]
   emailsSent              SupplyQuotationEmailSent[]
+  items                   SupplyQuotationItem[]
+  approver                User?                       @relation("SupplyQuotation_ApprovedBy", fields: [approvedBy], references: [id])
+  creator                 User                        @relation("SupplyQuotation_CreatedBy", fields: [createdBy], references: [id])
+  receiver                User?                       @relation("SupplyQuotation_ReceivedBy", fields: [receivedBy], references: [id])
+  rejecter                User?                       @relation("SupplyQuotation_RejectedBy", fields: [rejectedBy], references: [id])
+  request                 SupplyRequest               @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender                  User?                       @relation("SupplyQuotation_SentBy", fields: [sentBy], references: [id])
+  status                  QuotationStatusMaster       @relation(fields: [statusCode], references: [code])
+  supplier                MntSupplier                 @relation("SupplyQuotation_Supplier", fields: [supplierId], references: [id])
 
   @@index([folio])
   @@index([requestId])
@@ -1518,14 +1492,13 @@ model SupplyQuotationItem {
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   quotationId    String            @map("quotation_id") @db.Uuid
   requestItemId  String            @map("request_item_id") @db.Uuid
-  quotedQuantity Float             @map("quoted_quantity") // Cantidad cotizada
-  unitPrice      Float?            @map("unit_price") // Precio unitario (opcional)
-  subtotal       Float? // Subtotal (quotedQuantity * unitPrice)
-  supplierNotes  String?           @map("supplier_notes") // Notas del proveedor
+  quotedQuantity Float             @map("quoted_quantity")
+  unitPrice      Float?            @map("unit_price")
+  subtotal       Float?
+  supplierNotes  String?           @map("supplier_notes")
   displayOrder   Int               @default(0) @map("display_order")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  // Relaciones
   quotation      SupplyQuotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   requestItem    SupplyRequestItem @relation(fields: [requestItemId], references: [id])
 
@@ -1534,10 +1507,6 @@ model SupplyQuotationItem {
   @@index([requestItemId])
   @@map("supply_quotation_items")
 }
-
-// ---------------------
-// Adjuntos y Auditoría
-// ---------------------
 
 /// Adjuntos de Solicitud
 model SupplyRequestAttachment {
@@ -1549,7 +1518,6 @@ model SupplyRequestAttachment {
   mimeType   String        @map("mime_type") @db.VarChar(100)
   uploadedBy String        @map("uploaded_by") @db.Uuid
   uploadedAt DateTime      @default(now()) @map("uploaded_at") @db.Timestamptz(6)
-  // Relaciones
   request    SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   uploader   User          @relation("SupplyRequestAttachment_UploadedBy", fields: [uploadedBy], references: [id])
 
@@ -1567,7 +1535,6 @@ model SupplyQuotationAttachment {
   mimeType    String          @map("mime_type") @db.VarChar(100)
   uploadedBy  String          @map("uploaded_by") @db.Uuid
   uploadedAt  DateTime        @default(now()) @map("uploaded_at") @db.Timestamptz(6)
-  // Relaciones
   quotation   SupplyQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   uploader    User            @relation("SupplyQuotationAttachment_UploadedBy", fields: [uploadedBy], references: [id])
 
@@ -1579,14 +1546,13 @@ model SupplyQuotationAttachment {
 model SupplyRequestTimeline {
   id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   requestId   String        @map("request_id") @db.Uuid
-  action      String        @db.VarChar(100) // created, status_changed, item_added, quotation_sent, etc.
+  action      String        @db.VarChar(100)
   description String
-  metadata    Json?         @db.JsonB // Metadatos flexibles
+  metadata    Json?
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy   String?       @map("created_by") @db.Uuid
-  // Relaciones
-  request     SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   creator     User?         @relation("SupplyRequestTimeline_CreatedBy", fields: [createdBy], references: [id])
+  request     SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([createdAt])
@@ -1600,12 +1566,11 @@ model SupplyQuotationEmailSent {
   recipientEmail String          @map("recipient_email") @db.VarChar(255)
   subject        String          @db.VarChar(500)
   bodyHtml       String          @map("body_html")
-  attachedPdf    String?         @map("attached_pdf") // Path del PDF adjunto
+  attachedPdf    String?         @map("attached_pdf")
   sentAt         DateTime        @default(now()) @map("sent_at") @db.Timestamptz(6)
   sentBy         String          @map("sent_by") @db.Uuid
-  status         String          @default("sent") @db.VarChar(20) // sent, failed, bounced
+  status         String          @default("sent") @db.VarChar(20)
   errorMessage   String?         @map("error_message")
-  // Relaciones
   quotation      SupplyQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   sender         User            @relation("SupplyQuotationEmailSent_SentBy", fields: [sentBy], references: [id])
 
@@ -1613,10 +1578,6 @@ model SupplyQuotationEmailSent {
   @@index([sentAt])
   @@map("supply_quotation_emails_sent")
 }
-
-// ============================================================================
-// MÓDULO: BODEGA
-// ============================================================================
 
 /// Estados de solicitud interna de bodega
 model BodegaInternalRequestStatusMaster {
@@ -1637,20 +1598,21 @@ model BodegaInternalRequestStatusMaster {
 
 /// Bodega física
 model BodegaWarehouse {
-  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code          String                  @unique @db.VarChar(30)
-  name          String                  @db.VarChar(120)
-  description   String?
-  location      String?
-  isActive      Boolean                 @default(true) @map("is_active")
-  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
-  stocks        BodegaStock[]
-  requests      BodegaInternalRequest[]
-  movements     BodegaStockMovement[]
-  reservations  BodegaReservation[]
-  lots          BodegaLot[]
-  serialNumbers BodegaSerialNumber[]
+  id                         String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                       String                      @unique @db.VarChar(30)
+  name                       String                      @db.VarChar(120)
+  description                String?
+  location                   String?
+  isActive                   Boolean                     @default(true) @map("is_active")
+  createdAt                  DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  bodegaInternalRequestItems BodegaInternalRequestItem[]
+  requests                   BodegaInternalRequest[]
+  lots                       BodegaLot[]
+  reservations               BodegaReservation[]
+  serialNumbers              BodegaSerialNumber[]
+  stocks                     BodegaStock[]
+  movements                  BodegaStockMovement[]
 
   @@index([isActive])
   @@map("bodega_warehouses")
@@ -1658,28 +1620,30 @@ model BodegaWarehouse {
 
 /// Maestro de artículos de bodega
 model BodegaArticle {
-  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code             String                      @unique @db.VarChar(50)
-  name             String                      @db.VarChar(255)
-  description      String?
-  partNumber       String?                     @map("part_number") @db.VarChar(100)
-  brand            String?                     @db.VarChar(100)
-  model            String?                     @db.VarChar(100)
-  internalCode     String?                     @map("internal_code") @db.VarChar(50)
-  articleType      String?                     @map("article_type") @db.VarChar(50)
-  quality          String?                     @db.VarChar(50)
-  isCritical       Boolean                     @default(false) @map("is_critical")
-  unit             String                      @default("UNI") @db.VarChar(20)
-  minimumStock     Decimal                     @default(0) @map("minimum_stock") @db.Decimal(14, 3)
-  isActive         Boolean                     @default(true) @map("is_active")
-  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  stocks           BodegaStock[]
-  requestItems     BodegaInternalRequestItem[]
-  movementItems    BodegaStockMovementItem[]
-  reservationItems BodegaReservation[]
-  lots             BodegaLot[]
-  serialNumbers    BodegaSerialNumber[]
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String                      @unique @db.VarChar(50)
+  name              String                      @db.VarChar(255)
+  description       String?
+  partNumber        String?                     @map("part_number") @db.VarChar(100)
+  brand             String?                     @db.VarChar(100)
+  model             String?                     @db.VarChar(100)
+  internalCode      String?                     @map("internal_code") @db.VarChar(50)
+  articleType       String?                     @map("article_type") @db.VarChar(50)
+  quality           String?                     @db.VarChar(50)
+  isCritical        Boolean                     @default(false) @map("is_critical")
+  unit              String                      @default("UNI") @db.VarChar(20)
+  minimumStock      Decimal                     @default(0) @map("minimum_stock") @db.Decimal(14, 3)
+  isActive          Boolean                     @default(true) @map("is_active")
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  imagePath         String?                     @map("image_path") @db.VarChar(512)
+  technicalFilePath String?                     @map("technical_file_path") @db.VarChar(512)
+  requestItems      BodegaInternalRequestItem[]
+  lots              BodegaLot[]
+  reservationItems  BodegaReservation[]
+  serialNumbers     BodegaSerialNumber[]
+  stocks            BodegaStock[]
+  movementItems     BodegaStockMovementItem[]
 
   @@index([isActive])
   @@map("bodega_articles")
@@ -1687,14 +1651,16 @@ model BodegaArticle {
 
 /// Existencia actual de artículo por bodega
 model BodegaStock {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  warehouseId      String          @map("warehouse_id") @db.Uuid
-  articleId        String          @map("article_id") @db.Uuid
-  quantity         Decimal         @default(0) @db.Decimal(14, 3)
-  reservedQuantity Decimal         @default(0) @map("reserved_quantity") @db.Decimal(14, 3)
-  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  warehouse        BodegaWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  article          BodegaArticle   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  warehouseId       String          @map("warehouse_id") @db.Uuid
+  articleId         String          @map("article_id") @db.Uuid
+  quantity          Decimal         @default(0) @db.Decimal(14, 3)
+  reservedQuantity  Decimal         @default(0) @map("reserved_quantity") @db.Decimal(14, 3)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  stockNoVerificado Decimal         @default(0) @map("stock_no_verificado") @db.Decimal(14, 3)
+  stockVerificado   Decimal         @default(0) @map("stock_verificado") @db.Decimal(14, 3)
+  article           BodegaArticle   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  warehouse         BodegaWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   @@unique([warehouseId, articleId])
   @@index([articleId])
@@ -1703,26 +1669,28 @@ model BodegaStock {
 
 /// Solicitud interna de bodega
 model BodegaInternalRequest {
-  id           String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  folio        String                            @unique @db.VarChar(50)
-  statusCode   String                            @map("status_code") @db.VarChar(50)
-  warehouseId  String                            @map("warehouse_id") @db.Uuid
-  title        String                            @db.VarChar(255)
-  description  String?
-  priority     String                            @default("NORMAL") @db.VarChar(20)
-  requiredDate DateTime?                         @map("required_date") @db.Date
-  observations String?
-  requestedBy  String                            @map("requested_by") @db.Uuid
-  createdBy    String                            @map("created_by") @db.Uuid
-  createdAt    DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  status       BodegaInternalRequestStatusMaster @relation(fields: [statusCode], references: [code])
-  warehouse    BodegaWarehouse                   @relation(fields: [warehouseId], references: [id])
-  requester    User                              @relation("BodegaInternalRequest_RequestedBy", fields: [requestedBy], references: [id])
-  creator      User                              @relation("BodegaInternalRequest_CreatedBy", fields: [createdBy], references: [id])
-  items        BodegaInternalRequestItem[]
-  logs         BodegaInternalRequestLog[]
-  movements    BodegaStockMovement[]
+  id                String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio             String                            @unique @db.VarChar(50)
+  statusCode        String                            @map("status_code") @db.VarChar(50)
+  warehouseId       String                            @map("warehouse_id") @db.Uuid
+  title             String                            @db.VarChar(255)
+  description       String?
+  priority          String                            @default("NORMAL") @db.VarChar(20)
+  requiredDate      DateTime?                         @map("required_date") @db.Date
+  observations      String?
+  requestedBy       String                            @map("requested_by") @db.Uuid
+  createdBy         String                            @map("created_by") @db.Uuid
+  createdAt         DateTime                          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  externalReference String?                           @map("external_reference") @db.VarChar(100)
+  metadatos         Json?
+  items             BodegaInternalRequestItem[]
+  logs              BodegaInternalRequestLog[]
+  creator           User                              @relation("BodegaInternalRequest_CreatedBy", fields: [createdBy], references: [id])
+  requester         User                              @relation("BodegaInternalRequest_RequestedBy", fields: [requestedBy], references: [id])
+  status            BodegaInternalRequestStatusMaster @relation(fields: [statusCode], references: [code])
+  warehouse         BodegaWarehouse                   @relation(fields: [warehouseId], references: [id])
+  movements         BodegaStockMovement[]
 
   @@index([statusCode])
   @@index([warehouseId])
@@ -1743,8 +1711,10 @@ model BodegaInternalRequestItem {
   displayOrder      Int                       @default(0) @map("display_order")
   createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  request           BodegaInternalRequest     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  warehouseId       String?                   @map("warehouse_id") @db.Uuid
   article           BodegaArticle             @relation(fields: [articleId], references: [id])
+  request           BodegaInternalRequest     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  warehouse         BodegaWarehouse?          @relation(fields: [warehouseId], references: [id])
   reservations      BodegaReservation[]
   movementItems     BodegaStockMovementItem[]
 
@@ -1759,11 +1729,11 @@ model BodegaInternalRequestLog {
   requestId   String                @map("request_id") @db.Uuid
   action      String                @db.VarChar(100)
   description String
-  metadata    Json?                 @db.JsonB
+  metadata    Json?
   createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy   String?               @map("created_by") @db.Uuid
-  request     BodegaInternalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   creator     User?                 @relation("BodegaInternalRequestLog_CreatedBy", fields: [createdBy], references: [id])
+  request     BodegaInternalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([createdAt])
@@ -1772,24 +1742,30 @@ model BodegaInternalRequestLog {
 
 /// Movimiento de stock de bodega
 model BodegaStockMovement {
-  id           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  folio        String                    @unique @db.VarChar(50)
-  warehouseId  String                    @map("warehouse_id") @db.Uuid
-  requestId    String?                   @map("request_id") @db.Uuid
-  movementType String                    @map("movement_type") @db.VarChar(30) // INGRESO, SALIDA, AJUSTE, RESERVA, LIBERACION
-  status       String                    @default("PENDIENTE") @db.VarChar(30) // PENDIENTE, APROBADO, RECHAZADO, APLICADO
-  reason       String?
-  observations String?
-  approvedAt   DateTime?                 @map("approved_at") @db.Timestamptz(6)
-  approvedBy   String?                   @map("approved_by") @db.Uuid
-  createdBy    String                    @map("created_by") @db.Uuid
-  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  warehouse    BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
-  request      BodegaInternalRequest?    @relation(fields: [requestId], references: [id])
-  approver     User?                     @relation("BodegaStockMovement_ApprovedBy", fields: [approvedBy], references: [id])
-  creator      User                      @relation("BodegaStockMovement_CreatedBy", fields: [createdBy], references: [id])
-  items        BodegaStockMovementItem[]
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  folio             String                    @unique @db.VarChar(50)
+  warehouseId       String                    @map("warehouse_id") @db.Uuid
+  requestId         String?                   @map("request_id") @db.Uuid
+  movementType      String                    @map("movement_type") @db.VarChar(30)
+  status            String                    @default("PENDIENTE") @db.VarChar(30)
+  reason            String?
+  observations      String?
+  approvedAt        DateTime?                 @map("approved_at") @db.Timestamptz(6)
+  approvedBy        String?                   @map("approved_by") @db.Uuid
+  createdBy         String                    @map("created_by") @db.Uuid
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  appliedAt         DateTime?                 @map("applied_at") @db.Timestamptz(6)
+  appliedBy         String?                   @map("applied_by") @db.Uuid
+  responsable       String?                   @db.VarChar(150)
+  externalReference String?                   @map("external_reference") @db.VarChar(100)
+  evidences         BodegaMovementEvidence[]
+  items             BodegaStockMovementItem[]
+  aplicadoPor       User?                     @relation("BodegaStockMovement_AppliedBy", fields: [appliedBy], references: [id])
+  approver          User?                     @relation("BodegaStockMovement_ApprovedBy", fields: [approvedBy], references: [id])
+  creator           User                      @relation("BodegaStockMovement_CreatedBy", fields: [createdBy], references: [id])
+  request           BodegaInternalRequest?    @relation(fields: [requestId], references: [id])
+  warehouse         BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
 
   @@index([warehouseId])
   @@index([requestId])
@@ -1797,6 +1773,24 @@ model BodegaStockMovement {
   @@index([movementType])
   @@index([createdAt])
   @@map("bodega_stock_movements")
+}
+
+model BodegaMovementEvidence {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movementId     String                   @map("movement_id") @db.Uuid
+  url            String
+  key            String?
+  fileName       String?                  @map("file_name")
+  fileSize       Int?                     @map("file_size")
+  fileType       String?                  @map("file_type")
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  movementItemId String?                  @map("movement_item_id") @db.Uuid
+  movement       BodegaStockMovement      @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  movementItem   BodegaStockMovementItem? @relation(fields: [movementItemId], references: [id])
+
+  @@index([movementId])
+  @@index([movementItemId])
+  @@map("bodega_movement_evidences")
 }
 
 /// Item de movimiento de stock
@@ -1812,13 +1806,18 @@ model BodegaStockMovementItem {
   parentMovementItemId String?                    @map("parent_movement_item_id") @db.Uuid
   location             String?                    @db.VarChar(150)
   createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  cantidadVerificada   Decimal?                   @map("cantidad_verificada") @db.Decimal(14, 3)
+  fechaVerificacion    DateTime?                  @map("fecha_verificacion") @db.Timestamptz(6)
+  verificadoPorId      String?                    @map("verificado_por_id") @db.Uuid
+  observations         String?
+  generatedLots        BodegaLot[]                @relation("BodegaLot_GeneratedFromMovementItem")
+  evidences            BodegaMovementEvidence[]
+  serialNumbers        BodegaSerialNumber[]       @relation("BodegaSerialNumber_SourceMovementItem")
+  article              BodegaArticle              @relation(fields: [articleId], references: [id])
   movement             BodegaStockMovement        @relation(fields: [movementId], references: [id], onDelete: Cascade)
-  requestItem          BodegaInternalRequestItem? @relation(fields: [requestItemId], references: [id])
   parentMovementItem   BodegaStockMovementItem?   @relation("BodegaStockMovementItem_Trazabilidad", fields: [parentMovementItemId], references: [id])
   childMovementItems   BodegaStockMovementItem[]  @relation("BodegaStockMovementItem_Trazabilidad")
-  article              BodegaArticle              @relation(fields: [articleId], references: [id])
-  generatedLots        BodegaLot[]                @relation("BodegaLot_GeneratedFromMovementItem")
-  serialNumbers        BodegaSerialNumber[]       @relation("BodegaSerialNumber_SourceMovementItem")
+  requestItem          BodegaInternalRequestItem? @relation(fields: [requestItemId], references: [id])
 
   @@index([movementId])
   @@index([articleId])
@@ -1840,15 +1839,15 @@ model BodegaLot {
   expirationDate       DateTime?                @map("expiration_date") @db.Date
   provider             String?                  @db.VarChar(255)
   invoiceNumber        String?                  @map("invoice_number") @db.VarChar(100)
-  status               String                   @default("ACTIVO") @db.VarChar(30) // ACTIVO, VENCIDO, AGOTADO, RETIRADO
+  status               String                   @default("ACTIVO") @db.VarChar(30)
   observations         String?
   createdBy            String                   @map("created_by") @db.Uuid
   createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
-  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
   article              BodegaArticle            @relation(fields: [articleId], references: [id])
-  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaLot_GeneratedFromMovementItem", fields: [sourceMovementItemId], references: [id])
   creator              User                     @relation("BodegaLot_CreatedBy", fields: [createdBy], references: [id])
+  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaLot_GeneratedFromMovementItem", fields: [sourceMovementItemId], references: [id])
+  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
   serialNumbers        BodegaSerialNumber[]
 
   @@index([warehouseId])
@@ -1867,16 +1866,16 @@ model BodegaSerialNumber {
   articleId            String                   @map("article_id") @db.Uuid
   sourceMovementItemId String?                  @map("source_movement_item_id") @db.Uuid
   serialNumber         String                   @unique @map("serial_number") @db.VarChar(120)
-  status               String                   @default("DISPONIBLE") @db.VarChar(30) // DISPONIBLE, RESERVADO, ENTREGADO, BAJA
+  status               String                   @default("DISPONIBLE") @db.VarChar(30)
   notes                String?
   createdBy            String                   @map("created_by") @db.Uuid
   createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
-  lot                  BodegaLot                @relation(fields: [lotId], references: [id], onDelete: Cascade)
-  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
   article              BodegaArticle            @relation(fields: [articleId], references: [id])
-  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaSerialNumber_SourceMovementItem", fields: [sourceMovementItemId], references: [id])
   creator              User                     @relation("BodegaSerialNumber_CreatedBy", fields: [createdBy], references: [id])
+  lot                  BodegaLot                @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  sourceMovementItem   BodegaStockMovementItem? @relation("BodegaSerialNumber_SourceMovementItem", fields: [sourceMovementItemId], references: [id])
+  warehouse            BodegaWarehouse          @relation(fields: [warehouseId], references: [id])
 
   @@index([lotId])
   @@index([warehouseId])
@@ -1893,15 +1892,15 @@ model BodegaReservation {
   warehouseId   String                    @map("warehouse_id") @db.Uuid
   articleId     String                    @map("article_id") @db.Uuid
   quantity      Decimal                   @db.Decimal(14, 3)
-  status        String                    @default("ACTIVA") @db.VarChar(20) // ACTIVA, LIBERADA, CONSUMIDA, VENCIDA
+  status        String                    @default("ACTIVA") @db.VarChar(20)
   expiresAt     DateTime?                 @map("expires_at") @db.Timestamptz(6)
   createdBy     String                    @map("created_by") @db.Uuid
   createdAt     DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   releasedAt    DateTime?                 @map("released_at") @db.Timestamptz(6)
-  requestItem   BodegaInternalRequestItem @relation(fields: [requestItemId], references: [id], onDelete: Cascade)
-  warehouse     BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
   article       BodegaArticle             @relation(fields: [articleId], references: [id])
   creator       User                      @relation("BodegaReservation_CreatedBy", fields: [createdBy], references: [id])
+  requestItem   BodegaInternalRequestItem @relation(fields: [requestItemId], references: [id], onDelete: Cascade)
+  warehouse     BodegaWarehouse           @relation(fields: [warehouseId], references: [id])
 
   @@index([requestItemId])
   @@index([warehouseId])
@@ -1929,7 +1928,7 @@ model BodegaAdjustmentReason {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code        String   @unique @db.VarChar(50)
   name        String   @db.VarChar(150)
-  type        String   @db.VarChar(30) // INGRESO or SALIDA
+  type        String   @db.VarChar(30)
   description String?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
