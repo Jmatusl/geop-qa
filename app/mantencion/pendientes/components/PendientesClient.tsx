@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { flexRender, getCoreRowModel, useReactTable, getPaginationRowModel, getSortedRowModel, SortingState } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, ClipboardCheck, Info, MapPin, Wrench, Calendar, User, Eye, Check, X, ImageIcon, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCw, ClipboardCheck, Info, MapPin, Wrench, Calendar, User, Eye, Check, X, ImageIcon, ChevronRight, ChevronLeft } from "lucide-react";
 import { getColumns, PendingRequest } from "./columns";
 import { approveRequest, rejectRequest } from "../actions";
 import { format } from "date-fns";
@@ -23,6 +24,7 @@ interface PendientesClientProps {
 }
 
 export default function PendientesMobile({ initialData }: PendientesClientProps) {
+  const router = useRouter();
   const [data, setData] = useState<PendingRequest[]>(initialData);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isPending, startTransition] = useTransition();
@@ -33,6 +35,10 @@ export default function PendientesMobile({ initialData }: PendientesClientProps)
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleMobileBack = () => {
+    router.push("/mantencion/consolidado");
+  };
 
   // Table setup
   const columns = getColumns({
@@ -96,8 +102,22 @@ export default function PendientesMobile({ initialData }: PendientesClientProps)
 
   return (
     <div className="w-full space-y-6">
-      {/* Header adaptable */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header móvil: mismo lenguaje visual que ingreso */}
+      <div className="lg:hidden w-full bg-white dark:bg-slate-900 border-b border-border px-3 py-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleMobileBack}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+          aria-label="Volver"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <ClipboardCheck className="h-5 w-5 text-[#1e3a6e] dark:text-blue-400 shrink-0" />
+        <span className="flex-1 font-extrabold text-sm uppercase tracking-wide text-slate-800 dark:text-white truncate">Bandeja de Aprobaciones</span>
+      </div>
+
+      {/* Header desktop original */}
+      <div className="hidden lg:flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <ClipboardCheck className="h-6 w-6 text-blue-600" />
@@ -106,6 +126,14 @@ export default function PendientesMobile({ initialData }: PendientesClientProps)
           <p className="text-sm text-muted-foreground">Gestione las solicitudes pendientes de validación técnica y operativa.</p>
         </div>
         <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="w-full sm:w-auto gap-2 rounded-xl">
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Actualizando..." : "Refrescar"}
+        </Button>
+      </div>
+
+      {/* Barra de acciones móvil */}
+      <div className="lg:hidden px-4">
+        <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="w-full gap-2 rounded-xl dark:text-white">
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? "Actualizando..." : "Refrescar"}
         </Button>
@@ -160,7 +188,7 @@ export default function PendientesMobile({ initialData }: PendientesClientProps)
                   <span className="text-xs font-bold text-blue-600 font-mono tracking-wider uppercase">
                     Folio #{req.folioPrefix}-{req.folio}
                   </span>
-                  <CardTitle className="text-base truncate max-w-[200px]">{req.equipment.name}</CardTitle>
+                  <CardTitle className="text-base truncate max-w-50">{req.equipment.name}</CardTitle>
                 </div>
                 <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tight">
                   {req.type.name}
@@ -272,7 +300,7 @@ export default function PendientesMobile({ initialData }: PendientesClientProps)
               placeholder="Ej: El equipo no presenta fallas al momento de la inspección o duplicado con folio #102..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="min-h-[120px] rounded-xl focus:ring-rose-500 border-slate-200 dark:border-slate-800"
+              className="min-h-30 rounded-xl focus:ring-rose-500 border-slate-200 dark:border-slate-800"
               autoFocus
             />
             {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (

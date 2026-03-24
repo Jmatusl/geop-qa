@@ -60,6 +60,10 @@ export default function IngresoClient({ data }: IngresoFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleMobileBack = () => {
+    router.push("/mantencion/consolidado");
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -284,7 +288,7 @@ export default function IngresoClient({ data }: IngresoFormProps) {
         <div className="lg:hidden w-full bg-white dark:bg-slate-900 border-b border-border px-3 py-3 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleMobileBack}
             className="w-9 h-9 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
             aria-label="Volver"
           >
@@ -655,7 +659,7 @@ export default function IngresoClient({ data }: IngresoFormProps) {
                     </FormLabel>
                   </div>
                   <FormControl>
-                    <Textarea {...field} placeholder="Descripción detallada" className="w-full min-h-[110px] resize-none text-sm" maxLength={MAX_DESCRIPTION} autoComplete="off" />
+                    <Textarea {...field} placeholder="Descripción detallada" className="w-full min-h-27.5 resize-none text-sm" maxLength={MAX_DESCRIPTION} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -815,7 +819,7 @@ export default function IngresoClient({ data }: IngresoFormProps) {
 
           {/* Barra de acción fija inferior — solo móvil */}
           <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white dark:bg-slate-900 border-t border-border px-4 py-3 flex items-center gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-            <Button type="button" variant="outline" onClick={() => router.back()} className="h-12 px-5 font-semibold rounded-xl dark:text-white shrink-0">
+            <Button type="button" variant="outline" onClick={handleMobileBack} className="h-12 px-5 font-semibold rounded-xl dark:text-white shrink-0">
               Volver
             </Button>
             <Button type="submit" disabled={isBusy} className="flex-1 h-12 font-bold bg-[#283c7f] hover:bg-[#1e2d5f] text-white rounded-xl disabled:opacity-50 transition-all active:scale-[0.98]">

@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:reset-full": "tsx prisma/seed.ts --mock",
-    "db:seed:reset-mantencion": "tsx prisma/seed-standalone-mantencion.ts",
+    "db:seed:mantencion-mock": "tsx prisma/seed-standalone-mantencion.ts",
     "db:seed:actividades-mock": "tsx prisma/seed-actividades-only.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
