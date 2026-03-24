@@ -125,7 +125,7 @@ export default function OperacionesMasivasClient() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{row.movementType}</Badge>
+                    <Badge variant="outline">{row.type}</Badge>
                     <Badge variant={getStatusVariant(row.status)}>{row.status}</Badge>
                   </div>
                 </div>

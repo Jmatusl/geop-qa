@@ -107,7 +107,7 @@ export default function DetalleMovimientoDesktop({
                   <Info className="h-3 w-3" /> TIPO DE MOVIMIENTO
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-sm font-bold text-slate-800 dark:text-slate-200">
-                  {movement.movementType}
+                  {movement.type}
                 </div>
               </div>
               <div className="space-y-1">
@@ -133,7 +133,7 @@ export default function DetalleMovimientoDesktop({
                   <MapPin className="h-3 w-3" /> BODEGA ORIGEN
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
-                  {movement.movementType === "INGRESO" ? "—" : (movement as any).warehouse.name}
+                  {movement.type === "INGRESO" ? "—" : (movement as any).warehouse.name}
                 </div>
               </div>
 
@@ -143,7 +143,7 @@ export default function DetalleMovimientoDesktop({
                   <MapPin className="h-3 w-3" /> BODEGA DESTINO
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
-                  {movement.movementType === "INGRESO" ? (movement as any).warehouse.name : "Despacho / Consumo"}
+                  {movement.type === "INGRESO" ? (movement as any).warehouse.name : "Despacho / Consumo"}
                 </div>
               </div>
               <div className="space-y-1">
@@ -209,16 +209,19 @@ export default function DetalleMovimientoDesktop({
 
             <div className="p-3.5 flex-1 relative bg-slate-50/30 dark:bg-slate-900/20 overflow-y-auto max-h-85">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 font-mono">{movement.request ? "TRAZABILIDAD SOLICITUD" : "LOG DE MOVIMIENTO"}</div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 font-mono">
+                  {movement.logs?.length > 0 ? "LOG DE MOVIMIENTO" : movement.request ? "TRAZABILIDAD SOLICITUD" : "LOG DE MOVIMIENTO"}
+                </div>
 
-                <AuditDetailModal folio={movement.folio} logs={(movement as any).request?.logs || []} />
+                <AuditDetailModal folio={movement.folio} logs={movement.logs?.length > 0 ? movement.logs : (movement as any).request?.logs || []} />
               </div>
 
               <div className="relative pl-6 space-y-5">
                 {/* Timeline line */}
                 <div className="absolute left-2.25 top-1.5 bottom-4 w-px bg-slate-200 dark:bg-slate-800" />
 
-                {(movement as any).request?.logs?.slice(0, 4).map((log: any, idx: number) => (
+                {(movement.logs?.length > 0 ? movement.logs : (movement as any).request?.logs || [])
+                  .slice(0, 10).map((log: any, idx: number) => (
                   <div key={log.id} className="relative">
                     <div
                       className={cn(
@@ -250,13 +253,7 @@ export default function DetalleMovimientoDesktop({
                   </div>
                 ))}
 
-                {((movement as any).request?.logs?.length || 0) > 4 && (
-                  <div className="text-center pt-2">
-                    <p className="text-[9px] font-bold text-slate-400 italic">... y {(movement as any).request.logs.length - 4} eventos más</p>
-                  </div>
-                )}
-
-                {!(movement as any).request && (
+                {!movement.logs?.length && !(movement as any).request && (
                   <div className="text-center py-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-200 dark:border-slate-800">
                     <History className="h-4 w-4 text-slate-300 mx-auto mb-1" />
                     <p className="text-[9px] font-bold text-slate-400 italic">No hay historial de trazabilidad disponible</p>
@@ -313,7 +310,7 @@ export default function DetalleMovimientoDesktop({
                   </td>
                   <td className="py-4 px-5 text-sm text-slate-600 dark:text-slate-400">
                     <span className="font-bold border dark:border-slate-800 px-1.5 py-0.5 rounded text-[11px] uppercase bg-slate-50 dark:bg-slate-900 mr-2 text-slate-500 dark:text-slate-500">
-                      {movement.movementType === "INGRESO" ? "LOTE" : "FIFO"}
+                      {movement.type === "INGRESO" ? "LOTE" : "FIFO"}
                     </span>
                     {item.observations || `De mov. ${movement.folio}`}
                   </td>

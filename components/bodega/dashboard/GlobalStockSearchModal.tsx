@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Package, MapPin, Warehouse, History, DollarSign, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { HistorialMovimientosSheet } from "@/components/bodega/historial/HistorialMovimientosSheet";
+import { useBodegaQuickSearch } from "@/lib/hooks/bodega/use-bodega-quick-search";
 import { cn } from "@/lib/utils";
 
 interface GlobalStockSearchModalProps {
@@ -20,16 +20,8 @@ export function GlobalStockSearchModal({ open, onOpenChange }: GlobalStockSearch
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["global-stock-search", search],
-    queryFn: async () => {
-      if (search.length < 2) return { resultados: [] };
-      const res = await fetch(`/api/v1/bodega/consulta-rapida?search=${encodeURIComponent(search)}`);
-      if (!res.ok) throw new Error("Error buscando artículos");
-      return res.json();
-    },
+  const { data, isLoading } = useBodegaQuickSearch(search, undefined, {
     enabled: search.length >= 2,
-    staleTime: 60000,
   });
 
   const articulos = data?.resultados || [];
@@ -78,6 +70,12 @@ export function GlobalStockSearchModal({ open, onOpenChange }: GlobalStockSearch
           ) : (
             <div className="space-y-3 pt-2">
               {articulos.map((art: any) => (
+                (() => {
+                  const stockFisicoTotal = Number(art.stockFisicoTotal ?? art.stockTotal ?? 0);
+                  const stockEnTransitoTotal = Number(art.stockEnTransitoTotal ?? 0);
+                  const hasOnlyTransit = stockFisicoTotal <= 0 && stockEnTransitoTotal > 0;
+
+                  return (
                 <div
                   key={art.id}
                   className={cn(
@@ -95,15 +93,21 @@ export function GlobalStockSearchModal({ open, onOpenChange }: GlobalStockSearch
                           {art.codigo || art.sku || "S/C"}
                         </code>
                         <span className="font-bold text-gray-900 dark:text-gray-100 uppercase text-xs tracking-tight">{art.nombre}</span>
+                        {hasOnlyTransit && (
+                          <Badge className="bg-amber-500 text-white text-[8px] h-4 font-black uppercase tracking-widest">Solo tránsito</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-6 text-sm">
                       <div className="flex flex-col items-end">
                         <div className="flex items-center gap-2">
-                          <span className={`text-base font-black ${art.stockTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>{art.stockTotal}</span>
+                          <span className={`text-base font-black ${stockFisicoTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : hasOnlyTransit ? "text-amber-500 dark:text-amber-400" : "text-red-500"}`}>{stockFisicoTotal}</span>
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter self-end mb-0.5">{art.unidad}</span>
                         </div>
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">STOCK TOTAL</span>
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Stock físico</span>
+                        {stockEnTransitoTotal > 0 && (
+                          <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">+ {stockEnTransitoTotal} en tránsito</span>
+                        )}
                       </div>
                       {expandedId === art.id ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
                     </div>
@@ -127,6 +131,7 @@ export function GlobalStockSearchModal({ open, onOpenChange }: GlobalStockSearch
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
                                   <span className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase">{bodega.bodegaNombre}</span>
+                                  {bodega.esTransito && <Badge className="bg-amber-500 text-white text-[8px] h-4 font-black uppercase tracking-widest">En tránsito</Badge>}
                                   {bodega.bajoStock && <Badge className="bg-amber-500 text-white text-[8px] h-4 font-black uppercase tracking-widest">BAJO MÍNIMO</Badge>}
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
@@ -174,6 +179,8 @@ export function GlobalStockSearchModal({ open, onOpenChange }: GlobalStockSearch
                     </div>
                   )}
                 </div>
+                  );
+                })()
               ))}
             </div>
           )}

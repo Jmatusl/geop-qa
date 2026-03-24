@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { BuscarArticulosPanel } from "./BuscarArticulosPanel";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
+import { invalidateBodegaInternalRequestQueries, invalidateBodegaStockQueries } from "@/lib/hooks/bodega/query-invalidation";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
 import { ConfirmacionRetiroModal } from "./ConfirmacionRetiroModal";
 
@@ -348,8 +349,10 @@ export default function DesktopView({ initialData, isEditMode }: DesktopViewProp
       if (!response.ok) throw new Error(data.error || "Error al procesar retiro");
 
       // Invalida caché para refrescar listado y estadísticas
-      queryClient.invalidateQueries({ queryKey: ["bodega", "solicitudes-internas"] });
-      queryClient.invalidateQueries({ queryKey: ["bodega", "consulta-rapida"] });
+      await Promise.all([
+        invalidateBodegaInternalRequestQueries(queryClient),
+        invalidateBodegaStockQueries(queryClient),
+      ]);
 
       setSuccessData({ id: data.id, folio: data.folio });
       const completed = data.status === "ENTREGADA";

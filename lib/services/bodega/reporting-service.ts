@@ -26,7 +26,7 @@ export class BodegaReportingService {
           ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
         },
       }),
-      this.prisma.bodegaStockMovement.count({
+      this.prisma.bodegaTransaction.count({
         where: {
           createdAt: { gte: sevenDaysAgo },
           ...warehouseWhere,
@@ -54,8 +54,8 @@ export class BodegaReportingService {
           },
         },
       }),
-      this.prisma.bodegaStockMovement.groupBy({
-        by: ["movementType"],
+      this.prisma.bodegaTransaction.groupBy({
+        by: ["type"],
         where: {
           createdAt: { gte: thirtyDaysAgo },
           ...warehouseWhere,
@@ -69,7 +69,7 @@ export class BodegaReportingService {
           },
         },
       }),
-      this.prisma.bodegaStockMovement.groupBy({
+      this.prisma.bodegaTransaction.groupBy({
         by: ["warehouseId"],
         where: {
           createdAt: { gte: thirtyDaysAgo },
@@ -114,7 +114,7 @@ export class BodegaReportingService {
         recentMovements,
       },
       movementByType: movementByTypeRows.map((row) => ({
-        movementType: row.movementType,
+        type: row.type,
         count: row._count.id,
       })),
       topWarehouses: activeWarehouses

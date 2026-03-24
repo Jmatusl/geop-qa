@@ -38,10 +38,10 @@ export async function GET(request: NextRequest) {
 
         // Valor Total: suma de (saldo_actual * unitCost)
         // Solo lotes/ítems vigentes
-        const stockItems = await prisma.bodegaStockMovementItem.findMany({
+        const stockItems = await prisma.bodegaTransactionItem.findMany({
           where: {
             currentBalance: { gt: 0 },
-            movement: {
+            transaction: {
               warehouseId: bodega.id,
             },
           },

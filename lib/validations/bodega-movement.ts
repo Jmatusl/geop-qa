@@ -4,7 +4,7 @@ export const bodegaMovementTypeEnum = z.enum(["INGRESO", "SALIDA", "AJUSTE", "RE
 
 export const createBodegaMovementSchema = z
   .object({
-    movementType: bodegaMovementTypeEnum,
+    type: bodegaMovementTypeEnum,
     warehouseId: z.string().uuid("Bodega inválida"),
     // Soportar tanto ítem único (legacy) como múltiples ítems
     articleId: z.string().uuid("Artículo inválido").optional(),

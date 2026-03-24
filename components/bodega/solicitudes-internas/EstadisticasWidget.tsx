@@ -109,7 +109,7 @@ export function EstadisticasWidget({ soloMias = false, setSoloMias }: { soloMias
               variant="ghost"
               size="sm"
               className="h-7 text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 italic"
-              onClick={() => (window.location.href = "?statusCode=PENDIENTE")}
+              onClick={() => (window.location.href = "?status=PENDIENTE")}
             >
               Revisar →
             </Button>
@@ -130,7 +130,7 @@ export function EstadisticasWidget({ soloMias = false, setSoloMias }: { soloMias
               variant="ghost"
               size="sm"
               className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 italic"
-              onClick={() => (window.location.href = "?statusCode=APROBADA")}
+              onClick={() => (window.location.href = "?status=APROBADA")}
             >
               Ver Lista →
             </Button>

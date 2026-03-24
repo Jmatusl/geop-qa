@@ -15,12 +15,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: warehouseId } = await params;
 
-    const stockItems = await prisma.bodegaStockMovementItem.findMany({
+    const stockItems = await prisma.bodegaTransactionItem.findMany({
       where: {
-        movement: {
+        transaction: {
           warehouseId,
-          status: { in: ["EJECUTADO", "COMPLETADO", "APLICADO"] },
-          movementType: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
+          status: { in: ["EJECUTADO", "COMPLETADO", "COMPLETADA", "APLICADO", "APLICADA"] },
+          type: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
         },
         currentBalance: { gt: 0 },
       },
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             unit: true,
           },
         },
-        movement: {
+        transaction: {
           select: {
             id: true,
             folio: true,
@@ -52,10 +52,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       articuloNombre: item.article.name,
       articuloSku: item.article.code,
       cantidad: Number(item.currentBalance), // saldo
+      unitCost: item.unitCost ? Number(item.unitCost) : 0,
       unit: item.article.unit,
-      movimientoNumero: item.movement.folio,
-      movimientoFecha: item.movement.createdAt,
-      movimientoId: item.movement.id,
+      movimientoNumero: item.transaction.folio,
+      movimientoFecha: item.transaction.createdAt,
+      movimientoId: item.transaction.id,
     }));
 
     return NextResponse.json({ data: formatted });

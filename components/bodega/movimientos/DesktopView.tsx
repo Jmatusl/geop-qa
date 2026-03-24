@@ -19,19 +19,19 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 const MOVEMENT_TYPES = ["INGRESO", "SALIDA", "AJUSTE", "RESERVA", "LIBERACION"];
-const MOVEMENT_STATUSES = ["PENDIENTE", "APROBADO", "RECHAZADO", "EJECUTADO", "COMPLETADO", "CANCELADO", "BORRADOR"];
+const MOVEMENT_STATUSES = ["PENDIENTE", "APROBADA", "RECHAZADA", "APLICADA", "COMPLETADA", "CANCELADA", "BORRADOR"];
 
 function getStatusVariant(status: string) {
-  if (status === "EJECUTADO") return "default" as const;
-  if (status === "COMPLETADO") return "secondary" as const;
-  if (status === "APROBADO") return "default" as const;
+  if (status === "APLICADA") return "default" as const;
+  if (status === "COMPLETADA") return "secondary" as const;
+  if (status === "APROBADA") return "default" as const;
   return "outline" as const;
 }
 
 export default function DesktopView() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [movementType, setMovementType] = useState("");
+  const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
 
@@ -50,7 +50,7 @@ export default function DesktopView() {
     page,
     pageSize: 20,
     search,
-    movementType,
+    type,
     status,
     warehouseId,
   });
@@ -62,11 +62,11 @@ export default function DesktopView() {
   const meta = data?.meta;
   const totalPages = meta?.totalPages ?? 1;
 
-  const hasFilters = useMemo(() => Boolean(search || movementType || status || warehouseId), [search, movementType, status, warehouseId]);
+  const hasFilters = useMemo(() => Boolean(search || type || status || warehouseId), [search, type, status, warehouseId]);
 
   const clearFilters = () => {
     setSearch("");
-    setMovementType("");
+    setType("");
     setStatus("");
     setWarehouseId("");
     setPage(1);
@@ -140,9 +140,9 @@ export default function DesktopView() {
             <div className="space-y-1.5 flex flex-col">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Tipo</label>
               <Select
-                value={movementType || "ALL"}
+                value={type || "ALL"}
                 onValueChange={(value) => {
-                  setMovementType(value === "ALL" ? "" : value);
+                  setType(value === "ALL" ? "" : value);
                   setPage(1);
                 }}
               >
@@ -242,7 +242,7 @@ export default function DesktopView() {
                 <TableHead className="font-extrabold text-slate-900 dark:text-blue-500 text-xs uppercase tracking-wider">Fecha</TableHead>
                 <TableHead className="font-extrabold text-slate-900 dark:text-blue-500 text-xs uppercase tracking-wider">Estado</TableHead>
                 <TableHead className="font-extrabold text-slate-900 dark:text-blue-500 text-xs uppercase tracking-wider">Creado</TableHead>
-                <TableHead className="w-[140px]"></TableHead>
+                <TableHead className="w-35"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -263,18 +263,18 @@ export default function DesktopView() {
                   <TableRow key={movement.id} className="cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-900/40 border-b dark:border-slate-800 text-[13px]">
                     <TableCell>
                       <div className="font-bold text-slate-900 dark:text-white">{movement.folio}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-37.5">
                         Doc ref: {movement.request?.folio || movement.reason || "—"}
                       </div>
                     </TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300 font-medium">
-                      {movement.movementType === "INGRESO" && movement.request?.folio
+                      {movement.type === "INGRESO" && movement.request?.folio
                         ? "Ingreso Solicitud"
-                        : movement.movementType === "SALIDA" && movement.request?.folio
+                        : movement.type === "SALIDA" && movement.request?.folio
                           ? "Egreso Solicitud"
-                          : movement.movementType === "INGRESO"
+                          : movement.type === "INGRESO"
                             ? "Ingreso OC"
-                            : movement.movementType}
+                            : movement.type}
                     </TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300">{movement.warehouse.name}</TableCell>
                     <TableCell className="text-slate-700 dark:text-slate-300 italic">No asignado</TableCell>
@@ -288,15 +288,15 @@ export default function DesktopView() {
                       <Badge
                         className={cn(
                           "px-2.5 py-0.5 whitespace-nowrap uppercase tracking-wider text-[10px] font-bold border-0 text-white shadow-sm",
-                          movement.status === "APROBADO" && "bg-blue-500",
-                          (movement.status === "EJECUTADO" || movement.status === "APLICADO") && "bg-emerald-500",
-                          movement.status === "COMPLETADO" && "bg-purple-600",
+                          movement.status === "APROBADA" && "bg-blue-500",
+                          (movement.status === "APLICADA") && "bg-emerald-500",
+                          movement.status === "COMPLETADA" && "bg-purple-600",
                           movement.status === "PENDIENTE" && "bg-amber-500",
-                          (movement.status === "RECHAZADO" || movement.status === "CANCELADO") && "bg-red-500",
+                          (movement.status === "RECHAZADA" || movement.status === "CANCELADA") && "bg-red-500",
                           movement.status === "BORRADOR" && "bg-slate-400",
                         )}
                       >
-                        {movement.status === "APLICADO" ? "EJECUTADO" : movement.status}
+                        {movement.status === "APLICADA" ? "EJECUTADO" : movement.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -351,10 +351,10 @@ export default function DesktopView() {
                           variant="ghost"
                           size="icon"
                           onClick={() => setApplyingId(movement)}
-                          disabled={movement.status !== "APROBADO" || applyMutation.isPending}
+                          disabled={movement.status !== "APROBADA" || applyMutation.isPending}
                           className={cn(
                             "h-8 w-8 rounded-full transition-all",
-                            movement.status === "APROBADO"
+                            movement.status === "APROBADA"
                               ? "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
                               : "text-slate-300 dark:text-slate-800 opacity-40 cursor-not-allowed",
                           )}
@@ -408,7 +408,7 @@ export default function DesktopView() {
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
                   <div className="text-sm">
                     <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Tipo</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{approvingId?.movementType}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{approvingId?.type}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Descripción / Referencia</span>
@@ -456,7 +456,7 @@ export default function DesktopView() {
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
                   <div className="text-sm">
                     <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Tipo</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{rejectingId?.movementType}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{rejectingId?.type}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-bold uppercase text-[11px] text-slate-400 block tracking-widest">Descripción / Referencia</span>
@@ -470,7 +470,7 @@ export default function DesktopView() {
                     placeholder="Ingrese el motivo por el cual rechaza este movimiento..."
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    className="min-h-[100px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                    className="min-h-25 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                   />
                 </div>
               </div>
@@ -523,7 +523,7 @@ export default function DesktopView() {
                     placeholder="Añada cualquier observación relevante sobre la ejecución física..."
                     value={applyObs}
                     onChange={(e) => setApplyObs(e.target.value)}
-                    className="min-h-[80px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                    className="min-h-20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                   />
                 </div>
               </div>

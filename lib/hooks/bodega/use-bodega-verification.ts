@@ -138,8 +138,8 @@ export function useBodegaToVerifyMovements({ warehouseId = "", search = "" }: Us
       const qs = new URLSearchParams();
       qs.set("page", "1");
       qs.set("pageSize", "100");
-      qs.set("status", "EJECUTADO");
-      qs.set("movementType", "INGRESO");
+      qs.set("status", "APLICADA");
+      qs.set("type", "INGRESO");
       if (warehouseId) qs.set("warehouseId", warehouseId);
       if (search) qs.set("search", search);
 

@@ -30,18 +30,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // ── 1. Intentar obtener buckets FIFO trazables ────────────────────────────
-    const buckets = await prisma.bodegaStockMovementItem.findMany({
+    const buckets = await prisma.bodegaTransactionItem.findMany({
       where: {
         articleId,
         currentBalance: { gt: 0 },
-        movement: {
+        transaction: {
           warehouseId,
           status: { in: ["EJECUTADO", "COMPLETADO"] },
-          movementType: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
+          type: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
         },
       },
       include: {
-        movement: {
+        transaction: {
           select: {
             id: true,
             folio: true,
@@ -59,10 +59,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (buckets.length > 0) {
       const formatted = buckets.map((item) => ({
         id: item.id,
-        movimientoId: item.movement.id,
-        numeroMovimiento: item.movement.folio,
-        documentoReferencia: item.movement.reason ?? null,
-        fecha: item.movement.createdAt.toISOString(),
+        movimientoId: item.transaction.id,
+        numeroMovimiento: item.transaction.folio,
+        documentoReferencia: item.transaction.reason ?? null,
+        fecha: item.transaction.createdAt.toISOString(),
         saldo: Number(item.currentBalance),
         cantidadOriginal: Number(item.quantity),
         precioUnitario: item.unitCost ? Number(item.unitCost) : null,

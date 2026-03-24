@@ -318,6 +318,7 @@ function ArticuloSelector({
           <Button
             type="button"
             variant="outline"
+            tabIndex={-1}
             className="h-8 w-8 lg:h-8 lg:w-8 shrink-0 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-600 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-500 transition-all active:scale-95 p-0"
             title="Crear Nuevo Artículo"
           >
@@ -486,6 +487,13 @@ export function CrearMovimientoCompacto({
     setLastAddedId(newId);
   };
 
+  const AddRowButton = () => (
+    <Button onClick={handleAddEmptyRow} className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+      <Plus className="w-3.5 h-3.5" />
+      AGREGAR FILA
+    </Button>
+  );
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -569,7 +577,7 @@ export function CrearMovimientoCompacto({
 
         // 1. Egreso Origen
         await createMovement.mutateAsync({
-          movementType: "SALIDA",
+          type: "SALIDA",
           warehouseId,
           items: validItems.map((i) => ({
             articleId: i.articuloId,
@@ -578,12 +586,13 @@ export function CrearMovimientoCompacto({
           })),
           reason: "EGRESO_TRANSFERENCIA",
           observations: `${justificacion} | DESTINO: ${destinationWarehouseId}`,
+          externalReference: documentoReferencia || null,
           autoVerify: isAutoVerified,
         });
 
         // 2. Ingreso Destino
         await createMovement.mutateAsync({
-          movementType: "INGRESO",
+          type: "INGRESO",
           warehouseId: destinationWarehouseId,
           items: validItems.map((i) => ({
             articleId: i.articuloId,
@@ -592,21 +601,20 @@ export function CrearMovimientoCompacto({
           })),
           reason: "INGRESO_TRANSFERENCIA",
           observations: `${justificacion} | ORIGEN: ${warehouseId}`,
+          externalReference: documentoReferencia || null,
           autoVerify: isAutoVerified,
         });
       } else {
         // Movimiento Simple (INGRESO o SALIDA) con múltiples artículos
         const obsArray = [
           `Justificación: ${justificacion}`,
-          documentoReferencia ? `Doc. Ref: ${documentoReferencia}` : null,
-          numeroCotizacion ? `N° Cotización: ${numeroCotizacion}` : null,
-          guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+          // Removemos Doc. Ref, Cotización y Guía de aquí ya que irán en sus propios campos
           costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
           `Verificación Automática: ${isAutoVerified ? "SI" : "NO"}`,
         ].filter(Boolean);
 
         await createMovement.mutateAsync({
-          movementType: tipo as any,
+          type: tipo as any,
           warehouseId,
           items: validItems.map((i) => ({
             articleId: i.articuloId,
@@ -614,6 +622,9 @@ export function CrearMovimientoCompacto({
             unitCost: i.unitPrice ? parseInt(i.unitPrice.replace(/\D/g, "")) : 0,
           })),
           reason: justificacion,
+          externalReference: documentoReferencia || null,
+          quotationNumber: numeroCotizacion || null,
+          deliveryGuide: guiaDespacho || null,
           observations: obsArray.join(" | "),
           evidence: fotosEvidencia,
           autoVerify: isAutoVerified,
@@ -871,10 +882,7 @@ export function CrearMovimientoCompacto({
 
           {/* Botones Derecha */}
           <div className="flex items-center gap-4">
-            <Button onClick={handleAddEmptyRow} className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-              <Plus className="w-3.5 h-3.5" />
-              AGREGAR FILA
-            </Button>
+            <AddRowButton />
           </div>
         </div>
 
@@ -953,6 +961,7 @@ export function CrearMovimientoCompacto({
                     <TableCell>
                       <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-md border border-slate-100 dark:border-slate-800 w-full mx-auto p-0.5">
                         <button
+                          tabIndex={-1}
                           className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
                           onClick={() => {
                             const newItems = [...items];
@@ -978,6 +987,12 @@ export function CrearMovimientoCompacto({
                           }}
                           className="h-7 w-12 text-center text-[11px] font-bold border-none bg-transparent focus-visible:ring-0 p-0"
                           value={item.cantidad}
+                          onBlur={(e) => {
+                            const value = Math.max(1, parseInt(e.target.value) || 1);
+                            const newItems = [...items];
+                            newItems[index].cantidad = value;
+                            setItems(newItems);
+                          }}
                           onChange={(e) => {
                             const newItems = [...items];
                             newItems[index].cantidad = parseInt(e.target.value) || 0;
@@ -985,6 +1000,7 @@ export function CrearMovimientoCompacto({
                           }}
                         />
                         <button
+                          tabIndex={-1}
                           className="h-6 w-6 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors"
                           onClick={() => {
                             const newItems = [...items];
@@ -1025,6 +1041,7 @@ export function CrearMovimientoCompacto({
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveItem(item.id)}
+                        tabIndex={-1}
                         className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-md transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1032,6 +1049,16 @@ export function CrearMovimientoCompacto({
                     </TableCell>
                   </TableRow>
                 ))
+              )}
+
+              {items.length > 0 && (
+                <TableRow className="border-b dark:border-slate-800">
+                  <TableCell colSpan={esIngreso ? 5 : 4} className="px-4 py-4">
+                    <div className="flex justify-end">
+                      <AddRowButton />
+                    </div>
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>

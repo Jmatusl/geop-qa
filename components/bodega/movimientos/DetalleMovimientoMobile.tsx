@@ -79,7 +79,7 @@ export default function DetalleMovimientoMobile({ movement, parsedObs, creationD
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
                   <ArrowUpRight className="w-3 h-3 text-blue-500" /> Tipo
                 </span>
-                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">{movement.movementType}</p>
+                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">{movement.type}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
@@ -221,7 +221,7 @@ export default function DetalleMovimientoMobile({ movement, parsedObs, creationD
             <div className="absolute left-6 top-6 bottom-10 w-px bg-gray-100 dark:bg-gray-800" />
             
             <div className="space-y-6">
-              {movement.request?.logs?.map((log: any, idx: number) => (
+              {(movement.logs?.length > 0 ? movement.logs : (movement as any).request?.logs || []).map((log: any, idx: number) => (
                 <div key={log.id} className="relative pl-7">
                   <div className={cn(
                     "absolute -left-1.25 top-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900 z-10",
@@ -241,19 +241,19 @@ export default function DetalleMovimientoMobile({ movement, parsedObs, creationD
                       {log.description}
                     </p>
                     <div className="flex items-center gap-1.5 opacity-60">
-                      <div className="w-3.5 h-3.5 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-[7px] font-black uppercase">
-                        {log.creator?.firstName[0] || "U"}
+                      <div className="w-3.5 h-3.5 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-[7px] font-black uppercase text-gray-500">
+                        {log.creator ? log.creator.firstName[0] : "U"}
                       </div>
-                      <span className="text-[8px] font-black text-gray-400 uppercase">{log.creator?.firstName} {log.creator?.lastName}</span>
+                      <span className="text-[8px] font-black text-gray-400 uppercase">{log.creator ? `${log.creator.firstName} ${log.creator.lastName}` : "Sistema"}</span>
                     </div>
                   </div>
                 </div>
               ))}
               
-              {!movement.request && (
+              {!movement.logs?.length && !(movement as any).request && (
                 <div className="flex flex-col items-center py-4 text-center">
                   <Info className="w-8 h-8 text-gray-200 dark:text-gray-800 mb-2" />
-                  <p className="text-[10px] font-bold text-gray-400 italic">No hay registros de trazabilidad disponibles para este movimiento manual</p>
+                  <p className="text-[10px] font-bold text-gray-400 italic">No hay historial de trazabilidad disponible</p>
                 </div>
               )}
             </div>

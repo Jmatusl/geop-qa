@@ -13,27 +13,33 @@ export async function cleanup(prisma: PrismaClient) {
   // ============================================
   // LIMPIAR MÓDULO DE BODEGA
   // ============================================
-  // Trazabilidad y registros hijos
-  await prisma.bodegaSerialNumber.deleteMany();
-  await prisma.bodegaLot.deleteMany();
+  // Trazabilidad y Reservas (Primero por FK)
+  console.log("   - BodegaReservation");
   await prisma.bodegaReservation.deleteMany();
+  console.log("   - BodegaSerialNumber");
+  await prisma.bodegaSerialNumber.deleteMany();
+  console.log("   - BodegaLot");
+  await prisma.bodegaLot.deleteMany();
 
-  // Movimientos e items
-  await prisma.bodegaStockMovementItem.deleteMany();
-  await prisma.bodegaStockMovement.deleteMany();
-
-  // Solicitudes internas y registros dependientes
-  await prisma.bodegaInternalRequestLog.deleteMany();
-  await prisma.bodegaInternalRequestItem.deleteMany();
-  await prisma.bodegaInternalRequest.deleteMany();
+  // Transacciones
+  console.log("   - BodegaTransactionLog");
+  await prisma.bodegaTransactionLog.deleteMany();
+  console.log("   - BodegaTransactionItem");
+  await prisma.bodegaTransactionItem.deleteMany();
+  console.log("   - BodegaTransaction");
+  await prisma.bodegaTransaction.deleteMany();
 
   // Stock y Maestros
+  console.log("   - BodegaStock");
   await prisma.bodegaStock.deleteMany();
+  console.log("   - BodegaArticle");
   await prisma.bodegaArticle.deleteMany();
+  console.log("   - BodegaWarehouse");
   await prisma.bodegaWarehouse.deleteMany();
+  console.log("   - BodegaCostCenter");
   await prisma.bodegaCostCenter.deleteMany();
+  console.log("   - BodegaAdjustmentReason");
   await prisma.bodegaAdjustmentReason.deleteMany();
-  await prisma.bodegaInternalRequestStatusMaster.deleteMany();
 
   // Archivos adjuntos
   await prisma.supplyRequestAttachment.deleteMany();

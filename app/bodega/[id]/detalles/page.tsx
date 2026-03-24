@@ -42,7 +42,7 @@ export default async function BodegaDetailPage({ params }: PageProps) {
       orderBy: { updatedAt: "desc" },
       take: 20,
     }),
-    prisma.bodegaStockMovement.findMany({
+    prisma.bodegaTransaction.findMany({
       where: { warehouseId: id },
       include: {
         items: {
@@ -131,7 +131,7 @@ export default async function BodegaDetailPage({ params }: PageProps) {
               <div key={movement.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                 <div>
                   <p className="text-sm font-medium">
-                    {movement.folio} · {movement.movementType}
+                    {movement.folio} · {movement.type}
                   </p>
                   <p className="text-xs text-muted-foreground">{movement.items[0] ? `${movement.items[0].article.code} - ${movement.items[0].article.name}` : "Sin ítems"}</p>
                 </div>

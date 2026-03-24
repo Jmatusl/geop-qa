@@ -26,16 +26,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // Obtener la solicitud con todas las relaciones necesarias para el PDF
-    const request_ = await prisma.bodegaInternalRequest.findUnique({
+    const request_ = await prisma.bodegaTransaction.findUnique({
       where: { id },
       include: {
-        status: true,
         warehouse: true,
         requester: { select: { firstName: true, lastName: true, email: true } },
         items: {
           include: {
             article: { select: { name: true, code: true, unit: true } },
-            warehouse: { select: { name: true } },
           },
           orderBy: { displayOrder: "asc" },
         },
@@ -52,12 +50,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 });
     }
 
-    if (request_.statusCode !== "ENTREGADA") {
-      return NextResponse.json({ error: `El informe solo está disponible para solicitudes ENTREGADAS (estado actual: ${request_.statusCode})` }, { status: 422 });
+    if (request_.status !== "COMPLETADA") {
+      return NextResponse.json({ error: `El informe solo está disponible para solicitudes completadas (estado actual: ${request_.status})` }, { status: 422 });
     }
 
     // ── Lectura de metadatos con compatibilidad entre formato plano (nuevo) y anidado (legado)
-    const rawMeta = (request_.metadatos as any) || {};
+    const rawMeta = (request_.metadata as any) || {};
     // Formato plano: { receptorNombre, firmaReceptor, ... }
     // Formato legado: { entrega: { receptorNombre, firmaReceptor, ... } }
     const meta = rawMeta.entrega
@@ -88,7 +86,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
     // Fallback al nombre del creador del log ENTREGADA si aún no se resuelve
     if (!bodegueroName) {
-      const logEntrega = request_.logs.find((l) => l.action === "ENTREGADA");
+      const logEntrega = request_.logs.find((l) => l.action === "COMPLETE" || l.action === "ENTREGADA");
       if (logEntrega?.creator) {
         bodegueroName = `${logEntrega.creator.firstName} ${logEntrega.creator.lastName}`;
       }
@@ -128,9 +126,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Construir el DTO para el generador
     const pdfBuffer = await generateInformeEntrega({
       folio: request_.folio,
-      title: request_.title,
+      title: request_.title || "Solicitud de Bodega",
       warehouseName: request_.warehouse.name,
-      requesterName: `${request_.requester.firstName} ${request_.requester.lastName}`,
+      requesterName: request_.requester ? `${request_.requester.firstName} ${request_.requester.lastName}` : "Solicitante",
       bodegueroName,
       deliveredAt: meta.confirmedAt || request_.updatedAt.toISOString(),
       receptorNombre: meta.receptorNombre || "N/A",
@@ -145,7 +143,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         quantity: it.quantity.toString(),
         deliveredQuantity: it.deliveredQuantity.toString(),
         unit: it.article.unit || "und",
-        warehouseName: it.warehouse?.name || null,
+        warehouseName: request_.warehouse.name,
       })),
       logs: request_.logs.map((l) => ({
         action: l.action,

@@ -45,7 +45,7 @@ const priorityConfig: Record<string, { label: string; className: string }> = {
 
 const SORTABLE_COLUMNS = {
   folio: true,
-  statusCode: true,
+  status: true,
   title: true,
   warehouse: true,
   requester: true,
@@ -83,7 +83,7 @@ export const getRequestColumns = ({ currentSort, onSort, onEdit, onSend, onDelet
     cell: ({ row }) => {
       const { requester } = row.original;
       return (
-        <div className="flex flex-col min-w-[150px]">
+        <div className="flex flex-col min-w-37.5">
           <span className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight">{`${requester.firstName} ${requester.lastName}`}</span>
           <span className="text-[10px] text-slate-400 font-medium leading-tight tracking-tight">{requester.email}</span>
         </div>
@@ -94,7 +94,7 @@ export const getRequestColumns = ({ currentSort, onSort, onEdit, onSend, onDelet
     accessorKey: "title",
     header: () => (SORTABLE_COLUMNS.title ? <SortableHeader title="Requerimiento" sortKey="title" currentSort={currentSort} onSort={onSort} /> : "Requerimiento"),
     cell: ({ row }) => (
-      <div className="max-w-[300px]">
+      <div className="max-w-75">
         <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 line-clamp-2 leading-snug">{row.original.title}</p>
       </div>
     ),
@@ -125,10 +125,10 @@ export const getRequestColumns = ({ currentSort, onSort, onEdit, onSend, onDelet
     },
   },
   {
-    accessorKey: "statusCode",
-    header: () => (SORTABLE_COLUMNS.statusCode ? <SortableHeader title="Estado" sortKey="statusCode" currentSort={currentSort} onSort={onSort} /> : "Estado"),
+    accessorKey: "status",
+    header: () => (SORTABLE_COLUMNS.status ? <SortableHeader title="Estado" sortKey="status" currentSort={currentSort} onSort={onSort} /> : "Estado"),
     cell: ({ row }) => {
-      const config = statusConfig[row.original.statusCode] || { label: row.original.statusCode, className: "" };
+      const config = statusConfig[row.original.status] || { label: row.original.status, className: "" };
       return <Badge className={cn("text-[9px] font-black tracking-widest uppercase h-6 px-4 rounded-full border shadow-sm", config.className)}>{config.label}</Badge>;
     },
   },
@@ -142,7 +142,7 @@ export const getRequestColumns = ({ currentSort, onSort, onEdit, onSend, onDelet
     header: () => <div className="text-right text-[10px] font-black uppercase tracking-widest text-[#283c7f] dark:text-blue-400 px-4">Acciones</div>,
     cell: ({ row }) => {
       const solicitud = row.original;
-      const status = solicitud.statusCode;
+      const status = solicitud.status;
       const id = solicitud.id;
 
       // Lógica de visibilidad por estado
@@ -162,7 +162,7 @@ export const getRequestColumns = ({ currentSort, onSort, onEdit, onSend, onDelet
                 <MoreVertical className="h-4 w-4 text-slate-400" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px] p-1 border-slate-200 dark:border-slate-800 shadow-lg z-100! animate-in fade-in zoom-in-95 duration-100">
+            <DropdownMenuContent align="end" className="w-45 p-1 border-slate-200 dark:border-slate-800 shadow-lg z-100! animate-in fade-in zoom-in-95 duration-100">
               <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2 py-1.5 italic">Acciones Disponibles</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
 

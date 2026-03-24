@@ -170,7 +170,7 @@ export default function BodegaVerificacionPage() {
                           <div className="flex flex-col gap-1">
                             <span className="text-xs font-black uppercase tracking-tight text-[#283c7f] dark:text-blue-400">{row.folio}</span>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-slate-200 text-slate-500">{row.movementType}</Badge>
+                              <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-slate-200 text-slate-500">{row.type}</Badge>
                               <span className="text-[10px] font-bold text-slate-400 uppercase">{row.appliedAt ? new Date(row.appliedAt).toLocaleDateString("es-CL") : "—"}</span>
                             </div>
                           </div>
@@ -184,7 +184,7 @@ export default function BodegaVerificacionPage() {
 
                         {/* Desktop Fields (Hidden in Mobile) */}
                         <span className="hidden lg:block font-bold text-xs uppercase tracking-tight">{row.folio}</span>
-                        <span className="hidden lg:block text-xs font-medium uppercase">{row.movementType}</span>
+                        <span className="hidden lg:block text-xs font-medium uppercase">{row.type}</span>
                         <span className="hidden lg:block truncate text-xs">{row.warehouse.name}</span>
                         <span className="hidden lg:block text-xs tabular-nums text-slate-500">{row.appliedAt ? new Date(row.appliedAt).toLocaleDateString("es-CL") : "—"}</span>
                         <span className="hidden lg:block text-xs font-bold text-center">{row._count.items}</span>
@@ -247,7 +247,7 @@ export default function BodegaVerificacionPage() {
                           <div className="flex flex-col gap-1">
                             <span className="text-xs font-black uppercase tracking-tight text-orange-700 dark:text-orange-400">{row.folio}</span>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-orange-200 text-orange-600">{row.movementType}</Badge>
+                              <Badge variant="outline" className="text-[8px] font-black uppercase py-0 px-1 border-orange-200 text-orange-600">{row.type}</Badge>
                               <span className="text-[10px] font-bold text-slate-400 uppercase">{row.appliedAt ? new Date(row.appliedAt).toLocaleDateString("es-CL") : "—"}</span>
                             </div>
                           </div>
@@ -261,7 +261,7 @@ export default function BodegaVerificacionPage() {
 
                         {/* Desktop Fields */}
                         <span className="hidden lg:block font-bold text-xs uppercase tracking-tight text-orange-700 dark:text-orange-400">{row.folio}</span>
-                        <span className="hidden lg:block text-xs font-medium uppercase">{row.movementType}</span>
+                        <span className="hidden lg:block text-xs font-medium uppercase">{row.type}</span>
                         <span className="hidden lg:block truncate text-xs">{row.warehouse.name}</span>
                         <span className="hidden lg:block text-xs tabular-nums text-slate-500">{row.appliedAt ? new Date(row.appliedAt).toLocaleDateString("es-CL") : "—"}</span>
                         <span className="hidden lg:block text-xs font-bold text-center">{row._count.items}</span>

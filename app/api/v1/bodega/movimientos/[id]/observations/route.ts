@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/auth/session";
 import { z } from "zod";
 import { AuditLogger } from "@/lib/audit/logger";
+import { bodegaTransactionService, BodegaTransactionError } from "@/lib/services/bodega/transaction-service";
 
 const updateSchema = z.object({
   field: z.enum(["cotizacion", "guia", "docRef"]),
@@ -21,19 +21,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const { field, value } = updateSchema.parse(body);
 
-    const movement = await prisma.bodegaStockMovement.findUnique({
-      where: { id },
-      include: {
-        request: true,
-      },
-    });
-
-    if (!movement) {
-      return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
-    }
+    const transaction = await bodegaTransactionService.getById(id);
 
     // Parse current observations
-    const currentObs = movement.observations || "";
+    const currentObs = transaction.observations || "";
     const parts = currentObs.split(" | ");
 
     let cc = "No asignado";
@@ -76,13 +67,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const newObservations = newParts.join(" | ");
 
-    await prisma.bodegaStockMovement.update({
-      where: { id },
-      data: { 
-        observations: newObservations,
-        ...(field === "docRef" ? { externalReference: value || null } : {})
-      },
-    });
+    await bodegaTransactionService.updateObservations(
+      id, 
+      newObservations, 
+      field === "docRef" ? (value || null) : undefined,
+      field === "cotizacion" ? (value || null) : undefined,
+      field === "guia" ? (value || null) : undefined,
+      session.userId
+    );
 
     // Auditoría de sistema
     await AuditLogger.logAction(req, session.userId, {
@@ -93,29 +85,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       oldData: { [field]: oldValue },
     });
 
-    // Log the change
-    if (movement.requestId) {
-      await prisma.bodegaInternalRequestLog.create({
-        data: {
-          requestId: movement.requestId,
-          action: "EDICIÓN MANUAL",
-          description: `Se modificó el campo ${fieldLabel} de "${oldValue}" a "${value || "N/A"}"`,
-          createdBy: session.userId,
-          metadata: {
-            field,
-            oldValue,
-            newValue: value,
-            executedAt: new Date().toISOString(),
-          },
-        },
-      });
-    }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating observations:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    }
+    if (error instanceof BodegaTransactionError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
     }
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }

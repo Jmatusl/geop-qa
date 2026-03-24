@@ -1,13 +1,10 @@
-/**
- * API: Solicitudes Internas de Bodega
- * Archivo: app/api/v1/bodega/solicitudes-internas/route.ts
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/session";
 import { AuditLogger } from "@/lib/audit/logger";
-import { bodegaInternalRequestFiltersSchema, createBodegaInternalRequestSchema } from "@/lib/validations/bodega-internal-request";
-import { BodegaBusinessError, bodegaInternalRequestService } from "@/lib/services/bodega/internal-request-service";
+import { bodegaTransactionFiltersSchema } from "@/lib/validations/bodega-transaction";
+import { bodegaTransactionService, BodegaTransactionError } from "@/lib/services/bodega/transaction-service";
+import { bodegaInternalRequestService, BodegaBusinessError } from "@/lib/services/bodega/internal-request-service";
+import { createBodegaInternalRequestSchema } from "@/lib/validations/bodega-internal-request";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -20,19 +17,27 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const queryObject = Object.fromEntries(searchParams.entries());
-    const filters = bodegaInternalRequestFiltersSchema.parse(queryObject);
 
-    const result = await bodegaInternalRequestService.list(filters);
-    return NextResponse.json(result);
+    const filters = bodegaTransactionFiltersSchema.parse({
+      ...queryObject,
+      type: "RETIRO",
+      status: queryObject.statusCode || queryObject.status
+    });
+
+    const result = await bodegaTransactionService.list(filters);
+
+    const items = result.items.map(item => ({
+      ...item,
+      statusCode: item.status,
+      requester: item.requestedBy
+    }));
+
+    return NextResponse.json({ ...result, items, data: items });
   } catch (error) {
     console.error("Error en GET /api/v1/bodega/solicitudes-internas:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Parámetros inválidos", details: error.errors }, { status: 400 });
-    }
-
-    if (error instanceof Error && error.name === "BodegaBusinessError") {
-      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     return NextResponse.json({ error: "Error al obtener solicitudes internas" }, { status: 500 });
@@ -47,7 +52,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const data = createBodegaInternalRequestSchema.parse(body);
+
+    // Usar el servicio especializado que contiene lógica FIFO con precio unitario
+    const data = createBodegaInternalRequestSchema.parse({
+      ...body,
+      requestedBy: session.user.id,
+    });
 
     const created = await bodegaInternalRequestService.create(data, session.user.id);
 
@@ -58,7 +68,6 @@ export async function POST(request: NextRequest) {
       newData: {
         folio: created.folio,
         warehouseId: data.warehouseId,
-        priority: data.priority,
         itemsCount: data.items.length,
       },
     });
@@ -73,8 +82,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Datos inválidos", details: error.errors }, { status: 400 });
     }
 
-    if (error instanceof Error && error.name === "BodegaBusinessError") {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error instanceof BodegaTransactionError || error instanceof BodegaBusinessError) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     return NextResponse.json({ error: "Error al crear solicitud interna" }, { status: 500 });

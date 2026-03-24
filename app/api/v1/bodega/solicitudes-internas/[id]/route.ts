@@ -1,12 +1,7 @@
-/**
- * API: Detalle de Solicitud Interna de Bodega
- * Archivo: app/api/v1/bodega/solicitudes-internas/[id]/route.ts
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/session";
-import { bodegaInternalRequestService } from "@/lib/services/bodega/internal-request-service";
-import { updateBodegaInternalRequestSchema } from "@/lib/validations/bodega-internal-request";
+import { bodegaTransactionService, BodegaTransactionError } from "@/lib/services/bodega/transaction-service";
+import { updateBodegaTransactionSchema } from "@/lib/validations/bodega-transaction";
 import { AuditLogger } from "@/lib/audit/logger";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -23,16 +18,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const request = await bodegaInternalRequestService.getById(id);
+    const transaction = await bodegaTransactionService.getById(id);
 
-    if (!request) {
-      return NextResponse.json({ error: "Solicitud interna no encontrada" }, { status: 404 });
-    }
+    // Mapear para compatibilidad con el frontend
+    const result = {
+      ...transaction,
+      statusCode: transaction.status,
+      requester: transaction.requester
+    };
 
-    return NextResponse.json(request);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error en GET /api/v1/bodega/solicitudes-internas/[id]:", error);
-    return NextResponse.json({ error: "Error al obtener detalle de solicitud interna" }, { status: 500 });
+    if (error instanceof BodegaTransactionError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Error al obtener detalle de transacción" }, { status: 500 });
   }
 }
 
@@ -45,9 +46,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const data = updateBodegaInternalRequestSchema.parse(body);
+    const data = updateBodegaTransactionSchema.parse(body);
 
-    await bodegaInternalRequestService.update(id, data, session.user.id);
+    await bodegaTransactionService.update(id, data, session.user.id);
 
     await AuditLogger.logAction(request, session.user.id, {
       action: "UPDATE",
@@ -56,7 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       newData: {
         title: data.title,
         priority: data.priority,
-        itemsCount: data.items.length,
+        itemsCount: data.items?.length,
       },
     });
 
@@ -70,11 +71,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Datos inválidos", details: error.errors }, { status: 400 });
     }
 
-    if (error instanceof Error) {
+    if (error instanceof BodegaTransactionError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Error al actualizar solicitud interna" }, { status: 500 });
+    return NextResponse.json({ error: "Error al actualizar transacción" }, { status: 500 });
   }
 }
 
@@ -86,16 +87,16 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    await bodegaInternalRequestService.delete(id, session.user.id);
+    await bodegaTransactionService.delete(id, session.user.id);
 
     revalidatePath("/bodega/solicitudes-internas");
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en DELETE /api/v1/bodega/solicitudes-internas/[id]:", error);
-    if (error instanceof Error) {
+    if (error instanceof BodegaTransactionError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ error: "Error al eliminar solicitud" }, { status: 500 });
+    return NextResponse.json({ error: "Error al eliminar transacción" }, { status: 500 });
   }
 }

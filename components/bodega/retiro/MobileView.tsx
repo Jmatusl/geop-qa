@@ -15,6 +15,7 @@ import { Plus, Trash2, PackageMinus, Check, Loader2, Search, ChevronLeft, Wareho
 import { cn } from "@/lib/utils";
 import { BuscarArticulosPanel } from "./BuscarArticulosPanel";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
+import { invalidateBodegaInternalRequestQueries, invalidateBodegaStockQueries } from "@/lib/hooks/bodega/query-invalidation";
 import { useBodegaAuth } from "@/lib/hooks/bodega/use-bodega-auth";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 import { ConfirmacionRetiroModal } from "./ConfirmacionRetiroModal";
@@ -116,6 +117,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
 
   // ── Estado del formulario ──────────────────────────────────────────────────
   const [justificacion, setJustificacion] = useState("");
+  const [referencia, setReferencia] = useState("");
   const [prioridad] = useState("NORMAL"); // Oculto pero enviado al backend
 
   // ── UI ─────────────────────────────────────────────────────────────────────
@@ -135,6 +137,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
   useEffect(() => {
     if (isEditMode && initialData) {
       setJustificacion(initialData.justificacion);
+      setReferencia(initialData.referencia || "");
       setFecha(initialData.fechaRequerida);
       setItems(initialData.items);
       setWarehouseId(initialData.warehouseId);
@@ -314,6 +317,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
         body: JSON.stringify({
           title: `RETIRO MÓVIL: ${justificacion.substring(0, 25)}${justificacion.length > 25 ? "..." : ""}`,
           description: justificacion + (isAutoCompletar ? " | [auto_approved:true]" : ""),
+          externalReference: referencia || null,
           priority: prioridad,
           requiredDate: fecha,
           warehouseId: warehouseId || (validItems[0]?.bodegaOrigenId ?? null),
@@ -373,8 +377,10 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
       if (!res.ok) throw new Error(data.error || "Error en retiro");
 
       // Invalida caché para refrescar listado y estadísticas
-      queryClient.invalidateQueries({ queryKey: ["bodega", "solicitudes-internas"] });
-      queryClient.invalidateQueries({ queryKey: ["bodega", "consulta-rapida"] });
+      await Promise.all([
+        invalidateBodegaInternalRequestQueries(queryClient),
+        invalidateBodegaStockQueries(queryClient),
+      ]);
 
       toast.success(isAutoCompletar ? "Retiro inmediato completado" : "Solicitud de retiro creada", {
         description: `Folio: ${data.folio} — ${validItems.length} artículo(s)`,
@@ -582,29 +588,44 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
         )}
 
         {/* ── JUSTIFICACIÓN ── */}
-        <div className="mt-2 mb-3 space-y-1.5 px-0.5">
-          <div className="flex items-center justify-between pl-1">
-            <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-              Justificación<span className="text-red-500">*</span>
-            </label>
-            <span className={cn("text-[9px] font-bold uppercase tracking-widest", justificacion.length > 280 ? "text-red-500" : "text-gray-400")}>{justificacion.length} / 300</span>
-          </div>
-          <textarea
-            value={justificacion}
-            onChange={(e) => setJustificacion(e.target.value)}
-            rows={2}
-            maxLength={300}
-            className={cn(
-              "w-full px-3 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-sm resize-none transition-all shadow-sm",
-              justificacion.trim().length > 0 && justificacion.trim().length < 10
-                ? "border-orange-300 ring-4 ring-orange-500/5 focus:border-orange-500"
-                : "border-gray-300 dark:border-gray-700 focus:border-orange-500",
+        <div className="mt-2 space-y-3 px-0.5">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between pl-1">
+              <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                Justificación<span className="text-red-500">*</span>
+              </label>
+              <span className={cn("text-[9px] font-bold uppercase tracking-widest", justificacion.length > 280 ? "text-red-500" : "text-gray-400")}>{justificacion.length} / 300</span>
+            </div>
+            <textarea
+              value={justificacion}
+              onChange={(e) => setJustificacion(e.target.value)}
+              rows={2}
+              maxLength={300}
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-sm resize-none transition-all shadow-sm",
+                justificacion.trim().length > 0 && justificacion.trim().length < 10
+                  ? "border-orange-300 ring-4 ring-orange-500/5 focus:border-orange-500"
+                  : "border-gray-300 dark:border-gray-700 focus:border-orange-500",
+              )}
+              placeholder="Ingrese el motivo o justificación del retiro (mín. 10 caracteres)..."
+            />
+            {justificacion.trim().length > 0 && justificacion.trim().length < 10 && (
+              <p className="text-[10px] font-medium text-orange-600 dark:text-orange-400 pl-1">Faltan {10 - justificacion.trim().length} caracteres más.</p>
             )}
-            placeholder="Ingrese el motivo o justificación del retiro (mín. 10 caracteres)..."
-          />
-          {justificacion.trim().length > 0 && justificacion.trim().length < 10 && (
-            <p className="text-[10px] font-medium text-orange-600 dark:text-orange-400 pl-1">Faltan {10 - justificacion.trim().length} caracteres más.</p>
-          )}
+          </div>
+
+          <div className="space-y-1.5 mb-4">
+            <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">
+              DOC. REFERENCIA (OPCIONAL)
+            </label>
+            <input
+              type="text"
+              value={referencia}
+              onChange={(e) => setReferencia(e.target.value.toUpperCase())}
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm font-medium uppercase shadow-sm"
+              placeholder="EJ: OC-2024, FACT-987..."
+            />
+          </div>
         </div>
 
         {/* ── LISTA DE ARTÍCULOS ── */}
@@ -659,7 +680,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
                 <div className="grid grid-cols-2 gap-2 pt-0 border-t border-gray-100 dark:border-gray-800/30">
                   <div className="space-y-0">
                     <label className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">Stock</label>
-                    <div className="px-2 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-100 dark:border-gray-800/50 flex items-center h-[40px]">
+                    <div className="px-2 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-100 dark:border-gray-800/50 flex items-center h-10">
                       <div className="text-[9px] font-bold uppercase tracking-tighter flex items-center justify-between w-full">
                         <span className="text-gray-500 flex-1 text-left">
                           DISPONIBLE <span className="text-gray-900 dark:text-gray-100 font-black ml-1">{item.stockDisponible}</span>
@@ -676,7 +697,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
                       inputMode="numeric"
                       value={item.cantidad === 0 ? "" : item.cantidad}
                       onChange={(e) => handleUpdateCantidad(item.articuloId, item.bodegaOrigenId, formatNumber(e.target.value))}
-                      className="w-full h-[40px] px-2.5 bg-orange-50/50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/40 rounded-lg text-xl font-black text-orange-600 dark:text-orange-400 text-center outline-none focus:border-orange-500 transition-all font-mono shadow-sm"
+                      className="w-full h-10 px-2.5 bg-orange-50/50 dark:bg-orange-950/20 border-2 border-orange-200 dark:border-orange-900/40 rounded-lg text-xl font-black text-orange-600 dark:text-orange-400 text-center outline-none focus:border-orange-500 transition-all font-mono shadow-sm"
                       placeholder="0"
                     />
                   </div>
@@ -692,7 +713,7 @@ export default function MobileView({ initialData, isEditMode }: MobileViewProps 
                 {item.stockGlobal < item.cantidad && (
                   <div className="flex items-center gap-1.5 px-2 py-1.5 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-100/50 dark:border-red-900/30 animate-pulse">
                     <X className="w-3 h-3 text-red-500 shrink-0" />
-                    <p className="text-[9px] font-bold text-red-600 dark:text-red-400 leading-tight uppercase font-black">Supera el stock global disponible ({item.stockGlobal}).</p>
+                    <p className="text-[9px] font-black text-red-600 dark:text-red-400 leading-tight uppercase">Supera el stock global disponible ({item.stockGlobal}).</p>
                   </div>
                 )}
               </div>

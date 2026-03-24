@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/session";
 import { AuditLogger } from "@/lib/audit/logger";
 import { modulePermissionService } from "@/lib/services/permissions/module-permission-service";
-import { bodegaDeliverRequestSchema } from "@/lib/validations/bodega-workflow";
 import { BodegaBusinessError, bodegaInternalRequestService } from "@/lib/services/bodega/internal-request-service";
+import { bodegaDeliverRequestSchema } from "@/lib/validations/bodega-workflow";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -18,15 +18,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const { id } = await params;
     const canDeliver = await modulePermissionService.userHasPermission(session.user.id, "bodega", "retira_items");
 
     if (!canDeliver) {
-      return NextResponse.json({ error: "No autorizado para entregar solicitudes" }, { status: 403 });
+      return NextResponse.json({ error: "No tiene permiso 'retira_items' para realizar esta acción" }, { status: 403 });
     }
 
-    const { id } = await params;
-    const body = await request.json();
-    const data = bodegaDeliverRequestSchema.parse(body ?? {});
+    const body = await request.json().catch(() => ({}));
+    const data = bodegaDeliverRequestSchema.parse(body);
 
     await bodegaInternalRequestService.deliver(id, data, session.user.id);
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       module: "bodega_solicitudes_internas",
       targetId: id,
       newData: {
-        action: "ENTREGAR",
+        action: "ENTREGAR/COMPLETAR",
         observations: data.observations,
         deliverAll: data.deliverAll,
       },
@@ -55,6 +55,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Error al entregar solicitud interna" }, { status: 500 });
+    return NextResponse.json({ error: "Error al completar la entrega de la transacción" }, { status: 500 });
   }
 }

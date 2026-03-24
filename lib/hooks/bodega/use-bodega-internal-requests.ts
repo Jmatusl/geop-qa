@@ -4,7 +4,7 @@ export interface BodegaInternalRequestFilters {
   page?: number;
   pageSize?: number;
   search?: string;
-  statusCode?: string;
+  status?: string;
   warehouseId?: string;
   priority?: "BAJA" | "NORMAL" | "ALTA" | "URGENTE";
   requestedBy?: string;
@@ -19,7 +19,7 @@ export interface BodegaInternalRequestListItem {
   folio: string;
   title: string;
   description: string | null;
-  statusCode: string;
+  status: string;
   priority: string;
   requiredDate: string | null;
   createdAt: string;

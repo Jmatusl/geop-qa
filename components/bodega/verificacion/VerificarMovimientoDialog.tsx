@@ -187,7 +187,7 @@ export function VerificarMovimientoDialog({ movement, open, onOpenChange, mode =
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
-        className="!fixed !top-0 !left-0 !translate-x-0 !translate-y-0 !z-[100] flex flex-col p-0 !border-none !rounded-none !w-screen !h-screen !max-w-none bg-white dark:bg-slate-950 shadow-none duration-0 lg:duration-200 lg:!fixed lg:!top-1/2 lg:!left-1/2 lg:!translate-x-[-50%] lg:!translate-y-[-50%] lg:!w-full lg:!max-w-200 lg:!h-auto lg:!max-h-[85vh] lg:!rounded-xl lg:shadow-2xl"
+        className="fixed! top-0! left-0! translate-x-0! translate-y-0! z-100! flex flex-col p-0 border-none! rounded-none! w-screen! h-screen! max-w-none! bg-white dark:bg-slate-950 shadow-none duration-0 lg:duration-200 lg:fixed! lg:top-1/2! lg:left-1/2! lg:translate-x-[-50%]! lg:translate-y-[-50%]! lg:w-full! lg:max-w-200! lg:h-auto! lg:max-h-[85vh]! lg:rounded-xl! lg:shadow-2xl"
       >
         <DialogHeader className="p-6 border-b bg-slate-50/50 dark:bg-slate-900/50">
           <div className="flex items-center justify-between">
@@ -197,7 +197,7 @@ export function VerificarMovimientoDialog({ movement, open, onOpenChange, mode =
                 {isExecution ? "Confirmar Ejecución" : "Verificar Movimiento"}
               </DialogTitle>
               <DialogDescription className="text-xs font-medium text-slate-500 uppercase tracking-widest">
-                Folio: <span className="font-bold text-slate-900 dark:text-gray-100">{movement.folio}</span> • {movement.movementType}
+                Folio: <span className="font-bold text-slate-900 dark:text-gray-100">{movement.folio}</span> • {movement.type}
                 {movement.reason && <span className="ml-2">• {movement.reason === "INGRESO_TRANSFERENCIA" ? "TRANSFERENCIA" : movement.reason}</span>}
               </DialogDescription>
             </div>
@@ -297,7 +297,7 @@ export function VerificarMovimientoDialog({ movement, open, onOpenChange, mode =
                         </button>
                       </div>
                     ))}
-                    <label className="flex flex-col items-center justify-center w-full min-h-[40px] border border-dashed border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors">
+                    <label className="flex flex-col items-center justify-center w-full min-h-10 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors">
                       <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] uppercase">
                         {uploadingMap[item.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                         Agregar Foto
@@ -348,7 +348,7 @@ export function VerificarMovimientoDialog({ movement, open, onOpenChange, mode =
             <Button
               onClick={handleVerificar}
               disabled={isLoading || itemsData.every((i) => i.quantity === 0 && i.evidence.length === 0)}
-              className={`h-11 px-8 rounded-md ${isExecution ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"} text-white font-black uppercase text-[11px] tracking-widest shadow-lg min-w-[150px] transition-all active:scale-95`}
+              className={`h-11 px-8 rounded-md ${isExecution ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"} text-white font-black uppercase text-[11px] tracking-widest shadow-lg min-w-37.5 transition-all active:scale-95`}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

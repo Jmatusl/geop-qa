@@ -10,8 +10,8 @@ import { ArrowUp, ArrowDown, ArrowUpDown, Search, Package, History, Tag, Chevron
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 
 interface GlobalInventarioItem {
@@ -21,29 +21,33 @@ interface GlobalInventarioItem {
   totalItems: number;
   totalPrice: number;
   warehouseName: string;
-  movementType: string;
+  type: string;
   reason: string | null;
   observations: string | null;
+  externalReference: string | null;
+  quotationNumber: string | null;
+  deliveryGuide: string | null;
   countArticulos: number;
 }
 
 export function GlobalInventarioV2Table() {
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [bodegaFilter, setBodegaFilter] = useState("all");
+  const [bodegaFilter, setBodegaFilter] = useState<string>("all");
+  const [globalFilter, setGlobalFilter] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "fecha", desc: true }]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["global-inventario-movimientos", bodegaFilter, globalFilter],
+  const { data: allItems = [], isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["global-inventario-v2", bodegaFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: "1",
         pageSize: "1000",
-        search: globalFilter,
       });
+
       if (bodegaFilter !== "all") params.append("warehouseId", bodegaFilter);
 
       const res = await fetch(`/api/v1/bodega/movimientos?${params.toString()}`);
-      if (!res.ok) throw new Error("Error al cargar movimientos");
+      if (!res.ok) throw new Error("Error loading data");
+
       const json = await res.json();
 
       return json.data.map((item: any) => ({
@@ -53,24 +57,19 @@ export function GlobalInventarioV2Table() {
         totalItems: item.totalItems,
         totalPrice: item.totalPrice,
         warehouseName: item.warehouse?.name || "Sin Bodega",
-        movementType: item.movementType,
+        type: item.type,
         reason: item.reason,
         observations: item.observations,
-        countArticulos: item._count?.items || 0,
+        externalReference: item.externalReference,
+        quotationNumber: item.quotationNumber,
+        deliveryGuide: item.deliveryGuide,
+        countArticulos: (item as any)._count?.items || 0,
       })) as GlobalInventarioItem[];
     },
   });
 
-  const allItems: GlobalInventarioItem[] = data || [];
-
-  // Obtener bodegas para el filtro (podríamos usar el hook useBodegaWarehouses idealmente)
-  const { data: bodegasData } = useQuery({
-    queryKey: ["bodega-warehouses-simple"],
-    queryFn: async () => {
-      const res = await fetch("/api/v1/bodega/bodegas?limit=100");
-      return res.json();
-    },
-  });
+  // Obtener bodegas para el filtro
+  const { data: bodegasData } = useBodegaWarehouses();
   const warehouses = bodegasData?.data || [];
 
   const columns = useMemo<ColumnDef<GlobalInventarioItem>[]>(
@@ -129,13 +128,15 @@ export function GlobalInventarioV2Table() {
         header: "Fecha / Tipo",
         cell: ({ row }) => {
           const date = new Date(row.original.fecha);
-          const type = row.original.movementType;
+          const type = row.original.type;
 
           const getBadgeStyle = (folio: string, type: string) => {
-            if (folio.includes("TRANSFERENCIA") || type.includes("TRANSFERENCIA")) return { label: "TRANSFERENCIA", className: "bg-blue-50 text-blue-600 border-blue-200" };
-            if (folio.includes("_OC") || type === "INGRESO") return { label: "INGRESO OC", className: "bg-emerald-50 text-emerald-600 border-emerald-200" };
-            if (folio.includes("EGRESO") || type.includes("SALIDA")) return { label: "EGRESO", className: "bg-red-50 text-red-600 border-red-200" };
-            return { label: type, className: "bg-slate-50 text-slate-600 border-slate-200" };
+            const f = folio || "";
+            const t = type || "";
+            if (f.includes("TRANSFERENCIA") || t.includes("TRANSFERENCIA")) return { label: "TRANSFERENCIA", className: "bg-blue-50 text-blue-600 border-blue-200" };
+            if (f.includes("_OC") || t === "INGRESO") return { label: "INGRESO OC", className: "bg-emerald-50 text-emerald-600 border-emerald-200" };
+            if (f.includes("EGRESO") || t.includes("SALIDA")) return { label: "EGRESO", className: "bg-red-50 text-red-600 border-red-200" };
+            return { label: t || "MOVIMIENTO", className: "bg-slate-50 text-slate-600 border-slate-200" };
           };
 
           const style = getBadgeStyle(row.original.folio, type);
@@ -156,18 +157,75 @@ export function GlobalInventarioV2Table() {
         id: "referencia",
         header: "Nota / Referencia",
         cell: ({ row }) => {
-          const label = row.original.reason || row.original.observations || "—";
-          return <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight max-w-[250px] line-clamp-2 leading-tight">{label}</div>;
+          const item = row.original;
+          const label = item.reason || item.observations || "—";
+          const ref = item.externalReference;
+
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col gap-0.5 cursor-help max-w-62.5">
+                    <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight line-clamp-1 leading-tight">
+                      {label}
+                    </div>
+                    {ref && (
+                      <div className="text-[9px] font-medium text-blue-600/70 dark:text-blue-400/70 uppercase tracking-tighter truncate italic">
+                        Ref: {ref}
+                      </div>
+                    )}
+                    {item.quotationNumber && (
+                      <div className="text-[9px] font-medium text-amber-600/70 dark:text-amber-400/70 uppercase tracking-tighter truncate italic">
+                        Cot: {item.quotationNumber}
+                      </div>
+                    )}
+                    {item.deliveryGuide && (
+                      <div className="text-[9px] font-medium text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-tighter truncate italic">
+                        Guía: {item.deliveryGuide}
+                      </div>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl" side="bottom">
+                   <div className="space-y-2">
+                      <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                        <Tag className="w-3 h-3 text-blue-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#283c7f] dark:text-blue-400">Detalle del Movimiento</span>
+                      </div>
+                      <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{label}</p>
+                      {ref && (
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                          <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 mb-0.5 tracking-tighter">Referencia Externa</p>
+                          <p className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">{ref}</p>
+                        </div>
+                      )}
+                      {item.quotationNumber && (
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                          <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 mb-0.5 tracking-tighter">N° Cotización</p>
+                          <p className="text-[10px] font-mono font-bold text-amber-600">{item.quotationNumber}</p>
+                        </div>
+                      )}
+                      {item.deliveryGuide && (
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                          <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-500 mb-0.5 tracking-tighter">Guía Despacho</p>
+                          <p className="text-[10px] font-mono font-bold text-emerald-600">{item.deliveryGuide}</p>
+                        </div>
+                      )}
+                   </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
         },
       },
       {
         id: "cantidad_valor",
         header: () => <div className="text-right">Cantidad / Valor Total</div>,
         cell: ({ row }) => {
-          const isEgress = row.original.movementType?.includes("SALIDA") || row.original.folio?.includes("EGRESO");
+          const isEgress = row.original.type?.includes("SALIDA") || row.original.folio?.includes("EGRESO");
 
           return (
-            <div className="text-right space-y-1 min-w-[120px]">
+            <div className="text-right space-y-1 min-w-30">
               <div className="flex items-baseline justify-end gap-1">
                 <span className={`text-sm font-black ${isEgress ? "text-red-600" : "text-emerald-700 dark:text-emerald-400"}`}>
                   {isEgress ? "-" : "+"}
@@ -232,7 +290,7 @@ export function GlobalInventarioV2Table() {
           </div>
 
           <Select value={bodegaFilter} onValueChange={setBodegaFilter}>
-            <SelectTrigger className="w-[200px] h-10 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-xs font-bold uppercase">
+            <SelectTrigger className="w-50 h-10 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-xs font-bold uppercase">
               <SelectValue placeholder="Todas las bodegas" />
             </SelectTrigger>
             <SelectContent>
@@ -297,7 +355,7 @@ export function GlobalInventarioV2Table() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={`${table.getState().pagination.pageSize}`} onValueChange={(val) => table.setPageSize(Number(val))}>
-            <SelectTrigger className="w-[100px] h-8 text-[11px] font-bold rounded-lg border-gray-200 dark:border-gray-700">
+            <SelectTrigger className="w-25 h-8 text-[11px] font-bold rounded-lg border-gray-200 dark:border-gray-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

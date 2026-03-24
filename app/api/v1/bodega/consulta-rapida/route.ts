@@ -14,7 +14,13 @@ export async function GET(request: NextRequest) {
     const warehouseId = (searchParams.get("warehouseId") || "").trim();
     const articleId = (searchParams.get("articleId") || "").trim();
 
-    const result = await bodegaStockMovementService.quickSearchInventory(search, warehouseId || undefined, articleId || undefined);
+    const context = (searchParams.get("context") || "").trim();
+    const result = await bodegaStockMovementService.quickSearchInventory(
+      search, 
+      warehouseId || undefined, 
+      articleId || undefined,
+      context || undefined
+    );
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Error en consulta rápida" }, { status: 500 });

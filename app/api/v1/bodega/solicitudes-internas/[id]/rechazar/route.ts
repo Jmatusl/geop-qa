@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/session";
 import { AuditLogger } from "@/lib/audit/logger";
 import { modulePermissionService } from "@/lib/services/permissions/module-permission-service";
-import { bodegaRejectRequestSchema } from "@/lib/validations/bodega-workflow";
-import { BodegaBusinessError, bodegaInternalRequestService } from "@/lib/services/bodega/internal-request-service";
+import { bodegaTransactionService, BodegaTransactionError } from "@/lib/services/bodega/transaction-service";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -18,17 +17,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const { id } = await params;
     const canReject = await modulePermissionService.userHasPermission(session.user.id, "bodega", "aprueba_solicitudes");
 
     if (!canReject) {
-      return NextResponse.json({ error: "No autorizado para rechazar solicitudes" }, { status: 403 });
+      return NextResponse.json({ error: "No tiene permiso 'aprueba_solicitudes' para realizar esta acción" }, { status: 403 });
     }
 
-    const { id } = await params;
-    const body = await request.json();
-    const data = bodegaRejectRequestSchema.parse(body ?? {});
+    const body = await request.json().catch(() => ({}));
+    const reason = body.reason || "Sin motivo especificado";
 
-    await bodegaInternalRequestService.reject(id, data, session.user.id);
+    await bodegaTransactionService.reject(id, session.user.id, reason);
 
     await AuditLogger.logAction(request, session.user.id, {
       action: "UPDATE",
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       targetId: id,
       newData: {
         action: "RECHAZAR",
-        reason: data.reason,
+        reason,
       },
     });
 
@@ -46,14 +45,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error("Error en POST /api/v1/bodega/solicitudes-internas/[id]/rechazar:", error);
 
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Datos inválidos", details: error.errors }, { status: 400 });
-    }
-
-    if (error instanceof BodegaBusinessError) {
+    if (error instanceof BodegaTransactionError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Error al rechazar solicitud interna" }, { status: 500 });
+    return NextResponse.json({ error: "Error al rechazar transacción" }, { status: 500 });
   }
 }

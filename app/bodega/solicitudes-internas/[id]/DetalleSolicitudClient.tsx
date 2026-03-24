@@ -58,7 +58,7 @@ interface RequestDetailDto {
   folio: string;
   title: string;
   description: string | null;
-  statusCode: string;
+  status: string;
   statusName: string;
   priority: string;
   warehouseName: string;
@@ -142,14 +142,14 @@ export default function DetalleSolicitudClient({ request }: Props) {
   });
 
   // ── Permisos por estado ─────────────────────────────────────────────────────
-  const canApproveActions = request.statusCode === "PENDIENTE";
-  const canPrepare = request.statusCode === "APROBADA";
-  const canWithdraw = request.statusCode === "PREPARADA" || request.statusCode === "PARCIAL";
-  const canListaParaEntrega = request.statusCode === "LISTA_PARA_ENTREGA";
-  const canVerInforme = request.statusCode === "ENTREGADA";
-  const canEdit = ["BORRADOR", "PENDIENTE", "RECHAZADA"].includes(request.statusCode);
+  const canApproveActions = request.status === "PENDIENTE";
+  const canPrepare = request.status === "APROBADA";
+  const canWithdraw = request.status === "PREPARADA" || request.status === "PARCIAL";
+  const canListaParaEntrega = request.status === "LISTA_PARA_ENTREGA";
+  const canVerInforme = request.status === "ENTREGADA";
+  const canEdit = ["BORRADOR", "PENDIENTE", "RECHAZADA"].includes(request.status);
 
-  const statusStyle = STATUS_STYLES[request.statusCode] ?? STATUS_STYLES["BORRADOR"];
+  const statusStyle = STATUS_STYLES[request.status] ?? STATUS_STYLES["BORRADOR"];
   const priorityStyle = PRIORITY_STYLES[request.priority] ?? PRIORITY_STYLES["NORMAL"];
 
   // Ítems que aún no se han retirado en su totalidad
@@ -547,7 +547,7 @@ export default function DetalleSolicitudClient({ request }: Props) {
             <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
               <TableRow className="h-12 border-b">
                 <TableHead className="w-10 text-center font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">#</TableHead>
-                <TableHead className="min-w-[280px] font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Artículo</TableHead>
+                <TableHead className="min-w-70 font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Artículo</TableHead>
                 <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Bodega</TableHead>
                 <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Cant. Pedida</TableHead>
                 <TableHead className="text-center font-bold text-[10px] uppercase tracking-widest text-[#283c7f]">Cant. Entregada</TableHead>
@@ -932,7 +932,7 @@ export default function DetalleSolicitudClient({ request }: Props) {
           ) : (
             <div className="relative space-y-0">
               {/* Línea vertical */}
-              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/50" />
+              <div className="absolute left-3.75 top-2 bottom-2 w-px bg-border/50" />
 
               {request.logs.map((log) => (
                 <div key={log.id} className="relative flex gap-4 pb-5">

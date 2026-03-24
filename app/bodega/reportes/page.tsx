@@ -133,9 +133,9 @@ export default function BodegaReportesPage() {
             {movementByType.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin movimientos en el período.</p>
             ) : (
-              movementByType.map((row) => (
-                <div key={row.movementType} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                  <span className="text-sm font-medium">{row.movementType}</span>
+              movementByType.map((row: any) => (
+                <div key={row.type} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <span className="text-sm font-medium">{row.type}</span>
                   <Badge variant="secondary">{row.count}</Badge>
                 </div>
               ))

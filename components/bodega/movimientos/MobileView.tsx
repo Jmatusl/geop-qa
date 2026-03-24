@@ -56,24 +56,25 @@ export default function MobileView() {
   const { data, isLoading } = useQuery({
     queryKey: ["inventario-trazabilidad-mobile"],
     queryFn: async () => {
-      // Usar endpoint de movimientos normalizado
-      const res = await fetch("/api/v1/bodega/movimientos?pageSize=200&status=EJECUTADO");
-      if (!res.ok) throw new Error("Error al cargar movimientos");
-      const data = await res.json();
-      const items = (data.data ?? []).map((m: any, idx: number) => ({
-        itemId: `${m.id}-${idx}`,
-        articuloId: m.id,
-        articuloNombre: m.reason || m.folio || "Sin descripción",
-        articuloSku: m.folio,
-        movimientoId: m.id,
-        movimientoNumero: m.folio,
-        movimientoFecha: m.createdAt ?? "",
-        cantidad: Number(m.totalItems || 0),
-        precioUnitario: m.totalItems > 0 ? Number(m.totalPrice || 0) / Number(m.totalItems) : 0,
-        bodegaNombre: m.warehouse?.name ?? "—",
-        centroCosto: m.request?.ceco || "N/A",
-        docReferencia: m.request?.folio || m.reason || m.folio,
-        observaciones: m.observations || "",
+      const res = await fetch("/api/v1/bodega/movimientos/items?pageSize=500");
+      if (!res.ok) throw new Error("Error al cargar inventario trazable");
+      const payload = await res.json();
+      const items = (payload.data ?? []).map((item: any) => ({
+        itemId: item.id,
+        articuloId: item.article?.id || item.articleId || item.id,
+        articuloNombre: item.article?.name || "Sin artículo",
+        articuloSku: item.article?.code || "S/C",
+        movimientoId: item.transaction?.id || item.transactionId || item.id,
+        movimientoNumero: item.transaction?.folio || "Sin folio",
+        movimientoFecha: item.createdAt ?? item.transaction?.createdAt ?? "",
+        cantidad: Number(item.currentBalance ?? item.initialBalance ?? item.quantity ?? 0),
+        precioUnitario: item.unitCost ? Number(item.unitCost) : 0,
+        bodegaNombre: item.transaction?.warehouse?.name ?? "—",
+        centroCosto: "N/A",
+        docReferencia: item.transaction?.reason || item.transaction?.folio || "Sin referencia",
+        nCotizacion: item.transaction?.quotationNumber || undefined,
+        guiaDespacho: item.transaction?.deliveryGuide || undefined,
+        observaciones: item.transaction?.observations || item.observations || "",
       }));
       return { items };
     },
@@ -261,7 +262,7 @@ export default function MobileView() {
                   </div>
 
                   {/* Stock y Valor */}
-                  <div className="flex sm:flex-col justify-between sm:justify-center items-center sm:items-end gap-2 bg-gray-50/50 dark:bg-gray-800/20 p-3 sm:p-0 rounded-xl sm:rounded-none sm:border-l border-gray-200 dark:border-gray-800 sm:pl-6 min-w-[120px]">
+                  <div className="flex sm:flex-col justify-between sm:justify-center items-center sm:items-end gap-2 bg-gray-50/50 dark:bg-gray-800/20 p-3 sm:p-0 rounded-xl sm:rounded-none sm:border-l border-gray-200 dark:border-gray-800 sm:pl-6 min-w-30">
                     <div className="text-center sm:text-right">
                       <p className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">Cantidad</p>
                       <div className="text-xl font-black text-gray-900 dark:text-gray-100 flex items-baseline gap-1">

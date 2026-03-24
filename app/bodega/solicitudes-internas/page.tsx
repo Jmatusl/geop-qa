@@ -48,7 +48,7 @@ export default function BodegaSolicitudesInternasPage() {
     page: 1,
     pageSize: 20,
     search: "",
-    statusCode: "",
+    status: "",
     priority: undefined,
   });
 
@@ -263,7 +263,7 @@ export default function BodegaSolicitudesInternasPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-[#283c7f] dark:text-blue-400 mb-1.5 block italic">Estado</label>
-            <Select value={filters.statusCode || "TODOS"} onValueChange={(value) => setFilters((prev) => ({ ...prev, page: 1, statusCode: value === "TODOS" ? "" : value }))}>
+            <Select value={filters.status || "TODOS"} onValueChange={(value) => setFilters((prev) => ({ ...prev, page: 1, status: value === "TODOS" ? "" : value }))}>
               <SelectTrigger className="w-full h-9 text-[11px] font-bold uppercase bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-md">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>

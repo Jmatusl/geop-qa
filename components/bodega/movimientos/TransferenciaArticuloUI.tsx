@@ -22,6 +22,7 @@ interface StockItem {
   cantidad: number;
   selected: boolean;
   cantidadTransferir: string;
+  unitCost: number;
 }
 
 function formatNumber(value: string): string {
@@ -44,7 +45,10 @@ function useStockPorMovimiento(bodegaId: string | null) {
     try {
       const res = await fetch(`/api/v1/bodega/warehouses/${bodegaId}/stock`);
       const data = await res.json();
-      setItems(data.items || data.data || data || []);
+      
+      // Manejo robusto de la respuesta
+      const result = data.items || data.data || data;
+      setItems(Array.isArray(result) ? result : []);
     } catch {
       toast.error("Error al cargar stock");
     } finally {
@@ -157,6 +161,11 @@ export function TransferenciaArticuloUI() {
   }, [user?.firstName, user?.lastName]);
 
   useEffect(() => {
+    if (!Array.isArray(rawItems)) {
+      setStockItems([]);
+      return;
+    }
+
     setStockItems(
       rawItems.map((item: any) => ({
         itemId: String(item.itemId ?? item.id ?? item.articuloId),
@@ -169,6 +178,7 @@ export function TransferenciaArticuloUI() {
         cantidad: item.cantidad ?? 0,
         selected: false,
         cantidadTransferir: String(item.cantidad ?? 0),
+        unitCost: item.unitCost || 0,
       })),
     );
   }, [rawItems]);
@@ -235,9 +245,7 @@ export function TransferenciaArticuloUI() {
 
       const obsArray = [
         observaciones ? `Justificación: ${observaciones}` : null,
-        documentoReferencia ? `Doc. Ref: ${documentoReferencia}` : null,
-        numeroCotizacion ? `N° Cotización: ${numeroCotizacion}` : null,
-        guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+        // No concatenamos campos estructurados aquí ya que iran en sus propios campos
       ].filter(Boolean);
 
       for (const item of selectedItems) {
@@ -246,13 +254,16 @@ export function TransferenciaArticuloUI() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            movementType: "SALIDA",
+            type: "SALIDA",
             warehouseId: bodegaOrigenId,
             articleId: item.articuloId,
             quantity: parseNumber(item.cantidadTransferir),
+            unitCost: item.unitCost,
             sourceMovementItemId: item.itemId,
             reason: "EGRESO_TRANSFERENCIA",
             externalReference: documentoReferencia || null,
+            quotationNumber: numeroCotizacion || null,
+            deliveryGuide: guiaDespacho || null,
             observations: [...obsArray, `DESTINO: ${bodegaDestinoId}`].join(" | "),
             responsable,
             evidence: fotosEvidencia,
@@ -265,13 +276,16 @@ export function TransferenciaArticuloUI() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            movementType: "INGRESO",
+            type: "INGRESO",
             warehouseId: bodegaDestinoId,
             articleId: item.articuloId,
             quantity: parseNumber(item.cantidadTransferir),
+            unitCost: item.unitCost,
             sourceMovementItemId: item.itemId,
             reason: "INGRESO_TRANSFERENCIA",
             externalReference: documentoReferencia || null,
+            quotationNumber: numeroCotizacion || null,
+            deliveryGuide: guiaDespacho || null,
             observations: [...obsArray, `ORIGEN: ${bodegaOrigenId}`].join(" | "),
             responsable,
             evidence: fotosEvidencia,

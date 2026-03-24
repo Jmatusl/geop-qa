@@ -143,7 +143,7 @@ export const supplyRequestFiltersSchema = z.object({
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
+  pageSize: z.coerce.number().int().positive().max(1000).optional().default(20),
 });
 
 // Tipos derivados

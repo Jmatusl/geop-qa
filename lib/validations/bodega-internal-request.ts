@@ -56,7 +56,7 @@ export const updateBodegaInternalRequestSchema = z.object({
 
 export const bodegaInternalRequestFiltersSchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
+  pageSize: z.coerce.number().int().min(1).max(1000).optional().default(20),
   search: z.string().optional(),
   statusCode: z.string().optional(),
   warehouseId: z.string().uuid().optional(),

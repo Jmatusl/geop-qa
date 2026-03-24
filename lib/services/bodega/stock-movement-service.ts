@@ -55,6 +55,34 @@ export class BodegaMovementError extends Error {
 export class BodegaStockMovementService {
   private readonly prisma = prisma;
 
+  private isTransitWarehouse(warehouse?: { code?: string | null; name?: string | null } | null) {
+    const code = (warehouse?.code || "").toLowerCase();
+    const name = (warehouse?.name || "").toLowerCase();
+    return code === "transito" || name.includes("tránsit") || name.includes("transit");
+  }
+
+  private async comesFromTransitWarehouse(
+    tx: Prisma.TransactionClient,
+    sourceTransactionItemId?: string | null,
+  ) {
+    if (!sourceTransactionItemId) return false;
+
+    const sourceItem = await tx.bodegaTransactionItem.findUnique({
+      where: { id: sourceTransactionItemId },
+      include: {
+        transaction: {
+          include: {
+            warehouse: {
+              select: { code: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return this.isTransitWarehouse(sourceItem?.transaction?.warehouse);
+  }
+
   /**
    * Genera número único de movimiento siguiendo el patrón legacy:
    * TIPO-AAAAMM-0001
@@ -65,7 +93,7 @@ export class BodegaStockMovementService {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const prefix = `${type.toUpperCase()}-${year}${month}`;
 
-    const lastMovement = await this.prisma.bodegaStockMovement.findFirst({
+    const lastMovement = await this.prisma.bodegaTransaction.findFirst({
       where: {
         folio: {
           startsWith: `${prefix}-`,
@@ -90,15 +118,14 @@ export class BodegaStockMovementService {
   async listMovements(filters: BodegaMovementListFilters) {
     const { page, pageSize, search, movementType, status, warehouseId } = filters;
 
-    const where: Prisma.BodegaStockMovementWhereInput = {
-      ...(movementType ? { movementType } : {}),
+    const where: Prisma.BodegaTransactionWhereInput = {
+      ...(movementType ? { type: movementType } : {}),
       ...(status ? { status } : {}),
       ...(warehouseId ? { warehouseId } : {}),
       ...(search
         ? {
             OR: [
               { folio: { contains: search, mode: "insensitive" } },
-              { request: { folio: { contains: search, mode: "insensitive" } } },
               { reason: { contains: search, mode: "insensitive" } },
               { externalReference: { contains: search, mode: "insensitive" } },
               { observations: { contains: search, mode: "insensitive" } },
@@ -110,7 +137,7 @@ export class BodegaStockMovementService {
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.bodegaStockMovement.findMany({
+      this.prisma.bodegaTransaction.findMany({
         where,
         include: {
           warehouse: {
@@ -118,13 +145,6 @@ export class BodegaStockMovementService {
               id: true,
               code: true,
               name: true,
-            },
-          },
-          request: {
-            select: {
-              id: true,
-              folio: true,
-              statusCode: true,
             },
           },
           creator: {
@@ -151,7 +171,7 @@ export class BodegaStockMovementService {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.bodegaStockMovement.count({ where }),
+      this.prisma.bodegaTransaction.count({ where }),
     ]);
 
     const mappedData = data.map((m) => {
@@ -160,7 +180,6 @@ export class BodegaStockMovementService {
 
       if (m.items && m.items.length > 0) {
         totalItems = m.items.reduce((acc, it) => {
-          // Si quantity es 0, intentamos con initialBalance (común en importaciones legacy o cuadraturas)
           const qty = Number(it.quantity || 0) || Number(it.initialBalance || 0);
           return acc + qty;
         }, 0);
@@ -174,6 +193,7 @@ export class BodegaStockMovementService {
 
       return {
         ...m,
+        movementType: m.type, // Alias para compatibilidad
         totalItems,
         totalPrice,
       };
@@ -193,8 +213,8 @@ export class BodegaStockMovementService {
   async listMovementItems(filters: BodegaMovementItemListFilters) {
     const { page, pageSize, search, warehouseId, showExhausted } = filters;
 
-    const where: Prisma.BodegaStockMovementItemWhereInput = {
-      ...(warehouseId ? { movement: { warehouseId } } : {}),
+    const where: Prisma.BodegaTransactionItemWhereInput = {
+      ...(warehouseId ? { transaction: { warehouseId } } : {}),
       ...(!showExhausted
         ? {
             OR: [{ currentBalance: { gt: 0 } }, { initialBalance: 0 }],
@@ -205,24 +225,24 @@ export class BodegaStockMovementService {
             OR: [
               { article: { code: { contains: search, mode: "insensitive" } } },
               { article: { name: { contains: search, mode: "insensitive" } } },
-              { movement: { folio: { contains: search, mode: "insensitive" } } },
+              { transaction: { folio: { contains: search, mode: "insensitive" } } },
             ],
           }
         : {}),
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.bodegaStockMovementItem.findMany({
+      this.prisma.bodegaTransactionItem.findMany({
         where,
         include: {
           article: {
             select: { id: true, code: true, name: true },
           },
-          movement: {
+          transaction: {
             select: {
               id: true,
               folio: true,
-              movementType: true,
+              type: true,
               reason: true,
               observations: true,
               warehouse: { select: { id: true, name: true } },
@@ -233,7 +253,7 @@ export class BodegaStockMovementService {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.bodegaStockMovementItem.count({ where }),
+      this.prisma.bodegaTransactionItem.count({ where }),
     ]);
 
     return {
@@ -248,7 +268,7 @@ export class BodegaStockMovementService {
   }
 
   async getMovementById(id: string) {
-    const movement = await this.prisma.bodegaStockMovement.findUnique({
+    const movement = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: {
         warehouse: {
@@ -256,25 +276,6 @@ export class BodegaStockMovementService {
             id: true,
             code: true,
             name: true,
-          },
-        },
-        request: {
-          select: {
-            id: true,
-            folio: true,
-            statusCode: true,
-            externalReference: true,
-            logs: {
-              include: {
-                creator: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
-                  },
-                },
-              },
-              orderBy: { createdAt: "desc" },
-            },
           },
         },
         creator: {
@@ -308,6 +309,18 @@ export class BodegaStockMovementService {
         evidences: {
           orderBy: { createdAt: "desc" },
         },
+        logs: {
+          include: {
+            creator: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
@@ -324,7 +337,7 @@ export class BodegaStockMovementService {
   }
 
   async createMovement(input: CreateBodegaMovementInput, userId: string) {
-    const { movementType, warehouseId, reason, observations, responsable, externalReference } = input;
+    const { type, warehouseId, reason, observations, responsable, externalReference } = input;
 
     // Normalizar items: soportar tanto el formato nuevo (array) como el legacy (campos individuales)
     const itemsToProcess = input.items || (input.articleId && input.quantity ? [{ articleId: input.articleId, quantity: input.quantity, unitCost: input.unitCost }] : []);
@@ -343,21 +356,39 @@ export class BodegaStockMovementService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const folio = await this.generateMovementFolio(movementType);
-      const statusInicial = input.autoVerify ? "APROBADO" : "PENDIENTE";
+      const folio = await this.generateMovementFolio(type);
+      const statusInicial = input.autoVerify ? "COMPLETADA" : "PENDIENTE";
 
       // 1. Crear el Movimiento Base (UN SOLO FOLIO)
-      const movement = await tx.bodegaStockMovement.create({
+      const isSimplifiedAutomaticMovement = input.autoVerify === true;
+      const movement = await tx.bodegaTransaction.create({
         data: {
           folio,
           warehouseId,
-          movementType,
+          type: type,
           status: statusInicial,
           reason: reason || null,
           observations: observations || null,
           responsable: responsable || null,
           externalReference: externalReference || null,
           createdBy: userId,
+          logs: {
+            create: {
+              action: "CREATE",
+              description: isSimplifiedAutomaticMovement
+                ? `Movimiento simplificado de tipo ${type} creado con ejecución automática.`
+                : `Movimiento de tipo ${type} creado.`,
+              metadata: isSimplifiedAutomaticMovement
+                ? {
+                    executionMode: "SIMPLIFICADO",
+                    automaticExecution: true,
+                    automaticSource: "MOVIMIENTO_DIRECTO",
+                    autoVerify: true,
+                  }
+                : undefined,
+              createdBy: userId,
+            }
+          },
           ...(input.evidence && input.evidence.length > 0
             ? {
                 evidences: {
@@ -385,19 +416,19 @@ export class BodegaStockMovementService {
           throw new BodegaMovementError(`El artículo ${articleId} no existe o está inactivo`);
         }
 
-        const isPositiveMovement = movementType === "INGRESO" || movementType.includes("INGRESO") || movementType.includes("AJUSTE") || (movementType as string) === "DEVOLUCION";
-        const isNegativeMovement = movementType === "SALIDA" || movementType.includes("EGRESO") || (movementType as string) === "MERMA";
+        const isPositiveMovement = type === "INGRESO" || type.includes("INGRESO") || type.includes("AJUSTE") || (type as string) === "DEVOLUCION";
+        const isNegativeMovement = type === "SALIDA" || type.includes("EGRESO") || (type as string) === "MERMA";
 
         const newItemsToCreate: Array<{ quantity: number; unitCost: Prisma.Decimal | null; parentMovementItemId: string | null }> = [];
 
         if (itemInput.sourceMovementItemId) {
-          const sourceItem = await tx.bodegaStockMovementItem.findUnique({
+          const sourceItem = await tx.bodegaTransactionItem.findUnique({
             where: { id: itemInput.sourceMovementItemId },
           });
 
           if (sourceItem) {
             if (isNegativeMovement) {
-              await tx.bodegaStockMovementItem.update({
+              await tx.bodegaTransactionItem.update({
                 where: { id: sourceItem.id },
                 data: { currentBalance: { decrement: movementQty } },
               });
@@ -410,13 +441,13 @@ export class BodegaStockMovementService {
           }
         } else if (isNegativeMovement) {
           // APLICAR REGLA FIFO AUTOMÁTICA
-          const availableStocks = await tx.bodegaStockMovementItem.findMany({
+          const availableStocks = await tx.bodegaTransactionItem.findMany({
             where: {
               articleId,
-              movement: {
+              transaction: {
                 warehouseId,
-                status: { in: ["EJECUTADO", "COMPLETADO"] },
-                movementType: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
+                status: { in: ["EJECUTADO", "COMPLETADO", "COMPLETADA", "APLICADO", "APLICADA"] },
+                type: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
               },
               currentBalance: { gt: 0 },
             },
@@ -428,7 +459,7 @@ export class BodegaStockMovementService {
             if (remainingQty <= 0) break;
             const toTake = Math.min(Number(stock.currentBalance), remainingQty);
 
-            await tx.bodegaStockMovementItem.update({
+            await tx.bodegaTransactionItem.update({
               where: { id: stock.id },
               data: { currentBalance: { decrement: toTake } },
             });
@@ -475,13 +506,13 @@ export class BodegaStockMovementService {
         // Crear los items persistidos y mantener solo el primero como ref backward (para itemsVerification autoVerify)
         let movementItem: any = null;
         for (const newIt of newItemsToCreate) {
-          const mItem = await tx.bodegaStockMovementItem.create({
+          const mItem = await tx.bodegaTransactionItem.create({
             data: {
-              movementId: movement.id,
+              transactionId: movement.id,
               articleId,
               quantity: newIt.quantity,
               unitCost: newIt.unitCost,
-              parentMovementItemId: newIt.parentMovementItemId,
+              sourceTransactionItemId: newIt.parentMovementItemId,
               initialBalance: isPositiveMovement ? newIt.quantity : 0,
               currentBalance: isPositiveMovement ? newIt.quantity : 0,
             },
@@ -520,13 +551,14 @@ export class BodegaStockMovementService {
           let nextNoVerificado = currentNoVerificado;
           let nextReserved = currentReserved;
 
-          let shouldVerify = input.autoVerify === true || autoVerificarStock === true;
+          const comesFromTransit = await this.comesFromTransitWarehouse(tx, movementItem?.sourceTransactionItemId);
+          let shouldVerify = input.autoVerify === true || autoVerificarStock === true || comesFromTransit;
 
           const destinoNombre = warehouse.name?.toLowerCase() || "";
           const esHaciaTransito = destinoNombre.includes("tránsit") || destinoNombre.includes("transit");
           if (esHaciaTransito) shouldVerify = false;
 
-          if (movementType === "INGRESO" || (movementType === "AJUSTE" && movementQty > 0)) {
+          if (type === "INGRESO" || (type === "AJUSTE" && movementQty > 0)) {
             nextQuantity = currentQuantity + movementQty;
             if (shouldVerify) nextVerificado = currentVerificado + movementQty;
             else nextNoVerificado = currentNoVerificado + movementQty;
@@ -543,10 +575,10 @@ export class BodegaStockMovementService {
                 unitCost: (itemInput as any).unitCost || null,
                 status: "ACTIVO",
                 createdBy: userId,
-                observations: `Lote autogenerado por ${movementType} ${movement.folio}`,
+                observations: `Lote autogenerado por ${type} ${movement.folio}`,
               },
             });
-          } else if (movementType === "SALIDA" || (movementType === "AJUSTE" && movementQty < 0)) {
+          } else if (type === "SALIDA" || (type === "AJUSTE" && movementQty < 0)) {
             const absQty = Math.abs(movementQty);
             nextQuantity = currentQuantity - absQty;
             let restante = absQty;
@@ -574,8 +606,8 @@ export class BodegaStockMovementService {
             },
           });
 
-          if (shouldVerify && movementType === "INGRESO") {
-            await tx.bodegaStockMovementItem.update({
+          if (shouldVerify && type === "INGRESO") {
+            await tx.bodegaTransactionItem.update({
               where: { id: movementItem.id },
               data: {
                 cantidadVerificada: movementQty,
@@ -589,10 +621,10 @@ export class BodegaStockMovementService {
 
       // Finalizar estado en EJECUTADO si fue autoverificado
       if (input.autoVerify) {
-        await tx.bodegaStockMovement.update({
+        await tx.bodegaTransaction.update({
           where: { id: movement.id },
           data: {
-            status: "EJECUTADO",
+            status: "COMPLETADA",
             appliedAt: new Date(),
             appliedBy: userId,
           },
@@ -605,20 +637,16 @@ export class BodegaStockMovementService {
   }
 
   async applyMovement(movementId: string, userId: string, observations?: string, itemsAList?: Array<{ id: string; quantity: number; observations?: string; evidence?: string[] }>) {
-    const movement = await this.prisma.bodegaStockMovement.findUnique({
+    const movement = await this.prisma.bodegaTransaction.findUnique({
       where: { id: movementId },
       include: {
         warehouse: true,
-        request: {
-          include: {
-            warehouse: true,
-          },
-        },
         items: {
           select: {
             id: true,
             articleId: true,
             quantity: true,
+            sourceTransactionItemId: true,
           },
         },
       },
@@ -628,13 +656,13 @@ export class BodegaStockMovementService {
       throw new BodegaMovementError("Movimiento no encontrado");
     }
 
-    if (movement.status === "EJECUTADO" || movement.status === "COMPLETADO") {
-      throw new BodegaMovementError("El movimiento ya fue ejecutado o completado");
+    if (movement.status === "COMPLETADA" || movement.status === "APLICADA") {
+      throw new BodegaMovementError("El movimiento ya fue ejecutado o aplicado");
     }
 
     // Regla de negocio: Los ajustes y otros pueden tener flujos distintos
-    const esAjuste = movement.movementType.includes("AJUSTE");
-    const estadosPermitidos = esAjuste ? ["BORRADOR", "APROBADO", "PENDIENTE"] : ["APROBADO", "PENDIENTE"];
+    const esAjuste = movement.type.includes("AJUSTE");
+    const estadosPermitidos = esAjuste ? ["BORRADOR", "APROBADA", "PENDIENTE"] : ["APROBADA", "PENDIENTE"];
 
     if (!estadosPermitidos.includes(movement.status)) {
       throw new BodegaMovementError(`No se puede ejecutar un movimiento en estado ${movement.status}`);
@@ -652,6 +680,9 @@ export class BodegaStockMovementService {
     const autoVerificar = config.auto_verificar_ingresos === true;
 
     return this.prisma.$transaction(async (tx) => {
+      const isPositiveApplyMovement = movement.type === "INGRESO";
+      let shouldCompleteOnApply = isPositiveApplyMovement;
+
       for (const item of movement.items) {
         const itemReview = itemsAList?.find((i) => i.id === item.id);
         const movementQty = itemReview ? Number(itemReview.quantity) : Number(item.quantity);
@@ -686,10 +717,9 @@ export class BodegaStockMovementService {
 
         let shouldVerify = itemReview ? true : autoVerificar;
 
-        if (movement.movementType === "INGRESO" || (movement.movementType === "AJUSTE" && movementQty > 0)) {
+        if (movement.type === "INGRESO" || (movement.type === "AJUSTE" && movementQty > 0)) {
           // Lógica de reglas de verificación automática
-          const origenNombre = movement.request?.warehouse?.name?.toLowerCase() || "";
-          const esDesdeTransito = origenNombre.includes("tránsit") || origenNombre.includes("transit");
+          const esDesdeTransito = await this.comesFromTransitWarehouse(tx, item.sourceTransactionItemId);
 
           // Si viene de En Tránsito -> stock VERIFICADO en destino
           if (esDesdeTransito) {
@@ -704,6 +734,10 @@ export class BodegaStockMovementService {
             shouldVerify = false;
           }
 
+          if (!shouldVerify) {
+            shouldCompleteOnApply = false;
+          }
+
           nextQuantity = currentQuantity + movementQty;
           if (shouldVerify) {
             nextVerificado = currentVerificado + movementQty;
@@ -712,7 +746,7 @@ export class BodegaStockMovementService {
           }
 
           // REGLA ORO: En ingresos, inicializar el balance del item y crear el LOTE para reportes
-          const updatedItem = await tx.bodegaStockMovementItem.update({
+          const updatedItem = await tx.bodegaTransactionItem.update({
             where: { id: item.id },
             data: {
               initialBalance: movementQty,
@@ -736,10 +770,10 @@ export class BodegaStockMovementService {
               unitCost: (item as any).unitCost || null,
               status: "ACTIVO",
               createdBy: userId,
-              observations: `Lote generado por ${movement.movementType} ${movement.folio}`,
+              observations: `Lote generado por ${movement.type} ${movement.folio}`,
             },
           });
-        } else if (movement.movementType === "SALIDA" || (movement.movementType === "AJUSTE" && movementQty < 0)) {
+        } else if (movement.type === "SALIDA" || (movement.type === "AJUSTE" && movementQty < 0)) {
           const absQty = Math.abs(movementQty);
           nextQuantity = currentQuantity - absQty;
 
@@ -758,13 +792,13 @@ export class BodegaStockMovementService {
           nextVerificado = currentVerificado - diffVerificado;
 
           // REGLA ORO: En salidas, aplicar FIFO sobre los items con balance positivo y sus LOTES
-          const availableBuckets = await tx.bodegaStockMovementItem.findMany({
+          const availableBuckets = await tx.bodegaTransactionItem.findMany({
             where: {
               articleId: item.articleId,
               currentBalance: { gt: 0 },
-              movement: {
+              transaction: {
                 warehouseId: movement.warehouseId,
-                status: { in: ["EJECUTADO", "COMPLETADO"] },
+                status: { in: ["COMPLETADA", "APLICADA", "EJECUTADO", "APLICADO", "COMPLETADO"] },
               },
             },
             orderBy: { createdAt: "asc" },
@@ -776,7 +810,7 @@ export class BodegaStockMovementService {
             const toTake = Math.min(Number(bucket.currentBalance), qtyToConsume);
 
             // Descontar del balance del item (bucket)
-            await tx.bodegaStockMovementItem.update({
+            await tx.bodegaTransactionItem.update({
               where: { id: bucket.id },
               data: { currentBalance: { decrement: toTake } },
             });
@@ -800,7 +834,7 @@ export class BodegaStockMovementService {
           }
 
           // Actualizar el item actual para reflejar que consumió stock
-          await tx.bodegaStockMovementItem.update({
+          await tx.bodegaTransactionItem.update({
             where: { id: item.id },
             data: {
               initialBalance: 0,
@@ -808,9 +842,9 @@ export class BodegaStockMovementService {
               observations: itemReview?.observations || null,
             },
           });
-        } else if (movement.movementType === "RESERVA") {
+        } else if (movement.type === "RESERVA") {
           nextReserved = currentReserved + movementQty;
-        } else if (movement.movementType === "LIBERACION") {
+        } else if (movement.type === "LIBERACION") {
           nextReserved = currentReserved - movementQty;
         }
 
@@ -838,14 +872,25 @@ export class BodegaStockMovementService {
         });
       }
 
-      const updated = await tx.bodegaStockMovement.update({
+      const updated = await tx.bodegaTransaction.update({
         where: { id: movementId },
         data: {
-          status: "EJECUTADO",
+          status: shouldCompleteOnApply ? "COMPLETADA" : "APLICADA",
           appliedAt: new Date(),
           appliedBy: userId,
           observations: observations ? `${movement.observations || ""}\n${observations}`.trim() : movement.observations,
         },
+      });
+
+      await tx.bodegaTransactionLog.create({
+        data: {
+          transactionId: movementId,
+          action: "APPLY",
+          description: shouldCompleteOnApply
+            ? "Movimiento aplicado y verificado al inventario."
+            : "Movimiento aplicado al inventario (Stock no verificado).",
+          createdBy: userId,
+        }
       });
 
       return updated;
@@ -853,7 +898,7 @@ export class BodegaStockMovementService {
   }
 
   async completeMovement(movementId: string, userId: string, itemsVerificados: Array<{ id: string; quantity: number; observations?: string; evidence?: string[] }>, destinationWarehouseId?: string) {
-    const movement = await this.prisma.bodegaStockMovement.findUnique({
+    const movement = await this.prisma.bodegaTransaction.findUnique({
       where: { id: movementId },
       include: {
         items: true,
@@ -864,8 +909,9 @@ export class BodegaStockMovementService {
       throw new BodegaMovementError("Movimiento no encontrado");
     }
 
-    if (movement.status !== "EJECUTADO") {
-      throw new BodegaMovementError("Solo se pueden verificar movimientos en estado EJECUTADO");
+    const estadosPermitidos = ["APLICADA", "COMPLETADA", "EN_TRANSITO"];
+    if (!estadosPermitidos.includes(movement.status)) {
+      throw new BodegaMovementError("Solo se pueden verificar movimientos en estado APLICADA o EN_TRANSITO");
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -932,7 +978,7 @@ export class BodegaStockMovementService {
         }
 
         // Registrar en el item
-        await tx.bodegaStockMovementItem.update({
+        await tx.bodegaTransactionItem.update({
           where: { id: itemV.id },
           data: {
             cantidadVerificada: cantAVerificar,
@@ -944,18 +990,29 @@ export class BodegaStockMovementService {
       }
 
       // Cambiar estado a COMPLETADO y actualizar la bodega si fue una recepción de transferencia
-      return tx.bodegaStockMovement.update({
+      const result = await tx.bodegaTransaction.update({
         where: { id: movementId },
         data: {
-          status: "COMPLETADO",
+          status: "COMPLETADA",
           ...(isTransfering ? { warehouseId: finalWarehouseId } : {}),
         },
       });
+
+      await tx.bodegaTransactionLog.create({
+        data: {
+          transactionId: movementId,
+          action: "COMPLETE",
+          description: "Verificación de ítems completada y stock verificado.",
+          createdBy: userId,
+        }
+      });
+
+      return result;
     });
   }
 
   async approveMovement(id: string, userId: string) {
-    const movement = await this.prisma.bodegaStockMovement.findUnique({
+    const movement = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
     });
 
@@ -964,18 +1021,29 @@ export class BodegaStockMovementService {
       throw new BodegaMovementError(`No se puede aprobar un movimiento en estado ${movement.status}`);
     }
 
-    return this.prisma.bodegaStockMovement.update({
+    const updated = await this.prisma.bodegaTransaction.update({
       where: { id },
       data: {
-        status: "APROBADO",
+        status: "APROBADA",
         approvedAt: new Date(),
         approvedBy: userId,
       },
     });
+
+    await this.prisma.bodegaTransactionLog.create({
+      data: {
+        transactionId: id,
+        action: "APPROVE",
+        description: "Movimiento aprobado.",
+        createdBy: userId,
+      }
+    });
+
+    return updated;
   }
 
   async rejectMovement(id: string, userId: string, reason: string) {
-    const movement = await this.prisma.bodegaStockMovement.findUnique({
+    const movement = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
     });
 
@@ -984,13 +1052,24 @@ export class BodegaStockMovementService {
       throw new BodegaMovementError(`No se puede rechazar un movimiento en estado ${movement.status}`);
     }
 
-    return this.prisma.bodegaStockMovement.update({
+    const updated = await this.prisma.bodegaTransaction.update({
       where: { id },
       data: {
-        status: "RECHAZADO",
+        status: "RECHAZADA",
         observations: reason ? `${movement.observations || ""}\nMotivo rechazo: ${reason}`.trim() : movement.observations,
       },
     });
+
+    await this.prisma.bodegaTransactionLog.create({
+      data: {
+        transactionId: id,
+        action: "REJECT",
+        description: `Movimiento rechazado. Motivo: ${reason}`,
+        createdBy: userId,
+      }
+    });
+
+    return updated;
   }
 
   async listStock(filters: BodegaStockListFilters) {
@@ -1061,7 +1140,7 @@ export class BodegaStockMovementService {
     };
   }
 
-  async quickSearchInventory(search: string, warehouseId?: string, articleId?: string) {
+  async quickSearchInventory(search: string, warehouseId?: string, articleId?: string, context?: string) {
     const rows = await this.prisma.bodegaStock.findMany({
       where: {
         ...(warehouseId ? { warehouseId } : {}),
@@ -1099,6 +1178,8 @@ export class BodegaStockMovementService {
         descripcion: string | null;
         unidad: string;
         stockTotal: number;
+        stockFisicoTotal: number;
+        stockEnTransitoTotal: number;
         partNumber: string | null;
         internalCode: string | null;
         bodegas: Array<{
@@ -1106,18 +1187,25 @@ export class BodegaStockMovementService {
           bodegaCodigo: string;
           bodegaNombre: string;
           cantidadDisponible: number;
+          esTransito: boolean;
           stockMinimo: number;
           bajoStock: boolean;
         }>;
       }
     >();
 
+    const isRetiro = context === "RETIRO";
+
     for (const row of rows) {
       const key = row.article.id;
       const quantity = Number(row.quantity);
+      const stockVerificado = Number(row.stockVerificado);
       const reserved = Number(row.reservedQuantity);
-      const available = quantity - reserved;
+
+      // Si el contexto es retiro, el disponible depende de lo verificado.
+      const available = isRetiro ? stockVerificado - reserved : quantity - reserved;
       const min = Number(row.article.minimumStock);
+      const esTransito = this.isTransitWarehouse(row.warehouse);
 
       const existing = grouped.get(key);
       if (!existing) {
@@ -1130,6 +1218,8 @@ export class BodegaStockMovementService {
           descripcion: row.article.description,
           unidad: row.article.unit,
           stockTotal: available,
+          stockFisicoTotal: esTransito ? 0 : available,
+          stockEnTransitoTotal: esTransito ? available : 0,
           partNumber: row.article.partNumber,
           internalCode: row.article.internalCode,
           bodegas: [
@@ -1138,6 +1228,7 @@ export class BodegaStockMovementService {
               bodegaCodigo: row.warehouse.code,
               bodegaNombre: row.warehouse.name,
               cantidadDisponible: available,
+              esTransito,
               stockMinimo: min,
               bajoStock: available < min,
             },
@@ -1147,11 +1238,17 @@ export class BodegaStockMovementService {
         // Solo agregar bodega si tiene stock disponible positivo
         if (available > 0) {
           existing.stockTotal += available;
+          if (esTransito) {
+            existing.stockEnTransitoTotal += available;
+          } else {
+            existing.stockFisicoTotal += available;
+          }
           existing.bodegas.push({
             bodegaId: row.warehouse.id,
             bodegaCodigo: row.warehouse.code,
             bodegaNombre: row.warehouse.name,
             cantidadDisponible: available,
+            esTransito,
             stockMinimo: min,
             bajoStock: available < min,
           });
@@ -1206,15 +1303,15 @@ export class BodegaStockMovementService {
               name: true,
             },
           },
-          sourceMovementItem: {
+          sourceTransactionItem: {
             include: {
-              movement: {
+              transaction: {
                 select: {
                   id: true,
                   folio: true,
                   reason: true,
                   observations: true,
-                  movementType: true,
+                  type: true,
                 },
               },
             },
@@ -1234,7 +1331,7 @@ export class BodegaStockMovementService {
       data: rows.map((row) => ({
         id: row.id,
         loteCode: row.code,
-        movementType: row.sourceMovementItem?.movement.movementType || (row.sourceMovementItemId ? "GENERADO" : "MANUAL"),
+        movementType: row.sourceTransactionItem?.transaction.type || (row.sourceMovementItemId ? "GENERADO" : "MANUAL"),
         status: row.status,
         quantity: row.currentQuantity,
         initialQuantity: row.initialQuantity,
@@ -1243,8 +1340,8 @@ export class BodegaStockMovementService {
         createdAt: row.createdAt,
         article: row.article,
         warehouse: row.warehouse,
-        serialCount: row._count.serialNumbers,
-        sourceMovement: row.sourceMovementItem?.movement || null,
+        serialCount: row._count?.serialNumbers || 0,
+        sourceMovement: row.sourceTransactionItem?.transaction || null,
       })),
       meta: {
         total,
@@ -1388,18 +1485,18 @@ export class BodegaStockMovementService {
   }
 
   async getArticleMovements(articleId: string, warehouseId?: string) {
-    const where: Prisma.BodegaStockMovementItemWhereInput = {
+    const where: Prisma.BodegaTransactionItemWhereInput = {
       articleId,
-      movement: {
-        status: { in: ["EJECUTADO", "COMPLETADO"] },
+      transaction: {
+        status: { in: ["EJECUTADO", "COMPLETADO", "COMPLETADA", "APLICADO", "APLICADA"] },
         ...(warehouseId ? { warehouseId } : {}),
       },
     };
 
-    const items = await this.prisma.bodegaStockMovementItem.findMany({
+    const items = await this.prisma.bodegaTransactionItem.findMany({
       where,
       include: {
-        movement: {
+        transaction: {
           include: {
             warehouse: {
               select: { name: true, code: true },
@@ -1411,7 +1508,7 @@ export class BodegaStockMovementService {
         },
       },
       orderBy: {
-        movement: {
+        transaction: {
           createdAt: "desc",
         },
       },
@@ -1420,33 +1517,33 @@ export class BodegaStockMovementService {
 
     return items.map((item) => ({
       id: item.id,
-      movementId: item.movementId,
-      folio: item.movement.folio,
-      tipo: item.movement.movementType,
+      movementId: item.transactionId,
+      folio: item.transaction.folio,
+      tipo: item.transaction.type,
       cantidad: Number(item.quantity),
-      fecha: item.movement.createdAt,
-      bodega: item.movement.warehouse.name,
-      bodegaCodigo: item.movement.warehouse.code,
-      usuario: `${item.movement.creator.firstName} ${item.movement.creator.lastName}`,
-      motivo: item.movement.reason,
-      observaciones: item.movement.observations,
+      fecha: item.transaction.createdAt,
+      bodega: item.transaction.warehouse.name,
+      bodegaCodigo: item.transaction.warehouse.code,
+      usuario: `${item.transaction.creator.firstName} ${item.transaction.creator.lastName}`,
+      motivo: item.transaction.reason,
+      observaciones: item.transaction.observations,
     }));
   }
 
   async addItemEvidence(itemId: string, url: string) {
-    const item = await this.prisma.bodegaStockMovementItem.findUnique({
+    const item = await this.prisma.bodegaTransactionItem.findUnique({
       where: { id: itemId },
-      select: { movementId: true },
+      select: { transactionId: true },
     });
 
     if (!item) {
       throw new BodegaMovementError("El ítem de movimiento no existe");
     }
 
-    return this.prisma.bodegaMovementEvidence.create({
+    return this.prisma.bodegaTransactionEvidence.create({
       data: {
-        movementId: item.movementId,
-        movementItemId: itemId,
+        transactionId: item.transactionId,
+        transactionItemId: itemId,
         url,
         fileName: url.split("/").pop() || "archivo",
       },
@@ -1454,7 +1551,7 @@ export class BodegaStockMovementService {
   }
 
   async removeItemEvidence(evidenceId: string) {
-    return this.prisma.bodegaMovementEvidence.delete({
+    return this.prisma.bodegaTransactionEvidence.delete({
       where: { id: evidenceId },
     });
   }

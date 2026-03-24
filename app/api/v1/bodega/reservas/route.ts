@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const where = search
       ? {
           OR: [
-            { requestItem: { request: { folio: { contains: search, mode: "insensitive" as const } } } },
+            { transactionItem: { transaction: { folio: { contains: search, mode: "insensitive" as const } } } },
             { article: { code: { contains: search, mode: "insensitive" as const } } },
             { article: { name: { contains: search, mode: "insensitive" as const } } },
             { warehouse: { code: { contains: search, mode: "insensitive" as const } } },
@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
               name: true,
             },
           },
-          requestItem: {
+          transactionItem: {
             select: {
-              request: {
+              transaction: {
                 select: {
                   id: true,
                   folio: true,
-                  statusCode: true,
+                  status: true,
                 },
               },
             },

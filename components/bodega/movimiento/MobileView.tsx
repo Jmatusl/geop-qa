@@ -1,17 +1,13 @@
 "use client";
 
-/**
- * COMPONENTE - MOVIMIENTO ARTÍCULO (VISTA MÓVIL)
- *
- * Replica fiel de la interfaz legacy aprobada por el cliente.
- * Flujo: selección bodegas → carga stock con trazabilidad → selección de lotes → transferir.
- */
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeftRight, Check, Loader2, Package, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { invalidateBodegaStockQueries } from "@/lib/hooks/bodega/query-invalidation";
 import { useBodegaConfig } from "@/lib/hooks/bodega/use-bodega-config";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 
@@ -60,8 +56,10 @@ function useStockPorMovimiento(bodegaId: string | null) {
     try {
       const res = await fetch(`/api/v1/bodega/warehouses/${bodegaId}/stock`);
       const data = await res.json();
-      // Soporta distintos formatos de respuesta
-      setItems(data.items || data.data || data || []);
+      
+      // Soporta distintos formatos de respuesta de forma robusta
+      const result = data.items || data.data || data;
+      setItems(Array.isArray(result) ? result : []);
     } catch {
       toast.error("Error al cargar stock");
     } finally {
@@ -135,6 +133,7 @@ function StockMovimientoCard({ item, onToggle, onUpdateCantidad }: { item: Stock
 
 export default function MobileView() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: configData } = useBodegaConfig();
   const { data: warehousesData } = useBodegaWarehouses(1, 100);
 
@@ -158,6 +157,11 @@ export default function MobileView() {
 
   // Sincronizar items con selección limpia al cambiar bodega
   useEffect(() => {
+    if (!Array.isArray(rawItems)) {
+      setStockItems([]);
+      return;
+    }
+
     setStockItems(
       rawItems.map((item: any) => ({
         itemId: String(item.itemId ?? item.id ?? item.articuloId),
@@ -213,6 +217,8 @@ export default function MobileView() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error en transferencia");
+
+      await invalidateBodegaStockQueries(queryClient);
 
       toast.success(data.message || "Transferencia completada", {
         description: `${selectedItems.length} artículo(s) movidos`,

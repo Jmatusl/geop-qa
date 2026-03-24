@@ -536,18 +536,18 @@ export default function MobileView() {
 
       const obsArray = [
         observaciones ? `Justificación: ${observaciones}` : null,
-        docReferencia ? `Doc. Ref: ${docReferencia}` : null,
-        numCotizacion ? `N° Cotización: ${numCotizacion}` : null,
-        guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+        // No concatenamos campos estructurados aquí ya que iran en sus propios campos
         costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
       ].filter(Boolean);
 
       await createMovement.mutateAsync({
-        movementType: "INGRESO",
+        type: "INGRESO",
         warehouseId,
         items: movementItems,
         reason: observaciones,
         externalReference: docReferencia || null,
+        quotationNumber: numCotizacion || null,
+        deliveryGuide: guiaDespacho || null,
         observations: obsArray.join(" | "),
         evidence: fotosEvidencia,
         autoVerify: autoVerifyEnabled && verificacionAuto,

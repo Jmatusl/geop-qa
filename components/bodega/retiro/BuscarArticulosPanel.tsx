@@ -22,7 +22,7 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
   // 1. Carga inicial del catálogo (vacío trae los primeros ~250 según take del servicio)
-  const { data: catalogoData, isLoading: cargandoCatalogo } = useBodegaQuickSearch("");
+  const { data: catalogoData, isLoading: cargandoCatalogo } = useBodegaQuickSearch("", undefined, { context: "RETIRO" });
   const articulosCatalogo = catalogoData?.resultados || [];
 
   // 2. Filtrado local inteligente sopesando nombre, código, descripción, partNumber e internalCode
@@ -41,7 +41,7 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
   // 3. Determinar si necesitamos disparar búsqueda al servidor (si local falló y hay término suficiente)
   const debeBuscarServidor = terminoBusqueda.trim().length >= 2 && resultadosLocales.length === 0;
 
-  const { data: buscadorServidorData, isLoading: buscandoEnServidor } = useBodegaQuickSearch(terminoBusqueda, undefined, { enabled: debeBuscarServidor });
+  const { data: buscadorServidorData, isLoading: buscandoEnServidor } = useBodegaQuickSearch(terminoBusqueda, undefined, { enabled: debeBuscarServidor, context: "RETIRO" });
 
   const resultadosBusqueda = debeBuscarServidor ? buscadorServidorData?.resultados || [] : resultadosLocales;
   const buscando = cargandoCatalogo || (debeBuscarServidor && buscandoEnServidor);
@@ -148,7 +148,7 @@ export function BuscarArticulosPanel({ open, onOpenChange, itemsAgregados, onAdd
 
                     {mostrarBodegas ? (
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                        {articulo.bodegas?.map((bodega) => {
+                        {articulo.bodegas?.filter(b => b.bodegaCodigo !== "TRANSITO").map((bodega) => {
                           const yaAgregado = itemsAgregados.some((i) => i.articuloId === articulo.id);
                           const esBodegaActual = itemsAgregados.some((i) => i.articuloId === articulo.id && i.bodegaOrigenId === bodega.bodegaId);
 

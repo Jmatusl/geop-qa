@@ -12,6 +12,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Filter, Loader2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Package, X, ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react";
 import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // Tipos
@@ -20,7 +21,7 @@ import { useBodegaWarehouses } from "@/lib/hooks/bodega/use-bodega-warehouses";
 interface MovimientoItem {
   id: string;
   folio: string;
-  movementType: string;
+  type: string;
   status: string;
   reason: string | null;
   observations: string | null;
@@ -44,40 +45,51 @@ interface Pagination {
 // Helpers
 // ============================================================================
 
-function getTipoLabel(tipo: string): string {
-  if (tipo === "INGRESO") return "Ingreso";
-  if (tipo === "SALIDA") return "Egreso";
-  if (tipo === "AJUSTE") return "Ajuste";
-  if (tipo === "RESERVA") return "Reserva";
-  if (tipo === "LIBERACION") return "Liberación";
-  return tipo;
-}
+function getMovementBadgeStyle(folio: string, type: string) {
+  const safeFolio = folio || "";
+  const safeType = type || "";
 
-function getTipoColor(tipo: string): string {
-  if (tipo === "INGRESO") return "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50";
-  if (tipo === "SALIDA") return "text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/50";
-  if (tipo === "AJUSTE") return "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50";
-  return "text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-950/50";
-}
-
-function getEstadoColor(estado: string): string {
-  switch (estado) {
-    case "EJECUTADO":
-    case "APLICADO":
-      return "text-green-700 dark:text-green-400";
-    case "COMPLETADO":
-      return "text-purple-700 dark:text-purple-400";
-    case "PENDIENTE":
-    case "BORRADOR":
-      return "text-yellow-700 dark:text-yellow-400";
-    case "APROBADO":
-      return "text-blue-700 dark:text-blue-400";
-    case "RECHAZADO":
-    case "CANCELADO":
-      return "text-red-700 dark:text-red-400";
-    default:
-      return "text-gray-600 dark:text-gray-400";
+  if (safeFolio.includes("TRANSFERENCIA") || safeType.includes("TRANSFERENCIA")) {
+    return { label: "TRANSFERENCIA", className: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800" };
   }
+
+  if (safeFolio.includes("_OC") || safeType === "INGRESO") {
+    return { label: "INGRESO OC", className: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800" };
+  }
+
+  if (safeFolio.includes("EGRESO") || safeType.includes("SALIDA")) {
+    return { label: "EGRESO", className: "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800" };
+  }
+
+  return { label: safeType || "MOVIMIENTO", className: "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700" };
+}
+
+function getStatusBadgeStyle(status: string) {
+  if (status === "APROBADA") {
+    return { label: "APROBADA", className: "bg-blue-500 text-white" };
+  }
+
+  if (status === "APLICADA") {
+    return { label: "EJECUTADO", className: "bg-emerald-500 text-white" };
+  }
+
+  if (status === "COMPLETADA") {
+    return { label: "COMPLETADA", className: "bg-purple-600 text-white" };
+  }
+
+  if (status === "PENDIENTE") {
+    return { label: "PENDIENTE", className: "bg-amber-500 text-white" };
+  }
+
+  if (status === "RECHAZADA" || status === "CANCELADA") {
+    return { label: status, className: "bg-red-500 text-white" };
+  }
+
+  if (status === "BORRADOR") {
+    return { label: "BORRADOR", className: "bg-slate-400 text-white" };
+  }
+
+  return { label: status, className: "bg-slate-500 text-white" };
 }
 
 // ============================================================================
@@ -86,6 +98,8 @@ function getEstadoColor(estado: string): string {
 
 function MovimientoCard({ mov }: { mov: MovimientoItem }) {
   const [expanded, setExpanded] = useState(false);
+  const movementBadge = getMovementBadgeStyle(mov.folio, mov.type);
+  const statusBadge = getStatusBadgeStyle(mov.status);
 
   const fecha = new Date(mov.createdAt).toLocaleDateString("es-CL", {
     day: "2-digit",
@@ -104,8 +118,12 @@ function MovimientoCard({ mov }: { mov: MovimientoItem }) {
           <div className="flex-1 min-w-0">
             {/* Badges Tipo + Estado */}
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getTipoColor(mov.movementType)}`}>{getTipoLabel(mov.movementType)}</span>
-              <span className={`text-xs font-medium ${getEstadoColor(mov.status)}`}>{mov.status}</span>
+              <span className={cn("text-[10px] font-black uppercase px-2 py-0.5 rounded-full border tracking-wider", movementBadge.className)}>
+                {movementBadge.label}
+              </span>
+              <span className={cn("text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider shadow-sm", statusBadge.className)}>
+                {statusBadge.label}
+              </span>
             </div>
 
             {/* Folio + Referencia */}
@@ -193,7 +211,7 @@ export default function HistorialMobileView() {
       const res = await fetch(`/api/v1/bodega/movimientos?${query}`);
       const json = await res.json();
       setData(json.data || []);
-      setPagination(json.pagination ?? null);
+      setPagination(json.meta ?? null);
     } catch {
       // Silencioso — no exponer detalles técnicos al cliente
     } finally {
@@ -203,13 +221,13 @@ export default function HistorialMobileView() {
 
   // Carga inicial y al cambiar página/orden
   useEffect(() => {
-    fetchHistorial({ page, pageSize: 20, search, movementType: tipo, status: estado, warehouseId });
+    fetchHistorial({ page, pageSize: 20, search, type: tipo, status: estado, warehouseId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, orderDir]);
 
   const handleApplyFilters = () => {
     setPage(1);
-    fetchHistorial({ page: 1, pageSize: 20, search, movementType: tipo, status: estado, warehouseId });
+    fetchHistorial({ page: 1, pageSize: 20, search, type: tipo, status: estado, warehouseId });
   };
 
   const handleClearFilters = () => {
@@ -312,10 +330,11 @@ export default function HistorialMobileView() {
                 >
                   <option value="">Todos</option>
                   <option value="PENDIENTE">Pendiente</option>
-                  <option value="APROBADO">Aprobado</option>
-                  <option value="EJECUTADO">Ejecutado</option>
-                  <option value="COMPLETADO">Completado</option>
-                  <option value="RECHAZADO">Rechazado</option>
+                  <option value="APROBADA">Aprobada</option>
+                  <option value="APLICADA">Ejecutado</option>
+                  <option value="COMPLETADA">Completada</option>
+                  <option value="RECHAZADA">Rechazada</option>
+                  <option value="CANCELADA">Cancelada</option>
                 </select>
               </div>
             </div>

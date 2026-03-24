@@ -3,18 +3,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { bodegaQueryKeys } from "@/lib/hooks/query-keys";
+import { invalidateBodegaStockQueries } from "@/lib/hooks/bodega/query-invalidation";
 
 export interface BodegaMovement {
   id: string;
   folio: string;
   warehouseId: string;
   requestId: string | null;
-  movementType: string;
+  type: string;
   status: string;
   reason: string | null;
   observations: string | null;
   responsable: string | null;
   externalReference: string | null;
+  quotationNumber: string | null;
+  deliveryGuide: string | null;
   approvedAt: string | null;
   approvedBy: string | null;
   createdBy: string;
@@ -28,7 +31,7 @@ export interface BodegaMovement {
   request: {
     id: string;
     folio: string;
-    statusCode: string;
+    status: string;
   } | null;
   creator: {
     id: string;
@@ -59,22 +62,22 @@ interface UseBodegaMovementsParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  movementType?: string;
+  type?: string;
   status?: string;
   warehouseId?: string;
 }
 
 export function useBodegaMovements(params: UseBodegaMovementsParams = {}) {
-  const { page = 1, pageSize = 20, search = "", movementType = "", status = "", warehouseId = "" } = params;
+  const { page = 1, pageSize = 20, search = "", type = "", status = "", warehouseId = "" } = params;
 
   return useQuery<BodegaMovementsResponse>({
-    queryKey: bodegaQueryKeys.movements.list({ page, pageSize, search, movementType, status, warehouseId }),
+    queryKey: bodegaQueryKeys.movements.list({ page, pageSize, search, type, status, warehouseId }),
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set("page", String(page));
       qs.set("pageSize", String(pageSize));
       if (search) qs.set("search", search);
-      if (movementType) qs.set("movementType", movementType);
+      if (type) qs.set("type", type);
       if (status) qs.set("status", status);
       if (warehouseId) qs.set("warehouseId", warehouseId);
 
@@ -89,7 +92,7 @@ export function useBodegaMovements(params: UseBodegaMovementsParams = {}) {
 }
 
 interface CreateBodegaMovementPayload {
-  movementType: "INGRESO" | "SALIDA" | "AJUSTE" | "RESERVA" | "LIBERACION";
+  type: "INGRESO" | "SALIDA" | "AJUSTE" | "RESERVA" | "LIBERACION";
   warehouseId: string;
   articleId?: string;
   quantity?: number;
@@ -99,6 +102,8 @@ interface CreateBodegaMovementPayload {
   observations?: string | null;
   responsable?: string | null;
   externalReference?: string | null;
+  quotationNumber?: string | null;
+  deliveryGuide?: string | null;
   evidence?: string[];
   autoVerify?: boolean;
 }
@@ -121,8 +126,8 @@ export function useCreateBodegaMovement() {
 
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+    onSuccess: async () => {
+      await invalidateBodegaStockQueries(queryClient);
       toast.success("Movimiento registrado correctamente");
     },
     onError: (error: Error) => {
@@ -147,8 +152,8 @@ export function useApproveBodegaMovement() {
 
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+    onSuccess: async () => {
+      await invalidateBodegaStockQueries(queryClient);
       toast.success("Movimiento aprobado correctamente");
     },
     onError: (error: Error) => {
@@ -175,8 +180,8 @@ export function useRejectBodegaMovement() {
 
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+    onSuccess: async () => {
+      await invalidateBodegaStockQueries(queryClient);
       toast.success("Movimiento rechazado");
     },
     onError: (error: Error) => {
@@ -203,8 +208,8 @@ export function useApplyBodegaMovement() {
 
       return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: bodegaQueryKeys.movements.all });
+    onSuccess: async () => {
+      await invalidateBodegaStockQueries(queryClient);
       toast.success("Movimiento aplicado y stock actualizado");
     },
     onError: (error: Error) => {

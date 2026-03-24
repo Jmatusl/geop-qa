@@ -441,10 +441,10 @@ export class BodegaQuadratureImportService {
         // El folio mantiene el prefijo INV para distinguir que es una carga de cuadratura
         const folioMovimiento = `INV-${refWarehouse?.code || "BOD"}-${String(rank + 1).padStart(2, "0")}-${String(correlativoMovimiento).padStart(3, "0")}`;
 
-        const movement = await tx.bodegaStockMovement.create({
+        const movement = await tx.bodegaTransaction.create({
           data: {
             folio: folioMovimiento,
-            movementType: "INGRESO",
+            type: "INGRESO",
             status: "COMPLETADO", // Marcamos como COMPLETADO porque es una carga de inventario real (ya verificado)
             warehouseId,
             reason: "CARGA MASIVA CUADRATURA",
@@ -512,11 +512,10 @@ export class BodegaQuadratureImportService {
       await tx.bodegaReservation.deleteMany();
       await tx.bodegaSerialNumber.deleteMany();
       await tx.bodegaLot.deleteMany();
-      await tx.bodegaStockMovementItem.deleteMany();
-      await tx.bodegaStockMovement.deleteMany();
-      await tx.bodegaInternalRequestLog.deleteMany();
-      await tx.bodegaInternalRequestItem.deleteMany();
-      await tx.bodegaInternalRequest.deleteMany();
+      await tx.bodegaTransactionEvidence.deleteMany();
+      await tx.bodegaTransactionItem.deleteMany();
+      await tx.bodegaTransactionLog.deleteMany();
+      await tx.bodegaTransaction.deleteMany();
       await tx.bodegaStock.deleteMany();
       await tx.bodegaArticle.deleteMany();
       await tx.bodegaWarehouse.deleteMany();

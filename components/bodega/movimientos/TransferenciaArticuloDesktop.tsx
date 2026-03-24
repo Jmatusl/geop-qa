@@ -64,6 +64,7 @@ interface StockItem {
   cantidad: number;
   selected: boolean;
   cantidadTransferir: string;
+  unitCost: number;
 }
 
 function formatNumber(value: string): string {
@@ -89,7 +90,8 @@ function useStockPorMovimiento(bodegaId: string | null) {
     try {
       const res = await fetch(`/api/v1/bodega/warehouses/${bodegaId}/stock`);
       const data = await res.json();
-      setItems(data.items || data.data || data || []);
+      const result = data.items || data.data || data;
+      setItems(Array.isArray(result) ? result : []);
     } catch {
       // ignore
     } finally {
@@ -214,6 +216,7 @@ export function TransferenciaArticuloDesktop({
         cantidad: item.cantidad ?? 0,
         selected: false,
         cantidadTransferir: String(item.cantidad ?? 0),
+        unitCost: item.unitCost || 0,
       })),
     );
   }, [rawItems]);
@@ -375,7 +378,12 @@ export function TransferenciaArticuloDesktop({
   };
 
   const handleSubmit = async (isAutoVerified: boolean = false) => {
-    const validItems = selectedItems.map((i) => ({ articuloId: i.articuloId, cantidad: parseNumber(i.cantidadTransferir), sourceId: i.itemId }));
+    const validItems = selectedItems.map((i) => ({ 
+      articuloId: i.articuloId, 
+      cantidad: parseNumber(i.cantidadTransferir), 
+      sourceId: i.itemId,
+      unitCost: i.unitCost 
+    }));
 
     try {
       if (esTransferencia) {
@@ -385,9 +393,14 @@ export function TransferenciaArticuloDesktop({
 
         // 1. Egreso Origen
         await createMovement.mutateAsync({
-          movementType: "SALIDA",
+          type: "SALIDA",
           warehouseId,
-          items: validItems.map((i) => ({ articleId: i.articuloId, quantity: i.cantidad, sourceMovementItemId: i.sourceId })),
+          items: validItems.map((i) => ({ 
+            articleId: i.articuloId, 
+            quantity: i.cantidad, 
+            unitCost: i.unitCost, 
+            sourceMovementItemId: i.sourceId 
+          })),
           reason: "EGRESO_TRANSFERENCIA",
           observations: `${justificacion} | DESTINO: ${destinationWarehouseId}`,
           responsable,
@@ -397,9 +410,14 @@ export function TransferenciaArticuloDesktop({
 
         // 2. Ingreso Destino
         await createMovement.mutateAsync({
-          movementType: "INGRESO",
+          type: "INGRESO",
           warehouseId: destinationWarehouseId,
-          items: validItems.map((i) => ({ articleId: i.articuloId, quantity: i.cantidad, sourceMovementItemId: i.sourceId })),
+          items: validItems.map((i) => ({ 
+            articleId: i.articuloId, 
+            quantity: i.cantidad, 
+            unitCost: i.unitCost, 
+            sourceMovementItemId: i.sourceId 
+          })),
           reason: "INGRESO_TRANSFERENCIA",
           observations: `${justificacion} | ORIGEN: ${warehouseId}`,
           responsable,
@@ -429,19 +447,19 @@ export function TransferenciaArticuloDesktop({
         // Movimiento Simple (INGRESO o SALIDA) con múltiples artículos
         const obsArray = [
           `Justificación: ${justificacion}`,
-          documentoReferencia ? `Doc. Ref: ${documentoReferencia}` : null,
-          numeroCotizacion ? `N° Cotización: ${numeroCotizacion}` : null,
-          guiaDespacho ? `Guía Despacho: ${guiaDespacho}` : null,
+          // No concatenamos campos estructurados aquí ya que iran en sus propios campos
           costCenterId ? `C. Costo: ${costCenters.find((c) => c.id === costCenterId)?.name}` : null,
           `Verificación Automática: ${isAutoVerified ? "SI" : "NO"}`,
         ].filter(Boolean);
 
         await createMovement.mutateAsync({
-          movementType: tipo as any,
+          type: tipo as any,
           warehouseId,
           items: validItems.map((i) => ({ articleId: i.articuloId, quantity: i.cantidad, sourceMovementItemId: i.sourceId })),
           reason: justificacion,
           externalReference: documentoReferencia || null,
+          quotationNumber: numeroCotizacion || null,
+          deliveryGuide: guiaDespacho || null,
           observations: obsArray.join(" | "),
           responsable,
           evidence: fotosEvidencia,
@@ -454,7 +472,7 @@ export function TransferenciaArticuloDesktop({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              movementType: tipo,
+              type: tipo,
               documentReference: documentoReferencia || "S/R",
               warehouseId,
               observations: justificacion,

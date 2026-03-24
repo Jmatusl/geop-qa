@@ -15,21 +15,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Calendar, X, Zap, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useBodegaAvailableBuckets, type BodegaAvailableBucket } from "@/lib/hooks/bodega/use-bodega-available-buckets";
+import { useBodegaQuickSearch } from "@/lib/hooks/bodega/use-bodega-quick-search";
 import { cn } from "@/lib/utils";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-export interface BucketDisponible {
-  id: string; // BodegaStockMovementItem.id o identificador sintético
-  movimientoId: string | null;
-  numeroMovimiento: string;
-  documentoReferencia: string | null;
-  fecha: string;
-  saldo: number;
-  cantidadOriginal: number;
-  precioUnitario: number | null;
-  esBucketSintetico?: boolean; // true cuando viene del fallback BodegaStock
-}
+export interface BucketDisponible extends BodegaAvailableBucket {}
 
 export interface OrigenSeleccionado {
   id: string; // BodegaStockMovementItem.id
@@ -60,10 +52,6 @@ function formatCurrency(amount: number | null): string {
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export function SeleccionOrigenModal({ open, onOpenChange, articleId, warehouseId, cantidadRequerida, onSelect }: SeleccionOrigenModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [ingresos, setIngresos] = useState<BucketDisponible[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
   // Map: id del bucket → cantidad a tomar
   const [seleccionados, setSeleccionados] = useState<Map<string, number>>(new Map());
 
@@ -72,74 +60,73 @@ export function SeleccionOrigenModal({ open, onOpenChange, articleId, warehouseI
   const [bodegaEfectivaNombre, setBodegaEfectivaNombre] = useState<string | null>(null);
   const [usandoBodegaAlternativa, setUsandoBodegaAlternativa] = useState(false);
 
+  const { data: quickSearchData } = useBodegaQuickSearch("", undefined, {
+    enabled: open && !!articleId,
+    articleId,
+  });
+
+  const articuloQuickSearch = quickSearchData?.resultados?.find((result) => result.id === articleId);
+  const {
+    data: ingresosData = [],
+    isLoading: cargandoIngresos,
+    isFetching: actualizandoIngresos,
+    error: ingresosError,
+  } = useBodegaAvailableBuckets(bodegaEfectivaId, articleId, {
+    enabled: open && !!articleId && !!bodegaEfectivaId,
+  });
+  const ingresos = ingresosData as BucketDisponible[];
+
   // Cargar buckets al abrir — resetear bodega efectiva si cambian los props
   useEffect(() => {
     if (open && articleId && warehouseId) {
       setBodegaEfectivaId(warehouseId);
       setBodegaEfectivaNombre(null);
       setUsandoBodegaAlternativa(false);
-      fetchIngresos(warehouseId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, articleId, warehouseId]);
+  }, [open, articleId, warehouseId, articuloQuickSearch]);
 
-  const fetchIngresos = async (targetWarehouseId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/v1/bodega/warehouses/${targetWarehouseId}/disponibles?articleId=${articleId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Error al cargar ingresos");
-      let data: BucketDisponible[] = await res.json();
+  useEffect(() => {
+    if (!open || !articleId || !warehouseId) return;
+    if (bodegaEfectivaId !== warehouseId) return;
+    if (cargandoIngresos || actualizandoIngresos) return;
+    if (ingresos.length > 0) return;
 
-      // Si la bodega original no tiene buckets, buscar alternativa UNA SOLA VEZ (sin recursividad)
-      if (data.length === 0 && targetWarehouseId === warehouseId) {
-        try {
-          const qs = await fetch(`/api/v1/bodega/consulta-rapida?articleId=${articleId}`, { credentials: "include" });
-          if (qs.ok) {
-            const catalog = await qs.json();
-            const art = catalog.resultados?.find((r: any) => r.id === articleId);
-            const bodegaAlt = art?.bodegas?.find((b: any) => b.cantidadDisponible >= (cantidadRequerida > 0 ? cantidadRequerida : 1));
-            if (bodegaAlt && bodegaAlt.bodegaId !== warehouseId) {
-              // Hacer el segundo fetch directamente (sin recursión)
-              const res2 = await fetch(`/api/v1/bodega/warehouses/${bodegaAlt.bodegaId}/disponibles?articleId=${articleId}`, { credentials: "include" });
-              if (res2.ok) {
-                const data2: BucketDisponible[] = await res2.json();
-                if (data2.length > 0) {
-                  setBodegaEfectivaId(bodegaAlt.bodegaId);
-                  setBodegaEfectivaNombre(bodegaAlt.bodegaNombre);
-                  setUsandoBodegaAlternativa(true);
-                  data = data2; // usar los datos de la bodega alternativa
-                }
-              }
-            }
-          }
-        } catch {
-          // Si falla la búsqueda alternativa, continuar con datos vacíos
-        }
+    const bodegaAlt = articuloQuickSearch?.bodegas?.find((bodega) => bodega.cantidadDisponible >= (cantidadRequerida > 0 ? cantidadRequerida : 1));
+    if (!bodegaAlt || bodegaAlt.bodegaId === warehouseId) return;
+
+    setBodegaEfectivaId(bodegaAlt.bodegaId);
+    setBodegaEfectivaNombre(bodegaAlt.bodegaNombre);
+    setUsandoBodegaAlternativa(true);
+  }, [
+    open,
+    articleId,
+    warehouseId,
+    bodegaEfectivaId,
+    articuloQuickSearch,
+    cantidadRequerida,
+    ingresos,
+    cargandoIngresos,
+    actualizandoIngresos,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (cantidadRequerida > 0 && ingresos.length > 0) {
+      let restante = cantidadRequerida;
+      const nuevaSeleccion = new Map<string, number>();
+      for (const ing of ingresos) {
+        if (restante <= 0) break;
+        const aTomar = Math.min(restante, ing.saldo);
+        nuevaSeleccion.set(ing.id, aTomar);
+        restante -= aTomar;
       }
-
-      setIngresos(data);
-
-      // Auto-sugerencia FIFO al abrir
-      if (cantidadRequerida > 0 && data.length > 0) {
-        let restante = cantidadRequerida;
-        const nuevaSeleccion = new Map<string, number>();
-        for (const ing of data) {
-          if (restante <= 0) break;
-          const aTomar = Math.min(restante, ing.saldo);
-          nuevaSeleccion.set(ing.id, aTomar);
-          restante -= aTomar;
-        }
-        setSeleccionados(nuevaSeleccion);
-      } else {
-        setSeleccionados(new Map());
-      }
-    } catch {
-      setError("No se pudieron cargar los datos de trazabilidad.");
-    } finally {
-      setLoading(false);
+      setSeleccionados(nuevaSeleccion);
+      return;
     }
-  };
+
+    setSeleccionados(new Map());
+  }, [open, cantidadRequerida, ingresos, bodegaEfectivaId]);
 
   const toggleSeleccion = (ing: BucketDisponible) => {
     const nueva = new Map(seleccionados);
@@ -222,12 +209,12 @@ export function SeleccionOrigenModal({ open, onOpenChange, articleId, warehouseI
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          {loading ? (
+          {cargandoIngresos || actualizandoIngresos ? (
             <div className="flex items-center justify-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : error ? (
-            <div className="p-8 text-center text-destructive text-sm">{error}</div>
+          ) : ingresosError ? (
+            <div className="p-8 text-center text-destructive text-sm">No se pudieron cargar los datos de trazabilidad.</div>
           ) : ingresos.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">No hay ingresos con saldo disponible para este artículo y bodega.</div>
           ) : (
@@ -333,7 +320,7 @@ export function SeleccionOrigenModal({ open, onOpenChange, articleId, warehouseI
               <X className="h-4 w-4" />
               Cancelar
             </Button>
-            <Button variant="secondary" size="sm" onClick={handleAuto} disabled={loading || ingresos.length === 0} className="text-[#283c7f] dark:text-blue-300 font-semibold flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={handleAuto} disabled={cargandoIngresos || actualizandoIngresos || ingresos.length === 0} className="text-[#283c7f] dark:text-blue-300 font-semibold flex items-center gap-2">
               <Zap className="h-4 w-4" />
               Usar Automático (FIFO)
             </Button>

@@ -65,18 +65,38 @@ export default async function BodegaMovimientoDetallePage({ params }: PageProps)
     createdAt: movement.createdAt.toISOString(),
     updatedAt: movement.updatedAt.toISOString(),
     appliedAt: movement.appliedAt?.toISOString() || null,
+    requiredDate: movement.requiredDate?.toISOString() || null,
     totalItems: Number(movement.totalItems || 0),
     totalPrice: Number(movement.totalPrice || 0),
     items: movement.items.map((item: any) => ({
       ...item,
       quantity: Number(item.quantity || 0),
-      unitCost: Number(item.unitCost || 0),
-      initialBalance: Number(item.initialBalance || 0),
-      currentBalance: Number(item.currentBalance || 0),
+      deliveredQuantity: Number(item.deliveredQuantity || 0),
+      unitCost: item.unitCost ? Number(item.unitCost) : null,
+      initialBalance: item.initialBalance ? Number(item.initialBalance) : null,
+      currentBalance: item.currentBalance ? Number(item.currentBalance) : null,
       cantidadVerificada: item.cantidadVerificada ? Number(item.cantidadVerificada) : null,
       fechaVerificacion: item.fechaVerificacion?.toISOString() || null,
       createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
+      article: item.article ? {
+        ...item.article,
+        weight: item.article.weight ? Number(item.article.weight) : null,
+        volume: item.article.volume ? Number(item.article.volume) : null,
+      } : null,
+      evidences: item.evidences?.map((ev: any) => ({
+        ...ev,
+        createdAt: ev.createdAt.toISOString(),
+      })) || [],
     })),
+    evidences: (movement as any).evidences?.map((ev: any) => ({
+      ...ev,
+      createdAt: ev.createdAt.toISOString(),
+    })) || [],
+    logs: (movement as any).logs?.map((log: any) => ({
+      ...log,
+      createdAt: log.createdAt.toISOString(),
+    })) || [],
   };
 
   return (

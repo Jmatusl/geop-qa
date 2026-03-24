@@ -28,13 +28,21 @@ interface QuickSearchResponse {
   resultados: QuickSearchArticle[];
 }
 
-export function useBodegaQuickSearch(search: string, warehouseId?: string, options: { enabled?: boolean } = {}) {
+export function useBodegaQuickSearch(
+  search: string,
+  warehouseId?: string,
+  options: { enabled?: boolean; context?: string; articleId?: string } = {},
+) {
+  const { enabled = true, context, articleId } = options;
+  
   return useQuery<QuickSearchResponse>({
-    queryKey: ["bodega", "consulta-rapida", search, warehouseId || "ALL"],
+    queryKey: ["bodega", "consulta-rapida", search, warehouseId || "ALL", context || "ALL", articleId || "ALL_ARTICLES"],
     queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set("search", search);
       if (warehouseId) qs.set("warehouseId", warehouseId);
+      if (context) qs.set("context", context);
+      if (articleId) qs.set("articleId", articleId);
 
       const response = await fetch(`/api/v1/bodega/consulta-rapida?${qs.toString()}`, {
         credentials: "include",
@@ -46,7 +54,7 @@ export function useBodegaQuickSearch(search: string, warehouseId?: string, optio
 
       return response.json();
     },
-    enabled: options.enabled ?? true,
-    staleTime: 60_000, // Aumentamos staleTime para la carga inicial
+    enabled,
+    staleTime: 60_000, 
   });
 }

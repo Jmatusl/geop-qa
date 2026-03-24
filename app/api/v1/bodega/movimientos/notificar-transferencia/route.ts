@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       // Consultar los costos desde los movimientos originales de stock
       const stockMoveItems =
         itemIds.length > 0
-          ? await prisma.bodegaStockMovementItem.findMany({
+          ? await prisma.bodegaTransactionItem.findMany({
               where: { id: { in: itemIds } },
               select: { id: true, unitCost: true },
             })

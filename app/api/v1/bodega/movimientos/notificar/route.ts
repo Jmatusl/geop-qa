@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { movementType, documentReference, warehouseId, observations, responsable, items, costCenterId } = body;
+    const type = body.type || body.movementType;
+    const { documentReference, warehouseId, observations, responsable, items, costCenterId } = body;
 
     // Obtener la configuración de notificaciones
     const defaultSettings = await prisma.appSetting.findUnique({
@@ -22,9 +23,9 @@ export async function POST(request: NextRequest) {
     const config = defaultSettings?.value as any;
     let notifConfig = null;
 
-    if (movementType === "INGRESO") {
+    if (type === "INGRESO") {
       notifConfig = config?.ingresos;
-    } else if (movementType === "SALIDA") {
+    } else if (type === "SALIDA") {
       notifConfig = config?.egresos;
     }
 
@@ -63,14 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Preparar el asunto y reemplazar placeholders
-    let subject = notifConfig.asunto || (movementType === "INGRESO" ? "Aviso de Ingreso: {NUMERO}" : "Aviso de Retiro: {NUMERO}");
+    let subject = notifConfig.asunto || (type === "INGRESO" ? "Aviso de Ingreso: {NUMERO}" : "Aviso de Retiro: {NUMERO}");
     subject = subject.replace("{NUMERO}", documentReference || "S/R").replace("{MOTIVO}", observations || "");
 
     // Generar el HTML usando la plantilla
     const html = generateMovimientoEmailHtml({
-      movementType,
+      type: type,
       documentReference: documentReference || "S/R",
-      mensajePersonalizado: notifConfig.mensaje_personalizado || (movementType === "INGRESO" ? "Se ha procesado un ingreso a bodega." : "Se ha procesado un egreso de bodega."),
+      mensajePersonalizado: notifConfig.mensaje_personalizado || (type === "INGRESO" ? "Se ha procesado un ingreso a bodega." : "Se ha procesado un egreso de bodega."),
       warehouseName: warehouse?.name || "Desconocida",
       observations: observations,
       itemsCount: items.length,

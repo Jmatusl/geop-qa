@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Search, Package, MapPin, Warehouse, History, X, ChevronRight, ChevronDown, AlertCircle, Loader2, ExternalLink } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { HistorialMovimientosSheet } from "@/components/bodega/historial/HistorialMovimientosSheet";
+import { useBodegaQuickSearch } from "@/lib/hooks/bodega/use-bodega-quick-search";
 import { cn } from "@/lib/utils";
 
 interface ConsultarStockModalV2Props {
@@ -15,16 +15,8 @@ export function ConsultarStockModalV2({ open, onOpenChange }: ConsultarStockModa
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["global-stock-search-v2", search],
-    queryFn: async () => {
-      if (search.length < 2) return { resultados: [] };
-      const res = await fetch(`/api/v1/bodega/consulta-rapida?search=${encodeURIComponent(search)}`);
-      if (!res.ok) throw new Error("Error buscando artículos");
-      return res.json();
-    },
+  const { data, isLoading } = useBodegaQuickSearch(search, undefined, {
     enabled: open && search.length >= 2,
-    staleTime: 60000,
   });
 
   const articulos = data?.resultados || [];
@@ -89,6 +81,12 @@ export function ConsultarStockModalV2({ open, onOpenChange }: ConsultarStockModa
           ) : (
             <div className="space-y-3">
               {articulos.map((art: any) => (
+                (() => {
+                  const stockFisicoTotal = Number(art.stockFisicoTotal ?? art.stockTotal ?? 0);
+                  const stockEnTransitoTotal = Number(art.stockEnTransitoTotal ?? 0);
+                  const hasOnlyTransit = stockFisicoTotal <= 0 && stockEnTransitoTotal > 0;
+
+                  return (
                 <div
                   key={art.id}
                   className={cn(
@@ -103,15 +101,28 @@ export function ConsultarStockModalV2({ open, onOpenChange }: ConsultarStockModa
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[9px] font-black text-gray-500 uppercase tracking-widest">{art.codigo || art.sku || "S/C"}</span>
-                        {art.stockTotal <= 0 && (
+                        {stockFisicoTotal <= 0 && stockEnTransitoTotal <= 0 && (
                           <span className="flex items-center gap-1 text-[9px] font-black text-red-500 uppercase tracking-wider">
                             <AlertCircle className="w-3 h-3" /> SIN STOCK
                           </span>
                         )}
+                        {hasOnlyTransit && (
+                          <span className="flex items-center gap-1 text-[9px] font-black text-amber-500 uppercase tracking-wider">
+                            <AlertCircle className="w-3 h-3" /> SOLO TRÁNSITO
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-sm font-black text-purple-600 dark:text-purple-400">
-                        {art.stockTotal} {art.unidad}
-                        {expandedId === art.id ? <ChevronDown className="w-4 h-4 ml-1" /> : <ChevronRight className="w-4 h-4 ml-1" />}
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end leading-none">
+                          <div className={cn("text-sm font-black", stockFisicoTotal > 0 ? "text-purple-600 dark:text-purple-400" : hasOnlyTransit ? "text-amber-500 dark:text-amber-400" : "text-red-500") }>
+                            {stockFisicoTotal} {art.unidad}
+                          </div>
+                          <div className="text-[8px] font-black uppercase tracking-widest text-gray-400">Stock físico</div>
+                          {stockEnTransitoTotal > 0 && (
+                            <div className="text-[8px] font-black uppercase tracking-widest text-amber-500">+ {stockEnTransitoTotal} en tránsito</div>
+                          )}
+                        </div>
+                        {expandedId === art.id ? <ChevronDown className="w-4 h-4 ml-1 text-purple-600 dark:text-purple-400" /> : <ChevronRight className="w-4 h-4 ml-1 text-purple-600 dark:text-purple-400" />}
                       </div>
                     </div>
 
@@ -132,7 +143,12 @@ export function ConsultarStockModalV2({ open, onOpenChange }: ConsultarStockModa
                         {art.bodegas.map((bodega: any) => (
                           <div key={bodega.bodegaId} className="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-800">
                             <div>
-                              <div className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase">{bodega.bodegaNombre}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase">{bodega.bodegaNombre}</div>
+                                {bodega.esTransito && (
+                                  <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-white">En tránsito</span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 mt-0.5 uppercase">
                                 <MapPin className="w-3 h-3" /> {bodega.bodegaCodigo}
                               </div>
@@ -171,6 +187,8 @@ export function ConsultarStockModalV2({ open, onOpenChange }: ConsultarStockModa
                     </div>
                   )}
                 </div>
+                  );
+                })()
               ))}
             </div>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowUpDown, Check, FileText, Info, Package, Plus, Search, ShieldCheck, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertCircle, ArrowUpDown, Check, FileText, Info, Package, Plus, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +89,13 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
 
   const addRow = () => setRows((current) => [...current, createEmptyRow()]);
 
+  const AddRowButton = () => (
+    <Button type="button" variant="outline" className="gap-2 border-dashed uppercase font-bold tracking-wide dark:text-white" onClick={addRow}>
+      <Plus className="h-4 w-4" />
+      Agregar fila
+    </Button>
+  );
+
   const updateRow = (rowId: string, field: keyof Omit<ItemRow, "id">, value: string) => {
     setRows((current) =>
       current.map((row) => {
@@ -172,30 +179,36 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
     }
 
     try {
-      for (const row of rows) {
-        const quantity = parseFormattedNumber(row.quantity);
-        const unitPrice = parseFormattedNumber(row.unitPrice || "0");
+      // Construir array de items con precio unitario (unitCost) incluido
+      const items = rows.map((row) => ({
+        articleId: row.articleId,
+        quantity: parseFormattedNumber(row.quantity),
+        unitCost: parseFormattedNumber(row.unitPrice || "0") || undefined,
+      }));
 
-        await createMovement.mutateAsync({
-          movementType: "INGRESO",
-          warehouseId,
-          articleId: row.articleId,
-          quantity,
-          reason: "INGRESO_BODEGA",
-          externalReference: documentRef || null,
-          observations: [
-            `Referencia: ${documentRef || "N/A"}`,
-            quoteNumber ? `N° Cotización: ${quoteNumber}` : null,
-            dispatchGuide ? `Guía Despacho: ${dispatchGuide}` : null,
-            generalNotes ? `Observaciones Generales: ${generalNotes}` : null,
-            `Centro de Costo: ${selectedCostCenter?.name || "N/A"}`,
-            `Justificación/Observaciones: ${description.trim()}`,
-            unitPrice > 0 ? `Precio Unitario: ${unitPrice}` : null,
-          ]
-            .filter(Boolean)
-            .join(" | "),
-        });
-      }
+      const observacionesGen = [
+        `Referencia: ${documentRef || "N/A"}`,
+        quoteNumber ? `N° Cotización: ${quoteNumber}` : null,
+        dispatchGuide ? `Guía Despacho: ${dispatchGuide}` : null,
+        generalNotes ? `Observaciones Generales: ${generalNotes}` : null,
+        `Centro de Costo: ${selectedCostCenter?.name || "N/A"}`,
+        `Justificación/Observaciones: ${description.trim()}`,
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      // Un único POST con todos los ítems — el servicio los procesa en una sola transacción
+      await createMovement.mutateAsync({
+        type: "INGRESO",
+        warehouseId,
+        items,
+        reason: "INGRESO_BODEGA",
+        externalReference: documentRef || null,
+        quotationNumber: quoteNumber || null,
+        deliveryGuide: dispatchGuide || null,
+        observations: observacionesGen,
+        autoVerify: true, // Auto-completar el ingreso para que quede disponible de inmediato
+      });
 
       toast.success("Ingreso registrado correctamente");
       resetForm();
@@ -347,20 +360,16 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
             </div>
             <div className="flex items-center gap-3">
               {rows.length === 0 ? <span className="text-[10px] font-bold uppercase text-destructive">Debe agregar al menos un artículo</span> : null}
-              <Button type="button" variant="outline" className="gap-2 border-dashed uppercase font-bold tracking-wide dark:text-white" onClick={addRow}>
-                <Plus className="h-4 w-4" />
-                Agregar fila
-              </Button>
+              <AddRowButton />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid grid-cols-[56px_minmax(0,1fr)_180px_180px_90px] items-center border-b px-4 py-3 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+          <div className="grid grid-cols-[56px_minmax(0,1fr)_180px_180px] items-center border-b px-4 py-3 text-[11px] font-black uppercase tracking-widest text-muted-foreground">
             <span>#</span>
             <span>Artículo *</span>
             <span>Cantidad *</span>
             <span>Precio Unit.</span>
-            <span className="text-center">Acción</span>
           </div>
 
           {rows.length === 0 ? (
@@ -370,10 +379,10 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
             </div>
           ) : (
             rows.map((row, index) => (
-              <div key={row.id} className="grid grid-cols-[56px_minmax(0,1fr)_180px_180px_90px] items-center gap-4 border-b px-4 py-3">
+              <div key={row.id} className="grid grid-cols-[56px_minmax(0,1fr)_180px_180px] items-center gap-4 border-b px-4 py-3">
                 <span className="text-sm font-bold">{index + 1}</span>
 
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_36px] items-center gap-2">
+                <div className="min-w-0">
                   <Popover open={openArticleRowId === row.id} onOpenChange={(open) => setOpenArticleRowId(open ? row.id : null)}>
                     <PopoverTrigger asChild>
                       <Button type="button" variant="outline" className="h-9 w-full min-w-0 justify-between dark:text-white">
@@ -407,10 +416,6 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
                       </Command>
                     </PopoverContent>
                   </Popover>
-
-                  <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0 dark:text-white" onClick={() => setCreateArticleRowId(row.id)}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
                 </div>
 
                 <Input
@@ -430,25 +435,18 @@ export default function IngresoDesktopForm({ onCancel }: Props) {
                   autoComplete="off"
                   placeholder="0"
                 />
-
-                <div className="flex justify-center">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeRow(row.id)} className="text-red-600 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
             ))
           )}
 
           {rows.length > 0 ? (
-            <div className="flex items-center justify-between border-t px-4 py-3">
-              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider">
-                Tabla: {rows.length} registros
-              </Badge>
-              <Button type="button" variant="outline" size="sm" className="h-8 gap-2 border-dashed text-[10px] font-bold uppercase tracking-widest dark:text-white" onClick={addRow}>
-                <Plus className="h-3 w-3" />
-                Agregar fila
-              </Button>
+            <div className="grid grid-cols-[56px_minmax(0,1fr)_180px_180px] items-center gap-4 border-t px-4 py-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tabla: {rows.length} registros</span>
+              <span />
+              <span />
+              <div className="flex justify-end">
+                <AddRowButton />
+              </div>
             </div>
           ) : null}
         </CardContent>

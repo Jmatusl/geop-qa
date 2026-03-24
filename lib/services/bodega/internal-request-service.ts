@@ -65,7 +65,7 @@ export class BodegaInternalRequestService {
   private async generateFolio(): Promise<string> {
     const prefix = await this.getRequestFolioPrefix();
 
-    const lastRequest = await this.prisma.bodegaInternalRequest.findFirst({
+    const lastRequest = await this.prisma.bodegaTransaction.findFirst({
       where: {
         folio: {
           startsWith: `${prefix}-`,
@@ -129,14 +129,15 @@ export class BodegaInternalRequestService {
       // La entrega inmediata (autoCompletar) solo se ejecuta si:
       // a) Se solicita explícitamente Y el usuario tiene permisos
       // b) O si las reglas globales de sistema fuerzan auto-aprobación/entrega inmediata
-      const shouldAutoDeliver = (data.autoCompletar && canApprove) || configGeneral.auto_aprobar_solicitudes === true || configGeneral.entrega_inmediata === true;
+      const shouldAutoDeliver = (data.autoCompletar && canApprove) || (data.autoAprobar && canApprove) || configGeneral.auto_aprobar_solicitudes === true || configGeneral.entrega_inmediata === true;
 
       const initialStatus = shouldAutoDeliver ? "PENDIENTE" : isAutoApproved ? "APROBADA" : "BORRADOR";
 
-      const request = await tx.bodegaInternalRequest.create({
+      const request = await tx.bodegaTransaction.create({
         data: {
           folio,
-          statusCode: initialStatus,
+          type: "RETIRO",
+          status: initialStatus,
           warehouseId: data.warehouseId,
           title: data.title,
           description: data.description,
@@ -144,27 +145,27 @@ export class BodegaInternalRequestService {
           requiredDate: data.requiredDate,
           observations: data.observations,
           externalReference: data.externalReference,
-          metadatos: data.metadatos ?? undefined,
+          // metadatos: data.metadatos ?? undefined, // Ajustar si es necesario
           requestedBy: userId,
           createdBy: userId,
         },
       });
 
-      await tx.bodegaInternalRequestItem.createMany({
+      await tx.bodegaTransactionItem.createMany({
         data: data.items.map((item, index) => ({
-          requestId: request.id,
+          transactionId: request.id,
           articleId: item.articleId,
           warehouseId: item.warehouseId || data.warehouseId,
           quantity: new Prisma.Decimal(item.quantity),
           observations: item.observations,
-          displayOrder: index,
+          // displayOrder: index, // Ajustar si es necesario
         })),
       });
 
       // Bitácora de creación
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: request.id,
+          transactionId: request.id,
           action: "CREADA",
           description: shouldAutoDeliver ? "Solicitud interna creada y auto-completada" : "Solicitud interna creada",
           metadata: {
@@ -179,9 +180,9 @@ export class BodegaInternalRequestService {
 
       // Si se auto-aprobó pero NO se auto-entregó (según pedido del usuario)
       if (isAutoApproved && !shouldAutoDeliver) {
-        await tx.bodegaInternalRequestLog.create({
+        await tx.bodegaTransactionLog.create({
           data: {
-            requestId: request.id,
+            transactionId: request.id,
             action: "APROBADA",
             description: "Solicitud interna aprobada automaticamente",
             metadata: { newStatus: "APROBADA" },
@@ -191,13 +192,13 @@ export class BodegaInternalRequestService {
       }
 
       if (shouldAutoDeliver) {
-        const createdItems = await tx.bodegaInternalRequestItem.findMany({ where: { requestId: request.id } });
+        const createdItems = await tx.bodegaTransactionItem.findMany({ where: { transactionId: request.id } });
         const mappedItemsToDeliver = createdItems.map((ci: any) => ({
           articleId: ci.articleId,
           quantity: Number(ci.quantity),
-          requestItemId: ci.id,
-          sourceMovementItemId: undefined,
-          bodegaEfectivaId: ci.warehouseId, // Crucial: usar la bodega del item
+          transactionItemId: ci.id,
+          sourceTransactionItemId: null,
+          bodegaEfectivaId: ci.warehouseId || data.warehouseId,
         }));
 
         await this.applyFifoEgreso(
@@ -211,22 +212,22 @@ export class BodegaInternalRequestService {
           data.observations || "Proceso de retiro rápido auto-completado",
         );
 
-        await tx.bodegaInternalRequest.update({
+        await tx.bodegaTransaction.update({
           where: { id: request.id },
-          data: { statusCode: "ENTREGADA" },
+          data: { status: "ENTREGADA" },
         });
 
-        await tx.bodegaInternalRequestLog.createMany({
+        await tx.bodegaTransactionLog.createMany({
           data: [
             {
-              requestId: request.id,
+              transactionId: request.id,
               action: "APROBADA",
               description: isAutoApproved ? "Solicitud interna aprobada automaticamente" : "Aprobación automática (Entrega Inmediata)",
               metadata: { newStatus: "APROBADA" },
               createdBy: userId,
             },
             {
-              requestId: request.id,
+              transactionId: request.id,
               action: "ENTREGADA",
               description: "Entrega automática (Entrega Inmediata)",
               metadata: { newStatus: "ENTREGADA" },
@@ -236,7 +237,7 @@ export class BodegaInternalRequestService {
         });
       }
 
-      return { id: request.id, folio: request.folio };
+      return { id: request.id, folio: request.folio, status: shouldAutoDeliver ? "ENTREGADA" : isAutoApproved ? "APROBADA" : "BORRADOR" };
     });
   }
 
@@ -245,7 +246,7 @@ export class BodegaInternalRequestService {
     const yearMonth = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, "0")}`;
     const prefix = `${movementType}-${yearMonth}`;
 
-    const lastMovement = await tx.bodegaStockMovement.findFirst({
+    const lastMovement = await tx.bodegaTransaction.findFirst({
       where: { folio: { startsWith: `${prefix}-` } },
       orderBy: { folio: "desc" },
     });
@@ -267,17 +268,16 @@ export class BodegaInternalRequestService {
     requestId: string,
     requestFolio: string,
     externalRef: string | null,
-    itemsToDeliver: Array<{ articleId: string; quantity: number; requestItemId: string; sourceMovementItemId?: string | null; bodegaEfectivaId?: string | null }>,
+    itemsToDeliver: Array<{ articleId: string; quantity: number; transactionItemId: string; sourceTransactionItemId?: string | null; bodegaEfectivaId?: string | null }>,
     userId: string,
     observations: string,
   ) {
     const movementFolio = await this.generateMovementFolio(tx, "EGRESO_SOLICITUD");
-    const movement = await tx.bodegaStockMovement.create({
+    const movement = await tx.bodegaTransaction.create({
       data: {
         folio: movementFolio,
         warehouseId,
-        requestId,
-        movementType: "SALIDA",
+        type: "SALIDA",
         status: "EJECUTADO",
         reason: `Entrega de Solicitud (Ref: ${requestFolio}${externalRef ? ` [${externalRef}]` : ""})`,
         observations,
@@ -287,65 +287,94 @@ export class BodegaInternalRequestService {
       },
     });
 
-    for (const reqItem of itemsToDeliver) {
-      if (reqItem.quantity <= 0) continue;
-
-      const effectiveWarehouseId = reqItem.bodegaEfectivaId || warehouseId;
-
-      if (reqItem.sourceMovementItemId && !reqItem.sourceMovementItemId.startsWith("STOCK-")) {
-        const sourceItem = await tx.bodegaStockMovementItem.findUnique({ where: { id: reqItem.sourceMovementItemId } });
-        if (sourceItem) {
-          await tx.bodegaStockMovementItem.update({
-            where: { id: sourceItem.id },
-            data: { currentBalance: { decrement: reqItem.quantity } },
-          });
-          await tx.bodegaStockMovementItem.create({
-            data: {
-              movementId: movement.id,
-              requestItemId: reqItem.requestItemId,
-              articleId: reqItem.articleId,
-              quantity: reqItem.quantity,
-              unitCost: sourceItem.unitCost,
-              parentMovementItemId: sourceItem.id,
-              initialBalance: 0,
-              currentBalance: 0,
-            },
-          });
-          await tx.bodegaStock.upsert({
-            where: { warehouseId_articleId: { warehouseId: effectiveWarehouseId, articleId: reqItem.articleId } },
-            create: { warehouseId: effectiveWarehouseId, articleId: reqItem.articleId, quantity: -reqItem.quantity, stockVerificado: -reqItem.quantity, stockNoVerificado: 0, reservedQuantity: 0 },
-            update: { quantity: { decrement: reqItem.quantity }, stockVerificado: { decrement: reqItem.quantity } },
-          });
-          continue;
-        }
-      }
-
-      // REGLA FIFO AUTOMÁTICA
-      const availableStocks = await tx.bodegaStockMovementItem.findMany({
-        where: {
-          articleId: reqItem.articleId,
-          movement: {
-            warehouseId: effectiveWarehouseId,
-            status: { in: ["EJECUTADO", "COMPLETADO"] },
-            movementType: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
-          },
-          currentBalance: { gt: 0 },
+    await tx.bodegaTransactionLog.create({
+      data: {
+        transactionId: movement.id,
+        action: "CREATE",
+        description: "Movimiento simplificado de egreso generado automáticamente por entrega de solicitud.",
+        metadata: {
+          requestId,
+          requestFolio,
+          externalReference: externalRef,
+          executionMode: "SIMPLIFICADO",
+          automaticExecution: true,
+          automaticSource: "ENTREGA_SOLICITUD",
         },
-        orderBy: { createdAt: "asc" },
-      });
+        createdBy: userId,
+      },
+    });
 
-      let remainingQty = reqItem.quantity;
+    const requestValuation = new Map<string, { quantity: number; totalCost: number }>();
+
+    const accumulateRequestValuation = (requestItemId: string, quantity: number, unitCost: number | null) => {
+      if (!requestItemId || quantity <= 0 || unitCost === null || Number.isNaN(unitCost)) return;
+
+      const current = requestValuation.get(requestItemId) || { quantity: 0, totalCost: 0 };
+      current.quantity += quantity;
+      current.totalCost += quantity * unitCost;
+      requestValuation.set(requestItemId, current);
+    };
+
+    const decrementWarehouseStock = async (sourceWarehouseId: string, articleId: string, quantity: number) => {
+      if (quantity <= 0) return;
+
+      await tx.bodegaStock.upsert({
+        where: { warehouseId_articleId: { warehouseId: sourceWarehouseId, articleId } },
+        create: {
+          warehouseId: sourceWarehouseId,
+          articleId,
+          quantity: -quantity,
+          stockVerificado: -quantity,
+          stockNoVerificado: 0,
+          reservedQuantity: 0,
+        },
+        update: {
+          quantity: { decrement: quantity },
+          stockVerificado: { decrement: quantity },
+        },
+      });
+    };
+
+    const consumeFromWarehouse = async (sourceWarehouseId: string, articleId: string, requestedQty: number, requestItemId: string) => {
+      if (requestedQty <= 0) return 0;
+
+      const [availableStocks, stockRow] = await Promise.all([
+        tx.bodegaTransactionItem.findMany({
+          where: {
+            articleId,
+            transaction: {
+              warehouseId: sourceWarehouseId,
+              status: { in: ["EJECUTADO", "COMPLETADO", "COMPLETADA", "APLICADO", "APLICADA"] },
+              type: { in: ["INGRESO", "INGRESO_TRANSFERENCIA", "AJUSTE", "DEVOLUCION"] },
+            },
+            currentBalance: { gt: 0 },
+          },
+          orderBy: { createdAt: "asc" },
+        }),
+        tx.bodegaStock.findUnique({
+          where: { warehouseId_articleId: { warehouseId: sourceWarehouseId, articleId } },
+          select: {
+            quantity: true,
+            reservedQuantity: true,
+          },
+        }),
+      ]);
+
+      let remainingQty = requestedQty;
+      let consumedQty = 0;
+      const trackedAvailable = availableStocks.reduce((acc: number, stock: any) => acc + Number(stock.currentBalance || 0), 0);
+      const stockAvailable = stockRow ? Math.max(0, Number(stockRow.quantity) - Number(stockRow.reservedQuantity)) : 0;
+      const syntheticAvailable = Math.max(0, stockAvailable - trackedAvailable);
+
       for (const stock of availableStocks) {
         if (remainingQty <= 0) break;
         const toTake = Math.min(Number(stock.currentBalance), remainingQty);
 
-        // Actualizar Saldo del item de movimiento (bucket FIFO)
-        await tx.bodegaStockMovementItem.update({
+        await tx.bodegaTransactionItem.update({
           where: { id: stock.id },
           data: { currentBalance: { decrement: toTake } },
         });
 
-        // REGLA ORO: Actualizar también el LOTE asociado para reportes de stock
         const lot = await tx.bodegaLot.findFirst({
           where: { sourceMovementItemId: stock.id },
         });
@@ -361,51 +390,185 @@ export class BodegaInternalRequestService {
           });
         }
 
-        await tx.bodegaStockMovementItem.create({
+        await tx.bodegaTransactionItem.create({
           data: {
-            movementId: movement.id,
-            requestItemId: reqItem.requestItemId,
-            articleId: reqItem.articleId,
+            transactionId: movement.id,
+            articleId,
+            warehouseId: sourceWarehouseId,
             quantity: toTake,
             unitCost: stock.unitCost,
-            parentMovementItemId: stock.id,
+            sourceTransactionItemId: stock.id,
             initialBalance: 0,
             currentBalance: 0,
           },
         });
 
+        accumulateRequestValuation(requestItemId, toTake, stock.unitCost ? Number(stock.unitCost) : null);
+
         remainingQty -= toTake;
+        consumedQty += toTake;
+      }
+
+      if (remainingQty > 0 && syntheticAvailable > 0) {
+        const syntheticQty = Math.min(remainingQty, syntheticAvailable);
+
+        await tx.bodegaTransactionItem.create({
+          data: {
+            transactionId: movement.id,
+            articleId,
+            warehouseId: sourceWarehouseId,
+            quantity: syntheticQty,
+            unitCost: null,
+            sourceTransactionItemId: null,
+            initialBalance: 0,
+            currentBalance: 0,
+          },
+        });
+
+        remainingQty -= syntheticQty;
+        consumedQty += syntheticQty;
+      }
+
+      await decrementWarehouseStock(sourceWarehouseId, articleId, consumedQty);
+
+      return remainingQty;
+    };
+
+    for (const reqItem of itemsToDeliver) {
+      if (reqItem.quantity <= 0) continue;
+
+      const effectiveWarehouseId = reqItem.bodegaEfectivaId || warehouseId;
+
+      if (reqItem.sourceTransactionItemId && !reqItem.sourceTransactionItemId.startsWith("STOCK-")) {
+        const sourceItem = await tx.bodegaTransactionItem.findUnique({ where: { id: reqItem.sourceTransactionItemId } });
+        if (sourceItem) {
+          const sourceWarehouseId = sourceItem.warehouseId || effectiveWarehouseId;
+
+          await tx.bodegaTransactionItem.update({
+            where: { id: sourceItem.id },
+            data: { currentBalance: { decrement: reqItem.quantity } },
+          });
+
+          const lot = await tx.bodegaLot.findFirst({
+            where: { sourceMovementItemId: sourceItem.id },
+          });
+          if (lot) {
+            const newQty = Math.max(0, Number(lot.currentQuantity) - reqItem.quantity);
+            await tx.bodegaLot.update({
+              where: { id: lot.id },
+              data: {
+                currentQuantity: newQty,
+                status: newQty <= 0 ? "AGOTADO" : lot.status,
+              },
+            });
+          }
+
+          await tx.bodegaTransactionItem.create({
+            data: {
+              transactionId: movement.id,
+              articleId: reqItem.articleId,
+              warehouseId: sourceWarehouseId,
+              quantity: reqItem.quantity,
+              unitCost: sourceItem.unitCost,
+              sourceTransactionItemId: sourceItem.id,
+              initialBalance: 0,
+              currentBalance: 0,
+            },
+          });
+
+          accumulateRequestValuation(reqItem.transactionItemId, reqItem.quantity, sourceItem.unitCost ? Number(sourceItem.unitCost) : null);
+
+          await decrementWarehouseStock(sourceWarehouseId, reqItem.articleId, reqItem.quantity);
+          continue;
+        }
+      }
+
+      if (reqItem.sourceTransactionItemId?.startsWith("STOCK-")) {
+        const syntheticSourceWarehouseId = reqItem.bodegaEfectivaId || effectiveWarehouseId;
+
+        await tx.bodegaTransactionItem.create({
+          data: {
+            transactionId: movement.id,
+            articleId: reqItem.articleId,
+            warehouseId: syntheticSourceWarehouseId,
+            quantity: reqItem.quantity,
+            unitCost: null,
+            sourceTransactionItemId: null,
+            initialBalance: 0,
+            currentBalance: 0,
+          },
+        });
+
+        await decrementWarehouseStock(syntheticSourceWarehouseId, reqItem.articleId, reqItem.quantity);
+        continue;
+      }
+
+      let remainingQty = reqItem.quantity;
+
+      remainingQty = await consumeFromWarehouse(effectiveWarehouseId, reqItem.articleId, remainingQty, reqItem.transactionItemId);
+
+      if (remainingQty > 0) {
+        const alternativeWarehouses = await tx.bodegaStock.findMany({
+          where: {
+            articleId: reqItem.articleId,
+            warehouseId: { not: effectiveWarehouseId },
+            quantity: { gt: 0 },
+          },
+          include: {
+            warehouse: {
+              select: {
+                id: true,
+                code: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: [{ warehouseId: "asc" }],
+        });
+
+        for (const altStock of alternativeWarehouses) {
+          if (remainingQty <= 0) break;
+          if (!altStock.warehouse?.isActive || altStock.warehouse.code === "TRANSITO") continue;
+
+          remainingQty = await consumeFromWarehouse(altStock.warehouseId, reqItem.articleId, remainingQty, reqItem.transactionItemId);
+        }
       }
 
       if (remainingQty > 0) {
         // En caso de stock negativo (permitido por legacy), crear item sin padre
-        await tx.bodegaStockMovementItem.create({
+        await tx.bodegaTransactionItem.create({
           data: {
-            movementId: movement.id,
-            requestItemId: reqItem.requestItemId,
+            transactionId: movement.id,
             articleId: reqItem.articleId,
+            warehouseId: effectiveWarehouseId,
             quantity: remainingQty,
             unitCost: null,
-            parentMovementItemId: null,
+            sourceTransactionItemId: null,
             initialBalance: 0,
             currentBalance: 0,
           },
         });
-      }
 
-      await tx.bodegaStock.upsert({
-        where: { warehouseId_articleId: { warehouseId: effectiveWarehouseId, articleId: reqItem.articleId } },
-        create: { warehouseId: effectiveWarehouseId, articleId: reqItem.articleId, quantity: -reqItem.quantity, stockVerificado: -reqItem.quantity, stockNoVerificado: 0, reservedQuantity: 0 },
-        update: { quantity: { decrement: reqItem.quantity }, stockVerificado: { decrement: reqItem.quantity } },
+        await decrementWarehouseStock(effectiveWarehouseId, reqItem.articleId, remainingQty);
+      }
+    }
+
+    for (const [requestItemId, valuation] of requestValuation.entries()) {
+      if (valuation.quantity <= 0) continue;
+
+      await tx.bodegaTransactionItem.update({
+        where: { id: requestItemId },
+        data: {
+          unitCost: valuation.totalCost / valuation.quantity,
+        },
       });
     }
   }
 
   async getById(id: string) {
-    return this.prisma.bodegaInternalRequest.findUnique({
+    return this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: {
-        status: true,
         warehouse: true,
         requester: {
           select: {
@@ -417,7 +580,14 @@ export class BodegaInternalRequestService {
         },
         items: {
           include: {
-            article: true,
+            article: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                unit: true,
+              },
+            },
             reservations: true,
           },
           orderBy: { displayOrder: "asc" },
@@ -439,7 +609,7 @@ export class BodegaInternalRequestService {
   }
 
   async update(id: string, data: UpdateBodegaInternalRequestInput, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -448,7 +618,8 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["PENDIENTE", "RECHAZADA", "BORRADOR"].includes(request.statusCode)) {
+    const editableStatuses = ["BORRADOR", "PENDIENTE", "RECHAZADA"];
+    if (!editableStatuses.includes(request.status)) {
       throw new BodegaBusinessError("Solo se pueden editar solicitudes en estado BORRADOR, PENDIENTE o RECHAZADA");
     }
 
@@ -475,7 +646,7 @@ export class BodegaInternalRequestService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
           warehouseId: data.warehouseId,
@@ -485,49 +656,40 @@ export class BodegaInternalRequestService {
           requiredDate: data.requiredDate,
           observations: data.observations,
           externalReference: data.externalReference,
-          metadatos: data.metadatos ?? undefined,
+          // metadatos: data.metadatos ?? undefined,
         },
       });
 
       await tx.bodegaReservation.deleteMany({
         where: {
-          requestItem: {
-            requestId: id,
-          },
+          transactionItemId: {
+            in: request.items.map(i => i.id)
+          }
         },
       });
 
-      await tx.bodegaStockMovementItem.deleteMany({
-        where: {
-          requestItem: {
-            requestId: id,
-          },
-        },
+      await tx.bodegaTransactionItem.deleteMany({
+        where: { transactionId: id },
       });
 
-      await tx.bodegaInternalRequestItem.deleteMany({
-        where: { requestId: id },
-      });
-
-      await tx.bodegaInternalRequestItem.createMany({
+      await tx.bodegaTransactionItem.createMany({
         data: data.items.map((item, index) => ({
-          requestId: id,
+          transactionId: id,
           articleId: item.articleId,
           warehouseId: item.warehouseId || data.warehouseId,
           quantity: new Prisma.Decimal(item.quantity),
           observations: item.observations,
-          displayOrder: index,
         })),
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "ACTUALIZADA",
           description: "Solicitud interna actualizada",
           metadata: {
-            previousStatus: request.statusCode,
-            newStatus: request.statusCode,
+            previousStatus: request.status,
+            newStatus: request.status,
             itemsCount: data.items.length,
           },
           createdBy: userId,
@@ -541,8 +703,9 @@ export class BodegaInternalRequestService {
 
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.BodegaInternalRequestWhereInput = {
-      ...(statusCode ? { statusCode } : {}),
+    const where: Prisma.BodegaTransactionWhereInput = {
+      type: "RETIRO",
+      ...(statusCode ? { status: statusCode } : {}),
       ...(warehouseId ? { warehouseId } : {}),
       ...(priority ? { priority } : {}),
       ...(requestedBy ? { requestedBy } : {}),
@@ -559,7 +722,7 @@ export class BodegaInternalRequestService {
       if (filters.endDate) where.createdAt.lte = new Date(`${filters.endDate}T23:59:59.999Z`);
     }
 
-    const orderByMap: Record<string, Prisma.BodegaInternalRequestOrderByWithRelationInput> = {
+    const orderByMap: Record<string, Prisma.BodegaTransactionOrderByWithRelationInput> = {
       createdAt: { createdAt: sortOrder },
       requiredDate: { requiredDate: sortOrder },
       folio: { folio: sortOrder },
@@ -569,14 +732,13 @@ export class BodegaInternalRequestService {
     const orderBy = orderByMap[sortBy] || { createdAt: "desc" };
 
     const [total, data] = await Promise.all([
-      this.prisma.bodegaInternalRequest.count({ where }),
-      this.prisma.bodegaInternalRequest.findMany({
+      this.prisma.bodegaTransaction.count({ where }),
+      this.prisma.bodegaTransaction.findMany({
         where,
         skip,
         take: pageSize,
         orderBy,
         include: {
-          status: true,
           warehouse: true,
           requester: {
             select: {
@@ -608,25 +770,24 @@ export class BodegaInternalRequestService {
 
   async getStats(filters: { requestedBy?: string }) {
     const { requestedBy } = filters;
-    const where: Prisma.BodegaInternalRequestWhereInput = {
+    const where: Prisma.BodegaTransactionWhereInput = {
+      type: "RETIRO",
       ...(requestedBy ? { requestedBy } : {}),
     };
 
     const [total, pendientes, aprobadas, rechazadas, enPreparacion, entregadas, urgente, alta, normal, baja] = await Promise.all([
-      this.prisma.bodegaInternalRequest.count({ where }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, statusCode: "PENDIENTE" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, statusCode: "APROBADA" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, statusCode: "RECHAZADA" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, statusCode: "EN_PREPARACION" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, statusCode: "ENTREGADA" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, priority: "URGENTE" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, priority: "ALTA" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, priority: "NORMAL" } }),
-      this.prisma.bodegaInternalRequest.count({ where: { ...where, priority: "BAJA" } }),
+      this.prisma.bodegaTransaction.count({ where }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, status: "PENDIENTE" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, status: "APROBADA" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, status: "RECHAZADA" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, status: "EN_PREPARACION" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, status: "ENTREGADA" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, priority: "URGENTE" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, priority: "ALTA" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, priority: "NORMAL" } }),
+      this.prisma.bodegaTransaction.count({ where: { ...where, priority: "BAJA" } }),
     ]);
 
-    // Lógica de tiempo promedio (placeholder por ahora, se puede mejorar con query raw si es necesario)
-    // En un sistema real, se calcularía la diferencia entre createdAt y updatedAt para entregadas.
     const tiempoPromedioHoras = 0;
 
     return {
@@ -641,7 +802,7 @@ export class BodegaInternalRequestService {
       enProceso: pendientes + aprobadas + enPreparacion,
       completadas: entregadas,
       pendientesAprobacion: pendientes,
-      pendientesPreparacion: aprobadas + enPreparacion, // Aprobadas necesitan preparación
+      pendientesPreparacion: aprobadas + enPreparacion,
       rendimiento: {
         tiempoPromedioHoras,
       },
@@ -655,7 +816,7 @@ export class BodegaInternalRequestService {
   }
 
   async approve(id: string, data: BodegaApproveRequestInput, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -664,26 +825,26 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["PENDIENTE", "RECHAZADA"].includes(request.statusCode)) {
+    if (!["PENDIENTE", "RECHAZADA"].includes(request.status)) {
       throw new BodegaBusinessError("Solo se pueden aprobar solicitudes en estado PENDIENTE o RECHAZADA");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: "APROBADA",
+          status: "APROBADA",
           observations: data.observations ?? request.observations,
         },
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "APROBADA",
           description: data.observations ? `Solicitud aprobada: ${data.observations}` : "Solicitud interna aprobada",
           metadata: {
-            previousStatus: request.statusCode,
+            previousStatus: request.status,
             newStatus: "APROBADA",
             observations: data.observations,
           },
@@ -694,32 +855,32 @@ export class BodegaInternalRequestService {
   }
 
   async reject(id: string, data: BodegaRejectRequestInput, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({ where: { id } });
+    const request = await this.prisma.bodegaTransaction.findUnique({ where: { id } });
 
     if (!request) {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["PENDIENTE", "APROBADA", "PARCIAL"].includes(request.statusCode)) {
+    if (!["PENDIENTE", "APROBADA", "PARCIAL"].includes(request.status)) {
       throw new BodegaBusinessError("No es posible rechazar la solicitud en su estado actual");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: "RECHAZADA",
+          status: "RECHAZADA",
           observations: data.reason,
         },
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "RECHAZADA",
           description: `Solicitud rechazada: ${data.reason}`,
           metadata: {
-            previousStatus: request.statusCode,
+            previousStatus: request.status,
             newStatus: "RECHAZADA",
             reason: data.reason,
           },
@@ -730,7 +891,7 @@ export class BodegaInternalRequestService {
   }
 
   async prepare(id: string, data: BodegaPrepareRequestInput, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -739,28 +900,26 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["APROBADA", "PARCIAL"].includes(request.statusCode)) {
+    if (!["APROBADA", "PARCIAL"].includes(request.status)) {
       throw new BodegaBusinessError("Solo se pueden preparar solicitudes en estado APROBADA o PARCIAL");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // PREPARE NO EFECTÚA DESCUENTO; SOLO CAMBIA DE ESTADO
-      // Y, OPCIONALMENTE, ACTUALIZA LAS CANTIDADES SI SE PASARAN MANUALMENTE (A FUTURO)
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: "PREPARADA",
+          status: "PREPARADA",
           observations: data.observations ?? request.observations,
         },
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "PREPARADA",
           description: data.observations ? `Inicio de preparación: ${data.observations}` : "Inicio de preparación: Solicitud verificada en bodega, lista para retiro físico",
           metadata: {
-            previousStatus: request.statusCode,
+            previousStatus: request.status,
             newStatus: "PREPARADA",
             observations: data.observations,
           },
@@ -771,7 +930,7 @@ export class BodegaInternalRequestService {
   }
 
   async deliver(id: string, data: BodegaDeliverRequestInput, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -780,12 +939,18 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["APROBADA", "PARCIAL", "PREPARADA", "LISTA_PARA_ENTREGA"].includes(request.statusCode)) {
+    if (!["APROBADA", "PARCIAL", "PREPARADA", "LISTA_PARA_ENTREGA"].includes(request.status)) {
       throw new BodegaBusinessError("Solo se pueden entregar solicitudes en estado APROBADA, PARCIAL, PREPARADA o LISTA_PARA_ENTREGA");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      let itemsToDeliver = [];
+      let itemsToDeliver: Array<{
+        articleId: string;
+        quantity: number;
+        transactionItemId: string;
+        sourceTransactionItemId?: string | null;
+        bodegaEfectivaId?: string | null;
+      }> = [];
 
       if (data.deliverAll) {
         itemsToDeliver = request.items
@@ -793,33 +958,32 @@ export class BodegaInternalRequestService {
           .map((item) => ({
             articleId: item.articleId,
             quantity: Number(item.quantity) - Number(item.deliveredQuantity),
-            requestItemId: item.id,
-            sourceMovementItemId: undefined,
-            bodegaEfectivaId: item.warehouseId, // Crucial: usar la bodega del item en entrega masiva
+            transactionItemId: item.id,
+            sourceTransactionItemId: null,
+            bodegaEfectivaId: item.warehouseId || request.warehouseId,
           }));
 
         for (const item of request.items) {
-          await tx.bodegaInternalRequestItem.update({
+          await tx.bodegaTransactionItem.update({
             where: { id: item.id },
             data: { deliveredQuantity: item.quantity },
           });
         }
       } else if (data.items && data.items.length > 0) {
         for (const inputItem of data.items) {
-          // find matching requestItem
-          const reqItem = request.items.find((i) => i.articleId === inputItem.articleId);
-          if (reqItem) {
-            const deliveryAmt = Math.min(inputItem.quantity, Number(reqItem.quantity) - Number(reqItem.deliveredQuantity));
+          const transItem = request.items.find((i) => i.articleId === inputItem.articleId);
+          if (transItem) {
+            const deliveryAmt = Math.min(inputItem.quantity, Number(transItem.quantity) - Number(transItem.deliveredQuantity));
             if (deliveryAmt > 0) {
               itemsToDeliver.push({
-                articleId: reqItem.articleId,
+                articleId: transItem.articleId,
                 quantity: deliveryAmt,
-                requestItemId: reqItem.id,
-                sourceMovementItemId: inputItem.sourceMovementItemId,
-                bodegaEfectivaId: inputItem.bodegaEfectivaId || reqItem.warehouseId,
+                transactionItemId: transItem.id,
+                sourceTransactionItemId: inputItem.sourceMovementItemId,
+                bodegaEfectivaId: inputItem.bodegaEfectivaId || transItem.warehouseId || request.warehouseId,
               });
-              await tx.bodegaInternalRequestItem.update({
-                where: { id: reqItem.id },
+              await tx.bodegaTransactionItem.update({
+                where: { id: transItem.id },
                 data: { deliveredQuantity: { increment: deliveryAmt } },
               });
             }
@@ -832,32 +996,18 @@ export class BodegaInternalRequestService {
         await this.applyFifoEgreso(tx, request.warehouseId, request.id, request.folio, request.externalReference, itemsToDeliver, userId, movementObs);
       }
 
-      const refreshedItems = await tx.bodegaInternalRequestItem.findMany({
-        where: { requestId: id },
+      const refreshedItems = await tx.bodegaTransactionItem.findMany({
+        where: { transactionId: id },
       });
 
       const pending = refreshedItems.some((item) => Number(item.deliveredQuantity) < Number(item.quantity));
-      // Al completar todos los retiros físicos → LISTA_PARA_ENTREGA (requiere firma de receptor)
-      // Si aún quedan pendientes → PARCIAL
       const nextStatus = pending ? "PARCIAL" : "LISTA_PARA_ENTREGA";
 
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: nextStatus,
+          status: nextStatus,
           observations: data.observations ?? request.observations,
-        },
-      });
-
-      // Limpiar movimientos pendientes huérfanos
-      await tx.bodegaStockMovement.updateMany({
-        where: {
-          requestId: id,
-          status: "PENDIENTE",
-        },
-        data: {
-          status: "ANULADO",
-          reason: "Anulado por no tener flujo compatible (limpieza)",
         },
       });
 
@@ -869,13 +1019,13 @@ export class BodegaInternalRequestService {
           ? `Retiro de Artículos: ${data.observations}`
           : "Retiro parcial de artículos registrado";
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: nextStatus === "LISTA_PARA_ENTREGA" ? "RETIRO_COMPLETADO" : "RETIRO_PARCIAL",
           description: logDescription,
           metadata: {
-            previousStatus: request.statusCode,
+            previousStatus: request.status,
             newStatus: nextStatus,
             observations: data.observations,
             deliverAll: data.deliverAll,
@@ -901,7 +1051,7 @@ export class BodegaInternalRequestService {
     },
     userId: string,
   ): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
     });
 
@@ -909,7 +1059,7 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (request.statusCode !== "LISTA_PARA_ENTREGA") {
+    if (request.status !== "LISTA_PARA_ENTREGA") {
       throw new BodegaBusinessError("Solo se puede confirmar la entrega de solicitudes en estado LISTA_PARA_ENTREGA");
     }
 
@@ -922,12 +1072,12 @@ export class BodegaInternalRequestService {
       const deliveredByName = deliveredByUser ? `${deliveredByUser.firstName} ${deliveredByUser.lastName}` : userId;
 
       // Guardar datos de la entrega en metadatos de la solicitud (estructura plana para PDF)
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: "ENTREGADA",
+          status: "ENTREGADA",
           observations: data.observations ?? request.observations,
-          metadatos: {
+          metadata: {
             receptorNombre: data.receptorNombre,
             receptorRut: data.receptorRut ?? null,
             firmaReceptor: data.firmaReceptor,
@@ -940,9 +1090,9 @@ export class BodegaInternalRequestService {
         },
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "ENTREGA_CONFIRMADA",
           description: data.observations
             ? `Entrega final registrada: ${data.observations}`
@@ -963,7 +1113,7 @@ export class BodegaInternalRequestService {
   }
 
   async sendToApproval(id: string, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
     });
 
@@ -971,21 +1121,21 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (request.statusCode !== "BORRADOR") {
+    if (request.status !== "BORRADOR") {
       throw new BodegaBusinessError("Solo se pueden enviar para aprobación solicitudes en estado BORRADOR");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.bodegaInternalRequest.update({
+      await tx.bodegaTransaction.update({
         where: { id },
         data: {
-          statusCode: "PENDIENTE",
+          status: "PENDIENTE",
         },
       });
 
-      await tx.bodegaInternalRequestLog.create({
+      await tx.bodegaTransactionLog.create({
         data: {
-          requestId: id,
+          transactionId: id,
           action: "ENVIADA",
           description: "Solicitud interna enviada para aprobación",
           metadata: {
@@ -999,7 +1149,7 @@ export class BodegaInternalRequestService {
   }
 
   async delete(id: string, userId: string): Promise<void> {
-    const request = await this.prisma.bodegaInternalRequest.findUnique({
+    const request = await this.prisma.bodegaTransaction.findUnique({
       where: { id },
     });
 
@@ -1007,14 +1157,14 @@ export class BodegaInternalRequestService {
       throw new BodegaBusinessError("La solicitud interna no existe");
     }
 
-    if (!["BORRADOR", "RECHAZADA", "ANULADA"].includes(request.statusCode)) {
+    if (!["BORRADOR", "RECHAZADA", "ANULADA"].includes(request.status)) {
       throw new BodegaBusinessError("No es posible eliminar una solicitud que ya está siendo procesada");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.bodegaInternalRequestLog.deleteMany({ where: { requestId: id } });
-      await tx.bodegaInternalRequestItem.deleteMany({ where: { requestId: id } });
-      await tx.bodegaInternalRequest.delete({ where: { id } });
+      await tx.bodegaTransactionLog.deleteMany({ where: { transactionId: id } });
+      await tx.bodegaTransactionItem.deleteMany({ where: { transactionId: id } });
+      await tx.bodegaTransaction.delete({ where: { id } });
     });
   }
 }

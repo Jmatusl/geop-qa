@@ -1,5 +1,5 @@
 export interface MovimientoEmailParams {
-  movementType: "INGRESO" | "SALIDA" | "AJUSTE" | "DEVOLUCION";
+  type: "INGRESO" | "SALIDA" | "AJUSTE" | "DEVOLUCION";
   documentReference: string;
   mensajePersonalizado: string;
   warehouseName: string;
@@ -18,7 +18,7 @@ export interface MovimientoEmailParams {
 }
 
 export function generateMovimientoEmailHtml({
-  movementType,
+  type,
   documentReference,
   mensajePersonalizado,
   warehouseName,
@@ -35,7 +35,7 @@ export function generateMovimientoEmailHtml({
   };
 
   const getTitle = () => {
-    switch (movementType) {
+    switch (type) {
       case "INGRESO":
         return "Aviso de Ingreso a Bodega";
       case "SALIDA":
@@ -50,7 +50,7 @@ export function generateMovimientoEmailHtml({
   };
 
   const getHeaderColor = () => {
-    switch (movementType) {
+    switch (type) {
       case "INGRESO":
         return "#059669"; // Emerald 600
       case "SALIDA":
